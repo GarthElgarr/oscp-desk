@@ -128,6 +128,8 @@ export function MethodDesk() {
       section === "Linux" || section === "Windows",
       /uname|systeminfo|\/proc\/version|dirty ?(?:cow|pipe)|local vuln|kernel version|sudo --version/i,
     );
+    want("udp", section === "Recon" || section === "Services", /udp|nmap|snmp|tftp/i);
+    want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     return tools;
   }, [section, query]);
 
@@ -232,7 +234,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={7}
+            count={8}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />

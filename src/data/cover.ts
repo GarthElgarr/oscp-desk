@@ -122,7 +122,7 @@ rlogin -l <user> <ip>`,
 # After a SOCKS tunnel: the proxychains4.conf card. Ligolo skips that file.`,
     alive: "You can name the one tool and the one direction before you upload a binary.",
     dead: "You uploaded three agents because the first one did not connect in ten seconds. Read the failure card.",
-    next: "The matching card. Transfer the release binary, check the size, then connect once.",
+    next: "The tunnel builder on this page fills the commands from your addresses and draws which side can reach which network. Then the matching card.",
   },
   {
     id: "tun-ligolo-agent",
@@ -228,7 +228,7 @@ netsh interface portproxy show all`,
     id: "tun-fail",
     section: "Tunneling",
     title: "When the tunnel is dead",
-    look: "Six failures. Each one has a cause. None of them is 'try a different exploit'.",
+    look: "Seven failures. Each one has a cause. None of them is 'try a different exploit'.",
     cmd: `# 1 timeout from the agent to Kali
 #    the target has no route to your VPN IP. Prove it: curl -m 3 http://<KALI>/
 #    if that hangs, the agent will hang. Use a listener on the pivot instead.
@@ -245,7 +245,10 @@ sudo ip route del 172.16.0.0/24
 #    you used -sS through SOCKS. Re-run -sT.
 # 6 binary exits immediately
 file agent chisel
-#    HTML or 441 bytes. Download the release again.`,
+#    HTML or 441 bytes. Download the release again.
+# 7 you pointed a tool at 127.0.0.1 and got Kali
+#    SOCKS to 127.0.0.1 is you. Chisel uses R:port:127.0.0.1:port.
+#    Ligolo uses 240.0.0.1 after start. Do not route 127.0.0.0/8.`,
     alive: "The one failure you actually have is fixed and the session stays up.",
     dead: "You are on failure 1 and you keep re-uploading the agent. The network did not change.",
     next: "Back to the host you can already reach. Finish it before you invent a second pivot.",

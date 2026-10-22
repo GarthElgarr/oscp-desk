@@ -5,17 +5,15 @@ export const SERVICES_MORE: Technique[] = [
     id: "svc-udp",
     section: "Services",
     title: "UDP",
-    look: "UDP is not a second full scan. open|filtered on every port means the probe got no answer, not that the port is open. Confirm the few that matter, then leave the rest.",
-    cmd: `# FIRST. Top ports only. This needs root.
-sudo nmap -Pn -sU --top-ports 50 -T4 -oA scans/udp <ip>
-# THEN only the ports that say open, not the wall of open|filtered
+    look: "This is the same UDP pass as the order of work, read from the service side. open|filtered on every port means the probe got no answer, not that the port is open. Confirm the few that answer, then leave the rest.",
+    cmd: `# Required pass. Top 20, as root. Do this on every host, not only when TCP is empty.
+sudo nmap -Pn -sU --top-ports 20 -T4 -oA scans/udp <ip>
+# Then versions only on ports that said open, or on 161 if it said open|filtered.
 sudo nmap -Pn -sU -sV -p 53,69,123,161,162,500,514,623,1900,5060,5353 <ip>
-# WHAT EACH ONE IS
-# 53 DNS. 69 TFTP. 123 NTP. 161 SNMP. 162 SNMP trap.
-# 500 IKE. 514 syslog. 623 IPMI. 5060 SIP. 5353 mDNS.
-# USE IT
-# one card per port that really answered
-# open|filtered and no reply is dead. Do not scan 1-65535.`,
+# 53 DNS. 69 TFTP, a file with no login. 123 NTP, a clock, not a shell.
+# 161 SNMP, one community string. 500 IKE, a VPN transform. 623 IPMI, one default password.
+# 5060 SIP, an extension is a username. 5353 mDNS, a hostname to put in /etc/hosts.
+# One card for each port that really answered. Do not scan 1-65535.`,
     alive: "A port changes from open|filtered to open, and a script or a client prints data.",
     dead: "Every line is open|filtered and the follow-up clients time out. UDP is finished.",
     next: "The card for the port that answered. SNMP, TFTP, NTP, IKE, or IPMI.",

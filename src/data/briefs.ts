@@ -9,8 +9,10 @@ export const BRIEFS: Technique[] = [
     cmd: `# One host folder before any scan
 mkdir -p ~/exam/<ip>/{scans,loot,shells}
 # The loop, and the only loop
-# ports -> the service card for each open port -> shell -> that OS page, top to bottom -> loot -> one spray -> pivot only if a second network exists
-# Time sinks that are not progress: PEAS before sudo -l, rockyou at a DC, a kernel exploit before the misconfig list, a second payload when the first callback already connected`,
+# TCP quick, all TCP, UDP top 20, then the service card for each open port
+# shell, that OS page from the top, loot, one spray
+# pivot only if a second network exists
+# Time sinks that are not progress: skipping UDP, PEAS before sudo -l, rockyou at a DC, a kernel exploit before the misconfig list`,
     alive: "You can say the next single command out loud. The host folder has the scan in it.",
     dead: "You are reading cards that do not match an open port or the OS you are on.",
     next: "Order of work, then the port or the OS. The finished card at the end of Linux or Windows is a real stop.",
@@ -19,17 +21,17 @@ mkdir -p ~/exam/<ip>/{scans,loot,shells}
     id: "brief-recon",
     section: "Recon",
     title: "What recon is allowed to finish",
-    look: "Recon ends when every open TCP port has a name and you know which Services card it belongs to. It does not end when you have run every scanner you own.",
-    cmd: `# Pass 1: top ports, scripts, versions, saved
+    look: "Recon ends when every open TCP port has a name and you have also run the UDP top 20. It does not end when you have run every scanner you own, and it does not end after TCP alone.",
+    cmd: `# Pass 1: top TCP ports, scripts, versions, saved. Read this while pass 2 runs.
 nmap -Pn -sC -sV -oA scans/quick <ip>
 # Pass 2: all TCP, no scripts, just the list
 nmap -Pn -p- --min-rate 2000 -oA scans/full <ip>
-# Pass 3: scripts only on the new ports
-nmap -Pn -sC -sV -p <new-ports> -oA scans/svc <ip>
-# UDP only if TCP was almost empty
-nmap -Pn -sU --top-ports 50 -oA scans/udp <ip>`,
-    alive: "A short list of open ports, each with a version or at least a service name, written under scans/.",
-    dead: "A full UDP 65535 scan, or directory brute force before you have read the HTTP banner. Those are the next section, and only if HTTP is open.",
+# Pass 3: UDP. Required on every host. Top 20, not 65535.
+sudo nmap -Pn -sU --top-ports 20 -T4 -oA scans/udp <ip>
+# Pass 4: scripts only on TCP ports pass 2 added
+nmap -Pn -sC -sV -p <new-ports> -oA scans/svc <ip>`,
+    alive: "A short list of open TCP ports, each with a version or a service name, plus a finished UDP top 20 under scans/.",
+    dead: "A full UDP 65535 scan, or no UDP scan at all. Directory brute force before you have read the HTTP banner is the same kind of waste.",
     next: "One Services card per open port. Unknown port: banner, then searchsploit, then leave it.",
   },
   {

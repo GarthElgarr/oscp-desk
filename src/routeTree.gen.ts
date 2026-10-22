@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
 import { Route as ApiRunRouteImport } from './routes/api/run'
+import { Route as ApiUdpRouteImport } from './routes/api/udp'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const ApiRunRoute = ApiRunRouteImport.update({
   path: '/api/run',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUdpRoute = ApiUdpRouteImport.update({
+  id: '/api/udp',
+  path: '/api/udp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FilesSplatRoute = FilesSplatRouteImport.update({
   id: '/files/$',
   path: '/files/$',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
+  '/api/udp': typeof ApiUdpRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
+  '/api/udp': typeof ApiUdpRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,23 @@ export interface FileRoutesById {
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
+  '/api/udp': typeof ApiUdpRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/hydra' | '/api/install' | '/api/run' | '/files/$'
+  fullPaths:
+    '/' | '/api/hydra' | '/api/install' | '/api/run' | '/api/udp' | '/files/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/hydra' | '/api/install' | '/api/run' | '/files/$'
-  id: '__root__' | '/' | '/api/hydra' | '/api/install' | '/api/run' | '/files/$'
+  to: '/' | '/api/hydra' | '/api/install' | '/api/run' | '/api/udp' | '/files/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/hydra'
+    | '/api/install'
+    | '/api/run'
+    | '/api/udp'
+    | '/files/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +93,7 @@ export interface RootRouteChildren {
   ApiHydraRoute: typeof ApiHydraRoute
   ApiInstallRoute: typeof ApiInstallRoute
   ApiRunRoute: typeof ApiRunRoute
+  ApiUdpRoute: typeof ApiUdpRoute
   FilesSplatRoute: typeof FilesSplatRoute
 }
 
@@ -109,6 +127,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRunRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/udp': {
+      id: '/api/udp'
+      path: '/api/udp'
+      fullPath: '/api/udp'
+      preLoaderRoute: typeof ApiUdpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/files/$': {
       id: '/files/$'
       path: '/files/$'
@@ -124,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHydraRoute: ApiHydraRoute,
   ApiInstallRoute: ApiInstallRoute,
   ApiRunRoute: ApiRunRoute,
+  ApiUdpRoute: ApiUdpRoute,
   FilesSplatRoute: FilesSplatRoute,
 }
 export const routeTree = rootRouteImport

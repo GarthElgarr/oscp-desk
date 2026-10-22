@@ -4,9 +4,11 @@ import { VenomBuilder } from "@/components/venom-builder";
 import { HashIdentifier } from "@/components/hash-identifier";
 import { LocalMatch } from "@/components/local-match";
 import { HydraRun, ToolRun } from "@/components/hydra-run";
+import { UdpScan } from "@/components/udp-scan";
+import { TunnelBuilder } from "@/components/tunnel-builder";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -16,6 +18,8 @@ const LABELS: Record<ToolId, string> = {
   hydra: "hydra",
   nxc: "nxc",
   local: "local",
+  udp: "udp",
+  tunnel: "tunnel",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -1861,6 +1865,8 @@ export function Builders({ tools }: { tools: ToolId[] }) {
       {current === "hydra" ? <HydraBuilder /> : null}
       {current === "nxc" ? <NxcBuilder /> : null}
       {current === "local" ? <LocalMatch /> : null}
+      {current === "udp" ? <UdpScan /> : null}
+      {current === "tunnel" ? <TunnelBuilder /> : null}
     </div>
   );
 }

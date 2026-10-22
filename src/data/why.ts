@@ -1,8 +1,6 @@
 export const WHY: Record<string, string> = {
-  "exam-order": `Lines that start with # are comments. The shell does not run them. They are the plan, not commands.
-mkdir makes a directory. -p creates any missing parents and does not error if the folder already exists. {scans,loot,shells} is brace expansion: one mkdir creates three folders, scans, loot, and shells, under that IP. <ip> is a placeholder. Type the real address. Do not type the angle brackets.
-ls -la is the listing later cards use. -l is the long listing: type and permissions, link count, owner, group, size, date, name. -a also shows hidden names that start with a dot, such as .bash_history and .ssh. Permissions are ten characters. The first is the type (d for directory, - for a file). Then three rwx trios: owner, group, everyone else. r read, w write, x execute. A w in the last trio means anyone on the box can write it.
-2>/dev/null throws away errors. 2 is stderr, > redirects it, /dev/null is the bin. | sends one command's normal output into the next command. && runs the next command only if the previous one succeeded. ; runs the next command either way.`,
+  "exam-order": `mkdir -p creates the host folder and does not complain if it already exists. {scans,loot,shells} makes three folders in one command. <ip> is a placeholder. Type the real address. Do not type the brackets.
+The four nmap lines are the required map of the host. -Pn skips ping, because lab hosts often ignore it. -sC runs the default scripts and -sV asks for the version. -oA saves the scan in that folder. -p- is every TCP port. --min-rate 2000 keeps that pass from taking an hour. -sU is UDP, and sudo is there because UDP needs root. --top-ports 20 is the UDP pass you always run. It is not optional, and it is not all 65535 ports. The last nmap repeats scripts only on TCP ports the full scan added.`,
 
   "exam-stuck": `Every line starts with #, so nothing here executes. It is a checklist you read when you feel busy but have no new fact.
 The point of writing it as comments is that you can paste the block into notes without the shell trying to run a sentence.`,
@@ -11,8 +9,8 @@ The point of writing it as comments is that you can paste the block into notes w
 The semicolon on Linux, and & on Windows, run the next command even if one of them fails. The whole line is one screenshot. <user> is the low-priv username. Do not type the brackets. If proof.txt is not on the Administrator desktop, the flag card searches for it. Do not crop the prompt out.`,
 
   "recon-nmap": `nmap probes hosts and ports. -Pn skips the ping and treats the host as up, which matters when ICMP is blocked. -sC runs the default NSE scripts. -sV asks the open port what version it is. -oA writes three files (normal, grepable, XML) using the path you give, so the scan is saved in the host folder.
--p- means every TCP port from 1 to 65535, not just the common thousand. --min-rate 2000 tells nmap to send at least that many packets per second so a full port scan finishes. -sU is a UDP scan. --top-ports 50 limits UDP to the 50 ports most likely to matter. -p with a list is the follow-up: scripts and versions only on ports you already know are open.
-<ip> and <open> are placeholders. Replace them. Do not scan UDP 65535. That is the time sink this card exists to avoid.`,
+-p- means every TCP port from 1 to 65535, not just the common thousand. --min-rate 2000 tells nmap to send at least that many packets per second so a full port scan finishes. -sU is the UDP pass, and it is required on every host because a TCP scan cannot see SNMP, TFTP, NTP, or IKE. --top-ports 20 is those likely UDP ports, not all 65535. sudo is required for -sU. -p with a list is the follow-up: scripts and versions only on TCP ports you already know are open.
+<ip> and <open> are placeholders. Replace them. Do not scan UDP 65535.`,
 
   "recon-search": `searchsploit looks up the local Exploit-DB copy by product name and version. The words after it are the search, not flags.
 -x shows the exploit text for that EDB id instead of just the title. | head keeps the first few lines so you see whether the file is a real program or a write-up before you read hundreds of lines. head with no -n defaults to 10 lines.`,
@@ -251,11 +249,11 @@ On Windows, ipconfig /all shows all adapters and the DNS suffix. route print sho
 -D 1080 is a SOCKS proxy. proxychains sends the next program through it. nmap -Pn -sT is required. A SYN scan through SOCKS reports ports open when they are closed. You browse http://127.0.0.1:8080 for the forwarded site. -R, when the other side must call you, is the remote-forward card.`,
 
   "pv-chisel": `chisel server -p 8000 --reverse listens on Kali and allows the target to request forwards. file tells you the binary is a real ELF before you upload it. curl saves it on the target and chmod +x makes it runnable.
-R:socks asks Kali to open a SOCKS port, 1080. R:8081:internal:80 asks Kali to listen on 8081 and forward to that internal host, from the target's point of view. The proxychains config line socks5 127.0.0.1 1080 is what makes nxc and nmap use it. nmap still needs -sT. A subnet scan is Ligolo instead.`,
+R:socks asks Kali to open a SOCKS port, 1080. R:8081:internal:80 asks Kali to listen on 8081 and forward to that internal host, from the target's point of view. R:8081:127.0.0.1:3306 is the victim's own loopback. proxychains aimed at 127.0.0.1 does not do that, because that address is Kali. The proxychains config line socks5 127.0.0.1 1080 is what makes nxc and nmap use the proxy. nmap still needs -sT. A subnet scan is Ligolo instead.`,
 
   "pv-ligolo": `ip tuntap add creates the interface named ligolo, owned by you. ip link set up turns it on. file exists means it is already there. ./proxy -selfcert listens on 11601 and makes its own certificate.
 The agent dials that port. -ignore-cert accepts the self-signed certificate. session and start are typed in the proxy, not in bash. start is what actually builds the tunnel. The route comes after that. ip route add sends one subnet into the tun device. nmap and nxc then run with no proxychains, because the packets are normal.
-ip route del removes it when you are finished. A host that cannot reach your Kali IP cannot run this agent. That case is the callback card.`,
+ip route del removes it when you are finished. 240.0.0.1/32 on the ligolo device is the agent's 127.0.0.1. Add it after start, and point nmap at 240.0.0.1. Do not route 127.0.0.0/8, or Kali loses its own loopback. A host that cannot reach your Kali IP cannot run this agent. That case is the callback card.`,
 
   "cc-gcc": `gcc compiles C. file.c is the source. -o names the output. With no -static, the binary is dynamically linked and will look for the Kali glibc on the target.
 file prints the type: ELF, 32 or 64 bit, static or dynamic. ldd prints the libraries a dynamic binary needs. After gcc -static, ldd should say it is not a dynamic executable. That is what you want for an older target.
@@ -283,8 +281,8 @@ OffSec does not allow poisoning or spoofing on this exam. Wi-Fi is not a target.
   "exam-msf": `penelope -O -p 443 is the listener. -p sets 443. -O leaves the automatic modules off. The msfvenom line builds one Windows reverse shell that speaks to that listener. LHOST is your VPN address. LPORT must be the same number.
 msfvenom builds one file when you already know the target will run that format. -p is the payload, LHOST and LPORT are your listener, -f exe is a Windows executable, -o is the filename. You are not opening msfconsole to search for a module because searchsploit was empty.`,
 
-  "recon-udp": `nmap -sU is UDP. --top-ports 20 limits it to twenty common UDP ports instead of all 65535. -T4 is a faster timing template. -oN writes a normal text file.
-onesixtyone still tries community strings if 161 looks open or open|filtered, because UDP scans often cannot tell those apart. -c is the string list. Silence means UDP is finished.`,
+  "recon-udp": `nmap -sU is UDP, and sudo is there because that scan needs root. --top-ports 20 is the pass you run on every host, instead of all 65535. -T4 is a faster timing template. -oA saves it next to the TCP scans.
+open|filtered means nmap got no answer, which is normal for UDP. 161 is the exception: still try one community-string list. onesixtyone -c is that list. Silence from both tools means UDP is finished.`,
 
   "recon-hosts": `echo prints a line. | sudo tee -a appends it to /etc/hosts as root. The line is the IP, then one or more names. After that, your machine resolves those names to the lab host.
 curl -sI fetches headers only. -s is silent, -I is headers. -k on the https command ignores a bad TLS certificate, which lab DCs often have. If the name returns a real site and the IP returned a default page, the name was required.`,
@@ -387,7 +385,7 @@ sudo mount -t nfs attaches the export at /mnt/nfs. If the export says no_root_sq
 root_squash means your files become nobody. You can still read the share. You stop the SUID idea. On the server the shell is /share/rootbash -p.`,
 
   "lin-listen": `ss -tlnp lists TCP listeners with process names. -t TCP, -l listening only, -n numeric ports, -p process. || netstat -tlnp is the fallback if ss is not installed.
-127.0.0.1:port was invisible to your nmap from Kali. 0.0.0.0 ports are the ones you already scanned. You then talk to the local port with mysql or curl from the box.`,
+127.0.0.1:port was invisible to your nmap from Kali. 0.0.0.0 ports are the ones you already scanned. You then talk to the local port with mysql or curl from the box. If the client you need only exists on Kali, forward it. Chisel uses R:localport:127.0.0.1:port. Ligolo uses a route to 240.0.0.1 after start. proxychains to 127.0.0.1 hits Kali, not this host.`,
 
   "lin-jdebug": `ps aux lists processes. a is other users' processes, u adds the user column, x includes processes without a terminal. grep -i java keeps Java. You read the user column. Root there is the interesting case.
 ss -tlnp | grep 5005 keeps the line if something is listening on the Java debug port. No debug port, or Java running as the user you already are, is dead. The process existing is not a vulnerability.`,
@@ -657,7 +655,7 @@ invalid preprocessing directive #Exploit means the Exploit-DB banner is still at
 
   "brief-exam": `mkdir -p creates the host folder and does not complain if it exists. The brace {scans,loot,shells} makes three folders in one command. The rest of the card is comments, so pasting it does not run a scan. The point is the rule: one card, read Alive and Dead, and leave it when Dead matches.`,
 
-  "brief-recon": `nmap -Pn skips ping. -sC is the default scripts. -sV asks for versions. -oA writes the result into the scans folder under three names. -p- is every TCP port. --min-rate 2000 keeps that scan from taking the hour. The third nmap repeats scripts only on ports the full scan added. -sU --top-ports 50 is the UDP pass, and only if TCP was almost empty.`,
+  "brief-recon": `nmap -Pn skips ping. -sC is the default scripts. -sV asks for versions. -oA writes the result into the scans folder under three names. -p- is every TCP port. --min-rate 2000 keeps that scan from taking the hour. -sU --top-ports 20 is the UDP pass. Run it on every host. A TCP scan cannot see those services, and a scan of all 65535 UDP ports is the time sink.`,
 
   "brief-svc": `nc -nv connects to one port and shows the banner. -n skips DNS. -v is verbose. The comments are the decision, not extra scans. A failure on credentials you already hold is Dead. A wordlist is not the next command.`,
 
@@ -699,7 +697,7 @@ invalid preprocessing directive #Exploit means the Exploit-DB banner is still at
 
   "tun-socat": `TCP-LISTEN,fork,reuseaddr accepts more than one connection and can be restarted. The second address is where each connection is sent. netsh interface portproxy is the Windows version and needs an admin shell. If socat is missing, use SSH or Chisel. Do not install packages on the exam host.`,
 
-  "tun-fail": `curl -m 3 proves the target can reach Kali. ip link delete clears a stuck ligolo interface. ip route del removes a route you added before start. file catches an HTML download. -sT replaces a SYN scan that lied through SOCKS.`,
+  "tun-fail": `curl -m 3 proves the target can reach Kali. ip link delete clears a stuck ligolo interface. ip route del removes a route you added before start. file catches an HTML download. -sT replaces a SYN scan that lied through SOCKS. 127.0.0.1 through SOCKS is Kali. The victim's loopback is a Chisel forward to 127.0.0.1 from the client, or Ligolo's 240.0.0.1 route.`,
 
   "cmd-use": `The lines are comments. This section is the shell phrasebook. The privilege-escalation lists are still the method.`,
 
