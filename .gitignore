@@ -1,0 +1,12 @@
+node_modules
+dist
+.output
+.vinxi
+.tanstack
+.vercel
+*.log
+.env
+.env.*
+uploads/*
+!uploads/README.txt
+.DS_Store
