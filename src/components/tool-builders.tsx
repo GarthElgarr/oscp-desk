@@ -6,9 +6,10 @@ import { LocalMatch } from "@/components/local-match";
 import { HydraRun, ToolRun } from "@/components/hydra-run";
 import { UdpScan } from "@/components/udp-scan";
 import { TunnelBuilder } from "@/components/tunnel-builder";
+import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -20,6 +21,7 @@ const LABELS: Record<ToolId, string> = {
   local: "local",
   udp: "udp",
   tunnel: "tunnel",
+  wfuzz: "wfuzz",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -1867,6 +1869,7 @@ export function Builders({ tools }: { tools: ToolId[] }) {
       {current === "local" ? <LocalMatch /> : null}
       {current === "udp" ? <UdpScan /> : null}
       {current === "tunnel" ? <TunnelBuilder /> : null}
+      {current === "wfuzz" ? <WfuzzBuilder /> : null}
     </div>
   );
 }

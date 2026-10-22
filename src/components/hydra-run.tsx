@@ -79,7 +79,7 @@ export function ToolRun({
           className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm text-fg outline-none"
         />
         <span className={"text-xs " + (parsed.ok ? "text-muted" : "text-dead")}>
-          {parsed.ok ? "Added to the crack command. Not a shell. Stop ends the run." : parsed.error}
+          {parsed.ok ? "Added to the command. Not a shell. Stop ends the run." : parsed.error}
         </span>
       </label>
       <div className="flex flex-wrap gap-2">

@@ -130,6 +130,7 @@ export function MethodDesk() {
     );
     want("udp", section === "Recon" || section === "Services", /udp|nmap|snmp|tftp/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
+    want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
     return tools;
   }, [section, query]);
 

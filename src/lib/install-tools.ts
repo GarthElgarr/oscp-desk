@@ -14,6 +14,8 @@ export const INSTALL_PACKAGES = [
   "chisel",
   "exploitdb",
   "wordlists",
+  "wfuzz",
+  "seclists",
 ] as const;
 
 /** Names the desk actually calls, including binaries that live inside a package. */
@@ -32,6 +34,8 @@ export const INSTALL_TOOL_LABELS = [
   "chisel",
   "searchsploit (exploitdb)",
   "rockyou (wordlists)",
+  "wfuzz",
+  "seclists",
 ] as const;
 
 export function manualInstallCommand(): string {

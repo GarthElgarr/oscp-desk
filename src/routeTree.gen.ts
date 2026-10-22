@@ -14,6 +14,7 @@ import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
 import { Route as ApiRunRouteImport } from './routes/api/run'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
+import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +42,11 @@ const ApiUdpRoute = ApiUdpRouteImport.update({
   path: '/api/udp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWfuzzRoute = ApiWfuzzRouteImport.update({
+  id: '/api/wfuzz',
+  path: '/api/wfuzz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FilesSplatRoute = FilesSplatRouteImport.update({
   id: '/files/$',
   path: '/files/$',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRoutesById {
@@ -70,14 +78,28 @@ export interface FileRoutesById {
   '/api/install': typeof ApiInstallRoute
   '/api/run': typeof ApiRunRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/api/hydra' | '/api/install' | '/api/run' | '/api/udp' | '/files/$'
+    | '/'
+    | '/api/hydra'
+    | '/api/install'
+    | '/api/run'
+    | '/api/udp'
+    | '/api/wfuzz'
+    | '/files/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/hydra' | '/api/install' | '/api/run' | '/api/udp' | '/files/$'
+  to:
+    | '/'
+    | '/api/hydra'
+    | '/api/install'
+    | '/api/run'
+    | '/api/udp'
+    | '/api/wfuzz'
+    | '/files/$'
   id:
     | '__root__'
     | '/'
@@ -85,6 +107,7 @@ export interface FileRouteTypes {
     | '/api/install'
     | '/api/run'
     | '/api/udp'
+    | '/api/wfuzz'
     | '/files/$'
   fileRoutesById: FileRoutesById
 }
@@ -94,6 +117,7 @@ export interface RootRouteChildren {
   ApiInstallRoute: typeof ApiInstallRoute
   ApiRunRoute: typeof ApiRunRoute
   ApiUdpRoute: typeof ApiUdpRoute
+  ApiWfuzzRoute: typeof ApiWfuzzRoute
   FilesSplatRoute: typeof FilesSplatRoute
 }
 
@@ -134,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUdpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/wfuzz': {
+      id: '/api/wfuzz'
+      path: '/api/wfuzz'
+      fullPath: '/api/wfuzz'
+      preLoaderRoute: typeof ApiWfuzzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/files/$': {
       id: '/files/$'
       path: '/files/$'
@@ -150,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInstallRoute: ApiInstallRoute,
   ApiRunRoute: ApiRunRoute,
   ApiUdpRoute: ApiUdpRoute,
+  ApiWfuzzRoute: ApiWfuzzRoute,
   FilesSplatRoute: FilesSplatRoute,
 }
 export const routeTree = rootRouteImport

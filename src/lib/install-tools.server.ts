@@ -14,6 +14,7 @@ const PROBES = [
   "proxychains4",
   "chisel",
   "searchsploit",
+  "wfuzz",
 ] as const;
 
 const MAX_OUT = 500_000;

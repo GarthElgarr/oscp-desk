@@ -279,7 +279,7 @@ curl -s http://<ip>/ | head -c 2000`,
 feroxbuster -u http://<ip> -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt -x asp,aspx,txt,config -t 50`,
     alive: "200 or 301 on /backup, /admin, /.git, or a .bak of a page you already saw.",
     dead: "Only / and /index and a pile of 404s. Do not start the big wordlist 'just in case' until the rest of the port is dead.",
-    next: "Download every 200 that is not an image. Read it.",
+    next: "Download every 200 that is not an image. Read it. A parameter, a POST body, a cookie, or a Host header is the wfuzz builder on this page, not a bigger directory list.",
   },
   {
     id: "web-git",
