@@ -14,10 +14,17 @@ const PROFILES: { id: NmapProfile; label: string }[] = [
 type Job = {
   id: string;
   title: string;
+  name: string;
   command: string;
   output: string;
   running: boolean;
 };
+
+function jobState(job: Job): "running" | "done" | "failed" {
+  if (job.running) return "running";
+  if (/\[nmap exit 0\]/.test(job.output) && !job.output.includes("[stopped]")) return "done";
+  return "failed";
+}
 
 let jobSeq = 0;
 
@@ -65,7 +72,7 @@ export function NmapScan() {
     const controller = new AbortController();
     controllers.current.set(id, controller);
     const title = `${PROFILES.find((item) => item.id === profile)?.label.split("—")[0]?.trim() ?? profile} ${host}`;
-    setJobs((prev) => [{ id, title, command: plan.command, output: "", running: true }, ...prev].slice(0, 8));
+    setJobs((prev) => [{ id, title, name: safeName, command: plan.command, output: "", running: true }, ...prev].slice(0, 8));
     let text = "";
     try {
       const response = await fetch("/api/nmap", {
@@ -176,27 +183,57 @@ export function NmapScan() {
         {profile === "udp" ? <p className="text-sm text-fg">Top 20 is the required UDP pass. It is not a full UDP sweep, and it will not show SNMP or TFTP the way the protocol scanner does. Run both.</p> : null}
         {profile === "deep" ? <p className="text-sm text-fg">-p is only the new ports. Sending every open port through the scripts again repeats the quick scan.</p> : null}
         {profile === "custom" ? <p className="text-sm text-fg">Your flags are added to -Pn, then the output name and the IP. -oA and -iL stay out. Those are the name box and a file this page will not open.</p> : null}
-        {jobs.map((job) => (
-          <section key={job.id} className="rounded-lg border border-border">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-              <div className="min-w-0">
-                <p className="font-mono text-xs text-primary">{job.running ? "RUNNING" : "DONE"}</p>
-                <p className="truncate text-sm text-fg">{job.title}</p>
+        {jobs.map((job) => {
+          const state = jobState(job);
+          const header =
+            state === "running"
+              ? "nmap-lamp-run border-[#8a5a20]"
+              : state === "done"
+                ? "border-alive bg-alive-bg text-alive"
+                : "border-dead bg-dead-bg text-dead";
+          return (
+            <section key={job.id} className="overflow-hidden rounded-lg border border-border">
+              <div className={"flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 " + header}>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={
+                      "size-3 shrink-0 rounded-full " +
+                      (state === "running" ? "bg-[#e0a15a]" : state === "done" ? "bg-alive" : "bg-dead")
+                    }
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs">{state === "running" ? "RUNNING" : state === "done" ? "DONE" : "FAILED"}</p>
+                    <p className="truncate text-sm">{job.title}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {state === "done" ? (
+                    <a
+                      href={`/api/nmap?name=${encodeURIComponent(job.name)}&html=1`}
+                      target="_blank"
+                      rel="noopener"
+                      className="inline-flex min-h-11 items-center rounded-lg border border-alive bg-bg px-3 text-sm text-alive"
+                    >
+                      Open HTML report
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => controllers.current.get(job.id)?.abort()}
+                    disabled={!job.running}
+                    className="inline-flex min-h-11 items-center rounded-lg border border-border bg-bg px-3 text-sm text-fg disabled:opacity-40"
+                  >
+                    Stop
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => controllers.current.get(job.id)?.abort()}
-                disabled={!job.running}
-                className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
-              >
-                Stop
-              </button>
-            </div>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-              {job.output || (job.running ? "Waiting for nmap…" : "")}
-            </pre>
-          </section>
-        ))}
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
+                {job.output || (job.running ? "Waiting for nmap…" : "")}
+              </pre>
+            </section>
+          );
+        })}
       </div>
     </article>
   );

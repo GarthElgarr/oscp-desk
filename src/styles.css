@@ -36,5 +36,29 @@
     * {
       transition: none !important;
     }
+    .nmap-lamp-run {
+      animation: none;
+      background: #3a2a14;
+      color: #e0a15a;
+      border-color: #8a5a20;
+    }
   }
+}
+
+@keyframes nmap-lamp {
+  0%,
+  100% {
+    background: #3a2a14;
+    color: #e0a15a;
+    border-color: #8a5a20;
+  }
+  50% {
+    background: #e0a15a;
+    color: #1a1208;
+    border-color: #e0a15a;
+  }
+}
+
+.nmap-lamp-run {
+  animation: nmap-lamp 1s ease-in-out infinite;
 }

@@ -133,14 +133,23 @@ export function NmapReports({ withSearch = false }: { withSearch?: boolean }) {
           {saved.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {saved.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => void openSaved(name)}
-                  className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 font-mono text-xs text-fg"
-                >
-                  {name}.xml
-                </button>
+                <span key={name} className="inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void openSaved(name)}
+                    className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 font-mono text-xs text-fg"
+                  >
+                    {name}.xml
+                  </button>
+                  <a
+                    href={`/api/nmap?name=${encodeURIComponent(name)}&html=1`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs text-primary"
+                  >
+                    HTML
+                  </a>
+                </span>
               ))}
             </div>
           ) : (

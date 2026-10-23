@@ -130,7 +130,7 @@ export function nmapScanStream(
       });
       child.on("close", (code) => {
         if (killed) push("\n[stopped]\n");
-        else push(`\n[nmap exit ${code ?? "unknown"}]\nSaved scans/${path.basename(args[args.indexOf("-oA") + 1] ?? "")}.{nmap,xml,gnmap}\nOpen the Nmap tab to read the XML.\n`);
+        else push(`\n[nmap exit ${code ?? "unknown"}]\nSaved scans/${path.basename(args[args.indexOf("-oA") + 1] ?? "")}.{nmap,xml,gnmap}\n`);
         close();
       });
     },
