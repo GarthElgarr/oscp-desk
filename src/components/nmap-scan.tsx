@@ -125,7 +125,7 @@ export function NmapScan() {
           </button>
         </div>
         <p className="text-sm text-muted">
-          Up to four scans run at once. Leaving this page does not stop them. Come back here, or open the Nmap tab, and the same terminal is still there. UDP uses sudo -n, so a password prompt stops that scan instead of waiting. The same output name replaces the previous files.
+          Up to four scans run at once. Leaving this page does not stop them. Come back here, or open the Nmap tab, and the same terminal is still there. Start the desk as root and a UDP or SYN scan runs nmap directly. The same output name replaces the previous files.
         </p>
         {profile === "quick" ? <p className="text-sm text-fg">-sC is the default scripts. -sV asks the service for its version. Read this while the all-TCP scan is still going.</p> : null}
         {profile === "alltcp" ? <p className="text-sm text-fg">-p- is every TCP port. --min-rate 2000 keeps it moving. Ports that were not in the quick scan are the ones the deep pass is for.</p> : null}
