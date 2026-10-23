@@ -1,4 +1,5 @@
 import { spawnLiveJob } from "./live-jobs.server";
+import { quoteHydraArg } from "./hydra-args";
 import { impacketArgsOk, impacketPlan, type ImpacketInput, type ImpacketMode, IMPACKET_MODES } from "./impacket-plan";
 
 function text(value: unknown): string {
@@ -43,7 +44,8 @@ export function impacketRequest(body: unknown): { bin: string; args: string[]; c
   const extra = Array.isArray(row.extra) ? row.extra : [];
   const args = [...plan.args, ...extra];
   if (!impacketArgsOk(plan.bin, args)) return { error: "Those arguments are not an Impacket command this desk will run." };
-  return { bin: plan.bin, args, command: plan.command };
+  const command = extra.length ? `${plan.command} ${extra.map(quoteHydraArg).join(" ")}` : plan.command;
+  return { bin: plan.bin, args, command };
 }
 
 export function startImpacket(id: string, bin: string, args: string[], command: string): boolean {

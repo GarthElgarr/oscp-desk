@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
 import { impacketPlan, type ImpacketInput, type ImpacketMode } from "@/lib/impacket-plan";
+import { quoteHydraArg } from "@/lib/hydra-args";
 import { LootPick } from "@/components/loot-card";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -75,17 +76,19 @@ const blank: ImpacketInput = {
 
 export function ImpacketBuilder() {
   const [form, setForm] = useState<ImpacketInput>(blank);
+  const [extra, setExtra] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const set = (patch: Partial<ImpacketInput>) => setForm((prev) => ({ ...prev, ...patch }));
   const plan = useMemo(() => impacketPlan(form), [form]);
   const ready = !("error" in plan);
+  const shown = ready ? [plan.command, ...extra.map(quoteHydraArg)].join(" ") : "";
   const show = (modes: ImpacketMode[]) => modes.includes(form.mode);
   const auth = show(["secrets-remote", "psexec", "smbexec", "wmiexec", "atexec", "mssql", "smbclient", "kerberoast", "gettgt", "getst", "lookupsid", "rpcdump", "samrdump", "adusers", "delegation", "services", "reg", "passwd", "addcomputer", "rbcd"]);
 
   async function copy() {
     if (!ready) return;
     try {
-      await navigator.clipboard.writeText(plan.command);
+      await navigator.clipboard.writeText(shown);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
@@ -276,7 +279,7 @@ export function ImpacketBuilder() {
           </button>
         </div>
         <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">
-          {ready ? plan.command : "error" in plan ? plan.error : ""}
+          {ready ? shown : "error" in plan ? plan.error : ""}
         </pre>
         {ready ? <p className="text-sm text-fg">{plan.why}</p> : null}
         {ready && plan.run ? (
@@ -285,8 +288,8 @@ export function ImpacketBuilder() {
             tool="impacket"
             disabled={false}
             placeholder="-debug"
-            onFlags={() => undefined}
-            buildBody={(extra) => ({ ...form, extra, command: plan.command })}
+            onFlags={setExtra}
+            buildBody={(flags) => ({ ...form, extra: flags, command: [plan.command, ...flags.map(quoteHydraArg)].join(" ") })}
           />
         ) : ready ? (
           <p className="text-sm text-muted">Copy the command. This one waits for you to type, and a run from the desk would close that.</p>

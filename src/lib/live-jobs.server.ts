@@ -165,6 +165,7 @@ export function clearJobs(): void {
   for (const id of killers.keys()) dropped.add(id);
   for (const kill of killers.values()) kill();
   killers.clear();
+  writers.clear();
   jobs.splice(0, jobs.length);
 }
 

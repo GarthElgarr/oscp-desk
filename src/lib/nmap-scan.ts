@@ -108,7 +108,8 @@ export function nmapPlan(input: {
   if (input.profile === "custom") args.push(...input.extra);
   else if (input.extra.length) args.push(...input.extra);
   args.push("-oA", `scans/${input.name}`, input.target);
-  const sudo = input.profile === "udp";
+  const rootFlags = new Set(["-sS", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-O", "--privileged"]);
+  const sudo = input.profile === "udp" || input.extra.some((arg) => rootFlags.has(arg.split("=")[0]));
   const command = [sudo ? "sudo -n nmap" : "nmap", ...args.map(quoteHydraArg)].join(" ");
   return { args, command, sudo };
 }

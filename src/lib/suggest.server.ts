@@ -99,7 +99,7 @@ export function startSuggest(id: string, plan: SuggestPlan): boolean {
       if (!bin) handle.push("wes was not found. On Kali: pipx install wesng, then wes --update. The desk does not run a Windows suggester it cannot see.\n");
       else {
         mkdirSync(scansDir(), { recursive: true });
-        const file = path.join(scansDir(), "systeminfo-suggest.txt");
+        const file = path.join(scansDir(), `systeminfo-${id.replace(/[^a-z0-9-]/g, "").slice(0, 40)}.txt`);
         writeFileSync(file, plan.windowsText);
         const code = await run(bin, [file], handle, 90_000);
         handle.push(`[wes exit ${code ?? "unknown"}]\n`);

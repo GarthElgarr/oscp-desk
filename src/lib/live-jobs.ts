@@ -6,6 +6,8 @@ export type LiveJob = {
   name: string;
   output: string;
   running: boolean;
+  /** A start that the server rejected. Kept so the error does not vanish on the next poll. */
+  local?: boolean;
 };
 
 const EMPTY: LiveJob[] = [];
@@ -41,7 +43,8 @@ export async function syncJobs(): Promise<void> {
     const server = body.jobs.filter((job) => job && typeof job.id === "string");
     const ids = new Set(server.map((job) => job.id));
     const pending = jobs.filter((job) => job.running && job.output === "" && !ids.has(job.id));
-    publish([...pending, ...server].slice(0, 24));
+    const local = jobs.filter((job) => job.local && !ids.has(job.id));
+    publish([...pending, ...local, ...server].slice(0, 24));
     if (jobs.some((job) => job.running)) {
       if (!timer) timer = setInterval(() => void syncJobs(), 700);
     } else if (timer) {
@@ -68,7 +71,7 @@ export async function launchJob(
   });
   if (!response.ok) {
     const text = await response.text();
-    publish(jobs.map((job) => (job.id === id ? { ...job, output: text, running: false } : job)));
+    publish(jobs.map((job) => (job.id === id ? { ...job, output: text, running: false, local: true } : job)));
     return;
   }
   await syncJobs();
@@ -84,6 +87,7 @@ export function stopJob(id: string) {
 }
 
 export function removeJob(id: string) {
+  publish(jobs.filter((job) => job.id !== id));
   return post({ remove: id });
 }
 
@@ -92,5 +96,6 @@ export function sendJob(id: string, text: string) {
 }
 
 export function clearJobs() {
+  publish([]);
   return post({ clear: true });
 }
