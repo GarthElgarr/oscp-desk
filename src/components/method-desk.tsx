@@ -140,6 +140,7 @@ export function MethodDesk() {
     want("udp", section === "Recon" || section === "Services", /udp|nmap|snmp|tftp/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
+    want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient/i);
     return tools;
   }, [section, query]);
 
@@ -261,7 +262,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={8}
+            count={9}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />
@@ -276,7 +277,7 @@ export function MethodDesk() {
                 <p className="font-mono text-xs text-primary">Runs</p>
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Nmap, the UDP scanner, searchsploit, hydra, wfuzz, hashcat, john, and the install. Leaving a page does not stop one.
+                  Nmap, the UDP scanner, searchsploit, the local exploit suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one.
                   Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk clears every run. It does not touch notes or the report.
                 </p>
               </div>

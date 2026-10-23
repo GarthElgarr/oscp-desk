@@ -8,10 +8,11 @@ import { UdpScan } from "@/components/udp-scan";
 import { NmapScan } from "@/components/nmap-scan";
 import { SearchsploitRun } from "@/components/searchsploit-run";
 import { TunnelBuilder } from "@/components/tunnel-builder";
+import { ImpacketBuilder } from "@/components/impacket-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz" | "impacket";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -24,6 +25,7 @@ const LABELS: Record<ToolId, string> = {
   udp: "udp",
   tunnel: "tunnel",
   wfuzz: "wfuzz",
+  impacket: "impacket",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -1880,6 +1882,7 @@ export function Builders({ tools }: { tools: ToolId[] }) {
       ) : null}
       {current === "tunnel" ? <TunnelBuilder /> : null}
       {current === "wfuzz" ? <WfuzzBuilder /> : null}
+      {current === "impacket" ? <ImpacketBuilder /> : null}
     </div>
   );
 }

@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
+import { Route as ApiImpacketRouteImport } from './routes/api/impacket'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
 import { Route as ApiJobsRouteImport } from './routes/api/jobs'
 import { Route as ApiNmapRouteImport } from './routes/api/nmap'
 import { Route as ApiRunRouteImport } from './routes/api/run'
 import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
+import { Route as ApiSuggestRouteImport } from './routes/api/suggest'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
 import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
@@ -28,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiHydraRoute = ApiHydraRouteImport.update({
   id: '/api/hydra',
   path: '/api/hydra',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImpacketRoute = ApiImpacketRouteImport.update({
+  id: '/api/impacket',
+  path: '/api/impacket',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiInstallRoute = ApiInstallRouteImport.update({
@@ -55,6 +62,11 @@ const ApiSearchsploitRoute = ApiSearchsploitRouteImport.update({
   path: '/api/searchsploit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSuggestRoute = ApiSuggestRouteImport.update({
+  id: '/api/suggest',
+  path: '/api/suggest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUdpRoute = ApiUdpRouteImport.update({
   id: '/api/udp',
   path: '/api/udp',
@@ -74,11 +86,13 @@ const FilesSplatRoute = FilesSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
+  '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -86,11 +100,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
+  '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -99,11 +115,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
+  '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -113,11 +131,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/hydra'
+    | '/api/impacket'
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -125,11 +145,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/hydra'
+    | '/api/impacket'
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -137,11 +159,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/hydra'
+    | '/api/impacket'
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -150,11 +174,13 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHydraRoute: typeof ApiHydraRoute
+  ApiImpacketRoute: typeof ApiImpacketRoute
   ApiInstallRoute: typeof ApiInstallRoute
   ApiJobsRoute: typeof ApiJobsRoute
   ApiNmapRoute: typeof ApiNmapRoute
   ApiRunRoute: typeof ApiRunRoute
   ApiSearchsploitRoute: typeof ApiSearchsploitRoute
+  ApiSuggestRoute: typeof ApiSuggestRoute
   ApiUdpRoute: typeof ApiUdpRoute
   ApiWfuzzRoute: typeof ApiWfuzzRoute
   FilesSplatRoute: typeof FilesSplatRoute
@@ -174,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/api/hydra'
       fullPath: '/api/hydra'
       preLoaderRoute: typeof ApiHydraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/impacket': {
+      id: '/api/impacket'
+      path: '/api/impacket'
+      fullPath: '/api/impacket'
+      preLoaderRoute: typeof ApiImpacketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/install': {
@@ -211,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchsploitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/suggest': {
+      id: '/api/suggest'
+      path: '/api/suggest'
+      fullPath: '/api/suggest'
+      preLoaderRoute: typeof ApiSuggestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/udp': {
       id: '/api/udp'
       path: '/api/udp'
@@ -238,11 +278,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHydraRoute: ApiHydraRoute,
+  ApiImpacketRoute: ApiImpacketRoute,
   ApiInstallRoute: ApiInstallRoute,
   ApiJobsRoute: ApiJobsRoute,
   ApiNmapRoute: ApiNmapRoute,
   ApiRunRoute: ApiRunRoute,
   ApiSearchsploitRoute: ApiSearchsploitRoute,
+  ApiSuggestRoute: ApiSuggestRoute,
   ApiUdpRoute: ApiUdpRoute,
   ApiWfuzzRoute: ApiWfuzzRoute,
   FilesSplatRoute: FilesSplatRoute,

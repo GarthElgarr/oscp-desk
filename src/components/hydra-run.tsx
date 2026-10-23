@@ -33,8 +33,8 @@ export function ToolRun({
   }
 
   async function run(body: Record<string, unknown>) {
-    const command = typeof body.args === "object" && Array.isArray(body.args) ? `${tool} ${body.args.join(" ")}` : tool;
-    await launchJob(endpoint, body, { tool, title: command.slice(0, 80), command: command.slice(0, 200) });
+    const listed = typeof body.command === "string" ? body.command : typeof body.args === "object" && Array.isArray(body.args) ? `${tool} ${body.args.join(" ")}` : tool;
+    await launchJob(endpoint, body, { tool, title: listed.slice(0, 80), command: listed.slice(0, 200) });
   }
 
   return (
