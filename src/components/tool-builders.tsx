@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { VenomBuilder } from "@/components/venom-builder";
 import { HashIdentifier } from "@/components/hash-identifier";
@@ -11,7 +11,7 @@ import { TunnelBuilder } from "@/components/tunnel-builder";
 import { ImpacketBuilder } from "@/components/impacket-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { LootPick } from "@/components/loot-card";
-import { LOOT_HASHCAT, type LootKind } from "@/lib/loot";
+import { getLoot, getLootServer, lootLines, LOOT_HASHCAT, subscribeLoot, type LootKind } from "@/lib/loot";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
 export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz" | "impacket";
@@ -401,7 +401,7 @@ const HASH_MODES: { id: string; label: string; file: string; hint: string; note:
 
 function HashcatBuilder() {
   const [mode, setMode] = useState("1000");
-  const [source, setSource] = useState<"file" | "paste">("file");
+  const [source, setSource] = useState<"file" | "paste" | "loot">("file");
   const [file, setFile] = useState("ntlm.txt");
   const [pasted, setPasted] = useState("");
   const [attack, setAttack] = useState<"wordlist" | "rules" | "mask" | "show">("wordlist");
@@ -426,10 +426,13 @@ function HashcatBuilder() {
   const [charset, setCharset] = useState("");
 
   const picked = HASH_MODES.find((m) => m.id === mode) ?? HASH_MODES[0];
+  const saved = useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
+  const lootKind = (Object.entries(LOOT_HASHCAT).find(([, id]) => id === mode)?.[0] ?? "") as LootKind | "";
+  const savedHashes = lootKind ? [...new Set(saved.filter((item) => item.kind === lootKind && item.secret).map((item) => item.secret))] : [];
   const wordlist = list === "custom" ? cleanPath(customList) : list;
   const hashFile = source === "file" ? cleanPath(file) : picked.file;
   const hash = cleanLoose(pasted).replace(/\s+/g, "");
-  const hashOk = source === "file" || (hash.length > 0 && !/['"\\;&|`]/.test(hash));
+  const hashOk = source === "loot" ? savedHashes.length > 0 : source === "file" || (hash.length > 0 && !/['"\\;&|`]/.test(hash));
   const maskOk = attack !== "mask" || /^\?[ludsab](?:\?[ludsab]|[A-Za-z0-9!@#$%&*._-]|\?l|\?u|\?d|\?s|\?a|\?b){0,30}$/.test(mask) || /^[\?ludsabA-Za-z0-9!@#$%&*._-]+$/.test(mask);
   const ready = Boolean(hashFile) && hashOk && (attack === "show" || attack === "mask" || Boolean(wordlist)) && (attack !== "mask" || (mask.length > 0 && maskOk));
 
@@ -445,6 +448,9 @@ function HashcatBuilder() {
     if (source === "paste") {
       lines.push(`printf '%s\\n' ${bashSingle(hash)} > ${picked.file}`);
       hashcatSteps.push({ kind: "write", name: picked.file, text: `${hash}\n` });
+    } else if (source === "loot") {
+      lines.push(`# ${savedHashes.length} saved ${picked.label} hashes`);
+      hashcatSteps.push({ kind: "write", name: picked.file, text: `${savedHashes.join("\n")}\n` });
     }
     const crack = ["-m", picked.id];
     if (username) crack.push("--username");
@@ -489,6 +495,7 @@ function HashcatBuilder() {
     }
     command = lines.join("\n");
     if (source === "paste") hashcatQuick.push({ kind: "write", name: picked.file, text: `${hash}\n` });
+    if (source === "loot") hashcatQuick.push({ kind: "write", name: picked.file, text: `${savedHashes.join("\n")}\n` });
     const quickCrack = ["-m", picked.id];
     if (username) quickCrack.push("--username");
     if (attack === "show") quickCrack.push(hashFile, "--show");
@@ -567,16 +574,21 @@ function HashcatBuilder() {
         <select className={control} value={source} onChange={(e) => setSource(e.target.value as typeof source)}>
           <option value="file">A file on Kali</option>
           <option value="paste">Paste one hash</option>
+          <option value="loot">All saved of this type ({savedHashes.length})</option>
         </select>
       </Field>
       {source === "file" ? (
         <Field label="Hash file">
           <input className={control} value={file} onChange={(e) => setFile(e.target.value)} />
         </Field>
-      ) : (
+      ) : source === "paste" ? (
         <Field label="Hash">
           <input className={control} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={picked.hint} />
         </Field>
+      ) : (
+        <p className="text-sm text-muted sm:col-span-2">
+          {savedHashes.length ? `${savedHashes.length} saved hashes of this type are written to ${picked.file} when you run.` : "Nothing of this type is saved in loot yet."}
+        </p>
       )}
       <LootPick
         kinds={Object.keys(LOOT_HASHCAT) as LootKind[]}
@@ -1258,11 +1270,14 @@ function HydraBuilder() {
   const [serviceId, setServiceId] = useState("ssh");
   const [target, setTarget] = useState("");
   const [port, setPort] = useState("");
-  const [userMode, setUserMode] = useState<"one" | "file">("one");
+  const [userMode, setUserMode] = useState<"one" | "file" | "loot">("one");
   const [user, setUser] = useState("admin");
-  const [passMode, setPassMode] = useState<"file" | "one">("file");
+  const [passMode, setPassMode] = useState<"file" | "one" | "loot">("file");
   const [passFile, setPassFile] = useState("found.txt");
   const [password, setPassword] = useState("");
+  useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
+  const savedUsers = lootLines("user");
+  const savedPasses = lootLines("pass");
   const [path, setPath] = useState("/login.php");
   const [basicPath, setBasicPath] = useState("/");
   const [userField, setUserField] = useState("username");
@@ -1286,8 +1301,8 @@ function HydraBuilder() {
   const svc = HYDRA_SERVICES.find((s) => s.id === serviceId) ?? HYDRA_SERVICES[0];
   const host = cleanTarget(target);
   const portOk = port.trim() === "" || (Number(port) >= 1 && Number(port) <= 65535 && /^\d+$/.test(port.trim()));
-  const userValue = userMode === "file" ? cleanPath(user) : cleanUser(user);
-  const passPath = cleanPath(passFile);
+  const userValue = userMode === "loot" ? (savedUsers.length ? "loot-users.txt" : "") : userMode === "file" ? cleanPath(user) : cleanUser(user);
+  const passPath = passMode === "loot" ? (savedPasses.length ? "loot-passwords.txt" : "") : cleanPath(passFile);
   const passOne = cleanLoose(password);
   const rockyou = /rockyou/i.test(passFile) || /rockyou/i.test(password);
   const formPath = path.trim();
@@ -1306,17 +1321,17 @@ function HydraBuilder() {
     basicOk &&
     (!svc.form || (fieldOk && extraOk && markerClean.length > 0)) &&
     (!svc.user || Boolean(userValue)) &&
-    (passMode === "file" ? Boolean(passPath) : passOne.length > 0);
+    (passMode === "one" ? passOne.length > 0 : Boolean(passPath));
 
   let command = "";
   const args: string[] = [];
   let quickArgs: string[] = [];
   if (ready) {
     const tail: string[] = [];
-    if (svc.user && userMode === "file" && passMode === "file") tail.push("-u");
-    if (svc.user) tail.push(userMode === "file" ? "-L" : "-l", userValue);
-    if (passMode === "file") tail.push("-P", passPath);
-    else tail.push("-p", passOne);
+    if (svc.user && (userMode === "file" || userMode === "loot") && passMode !== "one") tail.push("-u");
+    if (svc.user) tail.push(userMode === "one" ? "-l" : "-L", userValue);
+    if (passMode === "one") tail.push("-p", passOne);
+    else tail.push("-P", passMode === "loot" ? "loot-passwords.txt" : passPath);
     if (port.trim() && port.trim() !== svc.port) tail.push("-s", port.trim());
     tail.push(host, svc.module);
     if (svc.path) tail.push(basicPath.trim());
@@ -1364,7 +1379,7 @@ function HydraBuilder() {
           ? "-t 1 is one login at a time. -f stops at the first password that works. -l is one user, -L is a file, -P is the password file. http-post-form takes the path, then the body, then the text that decides success. ^USER^ and ^PASS^ are replaced by hydra. A colon inside the failure text would split the argument, so it is left out. S= means the text appears on success. Without S=, hydra treats a missing string as success."
           : "-t is how many logins run at once. 1 avoids a lockout. -f stops at the first valid pair. -F keeps going until every listed user has a password. -V prints each attempt. -I ignores a restore file from a crashed run. -e n is a blank password, s is the username, r is the username reversed. -S wraps the service in TLS. -w is the wait for a reply. -o writes hits. -m is a module option. -l is one name, -L a file, -p one password, -P a file. -u, when both sides are files, tries every user with one password before the next."
       }
-      note={(userMode === "file" && passMode === "file" ? "Both lists are files, so -u is on. " : "") + blocked}
+      note={((userMode === "file" || userMode === "loot") && passMode !== "one" ? "Both lists are files, so -u is on. " : "") + blocked}
       stop={Boolean(svc.stop) || rockyou || viewstate}
       then="Log in once with the pair, by hand. Then try that password on SSH, SMB, or WinRM. Hydra is finished."
       footer={
@@ -1373,6 +1388,10 @@ function HydraBuilder() {
           quickArgs={quickArgs}
           disabled={!ready || Boolean(svc.stop)}
           onFlags={(_text, extraFlags) => setExtraArgs(extraFlags)}
+          lists={{
+            ...(userMode === "loot" ? { users: savedUsers.join("\n") } : {}),
+            ...(passMode === "loot" ? { passwords: savedPasses.join("\n") } : {}),
+          }}
         />
       }
     >
@@ -1433,24 +1452,31 @@ function HydraBuilder() {
           <select className={control} value={userMode} onChange={(e) => setUserMode(e.target.value as typeof userMode)}>
             <option value="one">One username</option>
             <option value="file">Username file</option>
+            <option value="loot">All saved users ({savedUsers.length})</option>
           </select>
         </Field>
       ) : null}
-      {svc.user ? (
+      {svc.user && userMode !== "loot" ? (
         <Field label={userMode === "file" ? "Username file" : "Username"}>
           <input className={control} value={user} onChange={(e) => setUser(e.target.value)} />
         </Field>
+      ) : null}
+      {svc.user && userMode === "loot" ? (
+        <p className="text-sm text-muted sm:col-span-2">{savedUsers.length ? `${savedUsers.length} saved users are written to loot-users.txt when you run.` : "No users are saved in loot yet."}</p>
       ) : null}
       <Field label="Password">
         <select className={control} value={passMode} onChange={(e) => setPassMode(e.target.value as typeof passMode)}>
           <option value="file">Password file</option>
           <option value="one">One password</option>
+          <option value="loot">All saved passwords ({savedPasses.length})</option>
         </select>
       </Field>
       {passMode === "file" ? (
         <Field label="Password file">
           <input className={control} value={passFile} onChange={(e) => setPassFile(e.target.value)} />
         </Field>
+      ) : passMode === "loot" ? (
+        <p className="text-sm text-muted sm:col-span-2">{savedPasses.length ? `${savedPasses.length} saved passwords are written to loot-passwords.txt when you run. A key password is included. A hash is not.` : "No passwords are saved in loot yet."}</p>
       ) : (
         <Field label="Password">
           <input className={control} value={password} onChange={(e) => setPassword(e.target.value)} />

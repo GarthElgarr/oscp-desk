@@ -38,6 +38,7 @@ function loadDone(): Set<string> {
 export function MethodDesk() {
   const [query, setQuery] = useState("");
   const [section, setSection] = useState<string>("Exam");
+  const [lootFocus, setLootFocus] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState<string | null>(null);
@@ -285,10 +286,10 @@ export function MethodDesk() {
 
         <main className="flex min-w-0 flex-col gap-4">
           {showTransfer ? <UploadsPanel /> : null}
-          {showLoot ? <LootCard /> : null}
+          {showLoot ? <LootCard focusId={lootFocus} /> : null}
           {showPenelope ? <PenelopeCard /> : null}
           {showWinrm ? <WinrmCard /> : null}
-          {section === "Notes" ? <NotesPanel /> : null}
+          {section === "Notes" ? <NotesPanel onOpenLoot={(id) => { setLootFocus(id); setSection("Loot"); }} /> : null}
           {section === "Runs" ? (
             <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
               <div className="border-b border-border px-4 py-3">

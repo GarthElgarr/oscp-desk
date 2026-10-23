@@ -154,6 +154,23 @@ export function lootLabel(kind: LootKind): string {
   return LOOT_KINDS.find((item) => item.id === kind)?.label ?? kind;
 }
 
+/** Every saved username, password, or hash of one type. Duplicates are dropped. */
+export function lootLines(kind: "user" | "pass" | LootKind): string[] {
+  const rows = getLoot();
+  const found = new Set<string>();
+  if (kind === "user") {
+    for (const item of rows) if (item.user) found.add(item.user);
+  } else if (kind === "pass") {
+    for (const item of rows) {
+      if (item.kind === "pass" && item.secret) found.add(item.secret);
+      if (item.kind === "sshkey" && item.pass) found.add(item.pass);
+    }
+  } else {
+    for (const item of rows) if (item.kind === kind && item.secret && item.kind !== "sshkey") found.add(item.secret);
+  }
+  return [...found];
+}
+
 export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[]; pass?: string; locked?: boolean }): { error: string } | null {
   let user = input.user.trim();
   let secret = input.kind === "user" ? "" : input.secret.replace(/\r\n/g, "\n").trim();

@@ -1,7 +1,7 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
-import { addLoot, getLoot, getLootServer, lootLabel, LOOT_KINDS, removeLoot, setLootLocked, setLootPass, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
+import { addLoot, getLoot, getLootServer, lootLabel, lootLines, LOOT_KINDS, removeLoot, setLootLocked, setLootPass, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
 import { launchJob } from "@/lib/live-jobs";
 import { getNotes, getNotesServer, subscribeNotes } from "@/lib/notes";
 
@@ -98,9 +98,25 @@ function SshCrack({ item }: { item: LootItem }) {
   );
 }
 
-export function LootCard() {
+function ListRow({ label, lines, copyId, copied, onCopy }: { label: string; lines: string[]; copyId: string; copied: string; onCopy: (id: string, text: string) => void }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-sm text-fg">
+        {label} <span className="text-muted">({lines.length})</span>
+      </p>
+      <button type="button" disabled={lines.length === 0} onClick={() => onCopy(copyId, lines.join("\n"))} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40">
+        <Copy className="size-3.5" aria-hidden="true" />
+        {copied === copyId ? "Copied" : "Copy list"}
+      </button>
+    </div>
+  );
+}
+
+export function LootCard({ focusId = "" }: { focusId?: string }) {
   const items = useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
   const notes = useSyncExternalStore(subscribeNotes, getNotes, getNotesServer);
+  const users = lootLines("user");
+  const passwords = lootLines("pass");
   const [user, setUser] = useState("");
   const [secret, setSecret] = useState("");
   const [kind, setKind] = useState<LootKind>("pass");
@@ -124,6 +140,11 @@ export function LootCard() {
     setWhere("");
   }
 
+  useEffect(() => {
+    if (!focusId) return;
+    document.getElementById(`loot-item-${focusId}`)?.scrollIntoView({ block: "center" });
+  }, [focusId]);
+
   async function copy(id: string, text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -140,8 +161,21 @@ export function LootCard() {
         <p className="font-mono text-xs text-primary">Loot</p>
         <h2 className="text-lg font-semibold">Users, passwords, hashes</h2>
         <p className="mt-1 text-sm text-muted">
-          Write it down once. A box in Notes can be where you found it, or a host it might still work on. An SSH key can have a password. Leave that empty when ssh does not ask. evil-winrm, Impacket, nxc, and Hydra only offer the kinds they can use. Reset desk does not delete this list.
+          Write it down once. A box in Notes can be where you found it, or a host it might still work on. Open on a note jumps to that item, including a private key. Hydra can try every saved user and every saved password. Hashcat can take every hash of one type. Reset desk does not delete this list.
         </p>
+      </div>
+      <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
+        <p className="font-mono text-xs tracking-wide text-muted">SAVED LISTS</p>
+        <ListRow label="Users" lines={users} copyId="list-users" copied={copied} onCopy={copy} />
+        <ListRow label="Passwords" lines={passwords} copyId="list-passes" copied={copied} onCopy={copy} />
+        {LOOT_KINDS.filter((item) => item.id !== "user" && item.id !== "pass" && item.id !== "sshkey").map((item) => {
+          const lines = lootLines(item.id);
+          if (lines.length === 0) return null;
+          return <ListRow key={item.id} label={item.label} lines={lines} copyId={`list-${item.id}`} copied={copied} onCopy={copy} />;
+        })}
+        {items.some((item) => item.kind === "sshkey") ? (
+          <p className="text-sm text-muted">{items.filter((item) => item.kind === "sshkey").length} private keys. Open the entry below to see the key. A key password is in the password list. The key itself is not.</p>
+        ) : null}
       </div>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
@@ -208,7 +242,7 @@ export function LootCard() {
         </button>
         {items.length === 0 ? <p className="text-sm text-muted">Nothing saved yet.</p> : null}
         {items.map((item) => (
-          <div key={item.id} className="rounded-lg bg-bg px-3 py-3">
+          <div key={item.id} id={`loot-item-${item.id}`} className={"rounded-lg bg-bg px-3 py-3" + (focusId === item.id ? " ring-2 ring-primary" : "")}>
             <p className="text-sm font-semibold">{item.user || "No user"} · {lootLabel(item.kind)}</p>
             {item.kind === "sshkey" ? (
               <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-muted">{item.secret}</pre>

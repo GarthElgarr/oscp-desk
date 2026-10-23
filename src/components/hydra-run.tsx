@@ -86,11 +86,13 @@ export function HydraRun({
   quickArgs,
   disabled,
   onFlags,
+  lists,
 }: {
   args: string[];
   quickArgs: string[];
   disabled: boolean;
   onFlags: (flags: string, extra: string[]) => void;
+  lists?: { users?: string; passwords?: string };
 }) {
   return (
     <ToolRun
@@ -99,9 +101,9 @@ export function HydraRun({
       disabled={disabled || args.length === 0}
       placeholder="-V -I"
       onFlags={(extra) => onFlags("", extra)}
-      buildBody={(extra) => ({ args: [...args, ...extra] })}
-      buildQuick={() => ({ args: quickArgs })}
-      quickHint="Quick run is -t 1 -f -I -V plus the host and the list. It skips the optional flags."
+      buildBody={(extra) => ({ args: [...args, ...extra], lists })}
+      buildQuick={() => ({ args: quickArgs, lists })}
+      quickHint="Quick run is -t 1 -f -I -V plus the host and the list. It skips the optional flags. Saved loot lists are written again for that run."
     />
   );
 }

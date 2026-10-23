@@ -1,10 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { KeyRound } from "lucide-react";
 import { linkLoot, lootLabel, getLoot, getLootServer, subscribeLoot, unlinkBox, unlinkLoot } from "@/lib/loot";
 import { addNote, clearNotes, getNotes, getNotesServer, removeNote, subscribeNotes, updateNote } from "@/lib/notes";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
-export function NotesPanel() {
+export function NotesPanel({ onOpenLoot }: { onOpenLoot?: (id: string) => void }) {
   const notes = useSyncExternalStore(subscribeNotes, getNotes, getNotesServer);
   const loot = useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -85,9 +86,15 @@ export function NotesPanel() {
                       {(item.user || "no user") + " · " + lootLabel(item.kind)}
                       {item.note ? ` · ${item.note}` : ""}
                     </p>
-                    <button type="button" onClick={() => unlinkLoot(item.id, note.id)} className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted">
-                      Unlink
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => onOpenLoot?.(item.id)} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-border px-3 text-sm text-fg">
+                        <KeyRound className="size-3.5" aria-hidden="true" />
+                        Open
+                      </button>
+                      <button type="button" onClick={() => unlinkLoot(item.id, note.id)} className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted">
+                        Unlink
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {rest.length > 0 ? (
