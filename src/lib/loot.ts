@@ -37,8 +37,10 @@ export type LootItem = {
   kind: LootKind;
   note: string;
   boxes: string[];
-  /** Passphrase for an SSH private key. Empty when the key does not ask. */
+  /** Passphrase for an SSH private key. Empty when the key does not ask, or when you still have to crack it. */
   pass: string;
+  /** The key asks for a password. */
+  locked: boolean;
 };
 
 const KEY = "oscp-loot-v1";
@@ -77,6 +79,7 @@ function normalise(value: LootItem & { kind?: unknown }): LootItem {
     note: typeof value.note === "string" ? value.note : "",
     boxes,
     pass: typeof value.pass === "string" ? value.pass : "",
+    locked: value.locked === true,
   };
 }
 
@@ -151,10 +154,11 @@ export function lootLabel(kind: LootKind): string {
   return LOOT_KINDS.find((item) => item.id === kind)?.label ?? kind;
 }
 
-export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[]; pass?: string }): { error: string } | null {
+export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[]; pass?: string; locked?: boolean }): { error: string } | null {
   let user = input.user.trim();
   let secret = input.kind === "user" ? "" : input.secret.replace(/\r\n/g, "\n").trim();
   const pass = input.kind === "sshkey" ? (input.pass ?? "").trim() : "";
+  const locked = input.kind === "sshkey" && input.locked === true;
   if (input.kind === "nt" || input.kind === "lm") {
     const split = splitWindowsHash(secret);
     if (split) {
@@ -170,7 +174,7 @@ export function addLoot(input: { user: string; secret: string; kind: LootKind; n
   if (pass.length > 128 || /[\r\n\0]/.test(pass)) return { error: "The key password is one line, or leave it empty." };
   ensure();
   const boxes = (input.boxes ?? []).filter((id) => typeof id === "string").slice(0, 12);
-  save([{ id: `loot-${Date.now().toString(36)}-${seq++}`, user, secret, kind: input.kind, note, boxes, pass }, ...getLoot()]);
+  save([{ id: `loot-${Date.now().toString(36)}-${seq++}`, user, secret, kind: input.kind, note, boxes, pass, locked }, ...getLoot()]);
   return null;
 }
 
@@ -198,4 +202,31 @@ export function unlinkBox(boxId: string) {
 export function sshKeyScript(item: LootItem): string {
   const who = item.user || "<user>";
   return [`cat > id_rsa << 'EOF'`, item.secret.trim(), "EOF", "chmod 600 id_rsa", `ssh -i id_rsa ${who}@<ip>`].join("\n");
+}
+
+export function setLootLocked(id: string, locked: boolean) {
+  ensure();
+  save(getLoot().map((item) => (item.id === id && item.kind === "sshkey" ? { ...item, locked } : item)));
+}
+
+const WORDLIST = /^[A-Za-z0-9_./:@+=,~-]{1,200}$/;
+
+/** ssh2john, then john, then --show. A PuTTY key uses putty2john instead. */
+export function sshCrackSteps(item: LootItem, wordlist: string): { steps: { kind: string; name?: string; text?: string; bin?: string; args?: string[] }[]; command: string } | { error: string } {
+  if (item.kind !== "sshkey" || !item.locked) return { error: "Tick the box when the key asks for a password." };
+  if (item.pass) return { error: "This key already has a password. There is nothing to crack." };
+  const list = wordlist.trim();
+  if (!WORDLIST.test(list) || list.split("/").includes("..")) return { error: "The wordlist is rockyou, found.txt, or one path." };
+  const base = item.id.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 40) || "key";
+  const keyName = `${base}.key`;
+  const hashName = `${base}.hash`;
+  const bin = item.secret.startsWith("PuTTY-User-Key-File-") ? "putty2john" : "ssh2john";
+  const steps = [
+    { kind: "write", name: keyName, text: item.secret },
+    { kind: "exec-to-file", bin, args: [keyName], name: hashName },
+    { kind: "exec", bin: "john", args: [`--wordlist=${list}`, hashName] },
+    { kind: "exec", bin: "john", args: ["--show", hashName] },
+  ];
+  const command = `${bin} ${keyName} > ${hashName}\njohn --wordlist=${list} ${hashName}\njohn --show ${hashName}`;
+  return { steps, command };
 }

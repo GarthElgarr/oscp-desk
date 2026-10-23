@@ -1,6 +1,8 @@
 import { useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
-import { addLoot, getLoot, getLootServer, lootLabel, LOOT_KINDS, removeLoot, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
+import { JobList } from "@/components/job-list";
+import { addLoot, getLoot, getLootServer, lootLabel, LOOT_KINDS, removeLoot, setLootLocked, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
+import { launchJob } from "@/lib/live-jobs";
 import { getNotes, getNotesServer, subscribeNotes } from "@/lib/notes";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -43,6 +45,44 @@ export function LootPick({
   );
 }
 
+function SshCrack({ item }: { item: LootItem }) {
+  const [list, setList] = useState("/usr/share/wordlists/rockyou.txt");
+  const [custom, setCustom] = useState("");
+  const [error, setError] = useState("");
+  const wordlist = list === "custom" ? custom.trim() : list;
+
+  async function crack() {
+    const plan = sshCrackSteps(item, wordlist);
+    if ("error" in plan) {
+      setError(plan.error);
+      return;
+    }
+    setError("");
+    await launchJob("/api/run", { steps: plan.steps }, { tool: "john", title: plan.command.split("\n")[0] ?? "ssh2john", command: plan.command });
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <p className="text-sm text-muted">The key asks for a password you do not have. This writes the key, runs ssh2john, then john, then john --show.</p>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-mono text-xs tracking-wide text-muted">WORDLIST</span>
+        <select className={control} value={list} onChange={(event) => setList(event.target.value)}>
+          <option value="/usr/share/wordlists/rockyou.txt">rockyou</option>
+          <option value="found.txt">found.txt (passwords you already have)</option>
+          <option value="custom">Other path</option>
+        </select>
+      </label>
+      {list === "custom" ? (
+        <input className={control} value={custom} onChange={(event) => setCustom(event.target.value)} placeholder="/usr/share/wordlists/fasttrack.txt" spellCheck={false} />
+      ) : null}
+      {error ? <p className="text-sm text-dead">{error}</p> : null}
+      <button type="button" onClick={() => void crack()} disabled={!wordlist} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
+        Crack with John
+      </button>
+    </div>
+  );
+}
+
 export function LootCard() {
   const items = useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
   const notes = useSyncExternalStore(subscribeNotes, getNotes, getNotesServer);
@@ -51,12 +91,13 @@ export function LootCard() {
   const [kind, setKind] = useState<LootKind>("pass");
   const [where, setWhere] = useState("");
   const [pass, setPass] = useState("");
+  const [locked, setLocked] = useState(false);
   const [boxId, setBoxId] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
 
   function add() {
-    const result = addLoot({ user, secret, kind, note: where, boxes: boxId ? [boxId] : [], pass });
+    const result = addLoot({ user, secret, kind, note: where, boxes: boxId ? [boxId] : [], pass, locked });
     if (result) {
       setError(result.error);
       return;
@@ -64,6 +105,7 @@ export function LootCard() {
     setError("");
     setSecret("");
     setPass("");
+    setLocked(false);
     setWhere("");
   }
 
@@ -115,8 +157,17 @@ export function LootCard() {
         {kind === "sshkey" ? (
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-mono text-xs tracking-wide text-muted">KEY PASSWORD</span>
-            <input className={control} value={pass} onChange={(event) => setPass(event.target.value)} placeholder="Empty if ssh does not ask" spellCheck={false} />
+            <input className={control} value={pass} onChange={(event) => setPass(event.target.value)} placeholder={locked ? "Leave empty to crack it" : "Empty if ssh does not ask"} spellCheck={false} />
           </label>
+        ) : null}
+        {kind === "sshkey" ? (
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={locked} onChange={(event) => setLocked(event.target.checked)} className="size-4" />
+            <span>This key asks for a password</span>
+          </label>
+        ) : null}
+        {kind === "sshkey" && locked ? (
+          <p className="text-sm text-muted sm:col-span-2">If you know the password, type it above. If you do not, leave it empty. After you save, pick a wordlist and John will run ssh2john, then the list, then --show.</p>
         ) : null}
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-mono text-xs tracking-wide text-muted">WHERE</span>
@@ -150,7 +201,9 @@ export function LootCard() {
               <p className="mt-1 break-all font-mono text-xs text-muted">{item.secret}</p>
             ) : null}
             {item.kind === "sshkey" ? (
-              <p className="mt-1 text-xs text-muted">{item.pass ? `Key password: ${item.pass}` : "No key password. ssh should not ask."}</p>
+              <p className="mt-1 text-xs text-muted">
+                {item.pass ? `Key password: ${item.pass}` : item.locked ? "Key asks for a password. It is not saved yet." : "No key password. ssh should not ask."}
+              </p>
             ) : null}
             <p className="mt-1 text-xs text-muted">
               {item.note ? item.note : "No place written down"}
@@ -162,6 +215,12 @@ export function LootCard() {
                   <Copy className="size-3.5" aria-hidden="true" />
                   {copied === item.id ? "Copied" : item.kind === "sshkey" ? "Copy ssh lines" : "Copy"}
                 </button>
+              ) : null}
+              {item.kind === "sshkey" ? (
+                <label className="inline-flex min-h-11 items-center gap-2 text-sm text-muted">
+                  <input type="checkbox" checked={item.locked} onChange={(event) => setLootLocked(item.id, event.target.checked)} className="size-4" />
+                  Asks for a password
+                </label>
               ) : null}
               {item.kind === "sshkey" && item.pass ? (
                 <button type="button" onClick={() => void copy(`${item.id}-pass`, item.pass)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted">
@@ -177,8 +236,10 @@ export function LootCard() {
                 Delete
               </button>
             </div>
+            {item.kind === "sshkey" && item.locked && !item.pass ? <SshCrack item={item} /> : null}
           </div>
         ))}
+        {items.some((item) => item.kind === "sshkey" && item.locked) ? <JobList tool="john" empty="John has not been started from here." /> : null}
       </div>
     </article>
   );
