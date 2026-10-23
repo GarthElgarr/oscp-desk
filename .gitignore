@@ -9,4 +9,6 @@ dist
 .env.*
 uploads/*
 !uploads/README.txt
+scans/*
+!scans/README.txt
 .DS_Store

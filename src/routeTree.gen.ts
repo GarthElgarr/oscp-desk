@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
+import { Route as ApiNmapRouteImport } from './routes/api/nmap'
 import { Route as ApiRunRouteImport } from './routes/api/run'
+import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
 import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
@@ -32,9 +34,19 @@ const ApiInstallRoute = ApiInstallRouteImport.update({
   path: '/api/install',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNmapRoute = ApiNmapRouteImport.update({
+  id: '/api/nmap',
+  path: '/api/nmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRunRoute = ApiRunRouteImport.update({
   id: '/api/run',
   path: '/api/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSearchsploitRoute = ApiSearchsploitRouteImport.update({
+  id: '/api/searchsploit',
+  path: '/api/searchsploit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiUdpRoute = ApiUdpRouteImport.update({
@@ -57,7 +69,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
+  '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -66,7 +80,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
+  '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -76,7 +92,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
+  '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
@@ -87,7 +105,9 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/nmap'
     | '/api/run'
+    | '/api/searchsploit'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -96,7 +116,9 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/nmap'
     | '/api/run'
+    | '/api/searchsploit'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -105,7 +127,9 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/nmap'
     | '/api/run'
+    | '/api/searchsploit'
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
@@ -115,7 +139,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHydraRoute: typeof ApiHydraRoute
   ApiInstallRoute: typeof ApiInstallRoute
+  ApiNmapRoute: typeof ApiNmapRoute
   ApiRunRoute: typeof ApiRunRoute
+  ApiSearchsploitRoute: typeof ApiSearchsploitRoute
   ApiUdpRoute: typeof ApiUdpRoute
   ApiWfuzzRoute: typeof ApiWfuzzRoute
   FilesSplatRoute: typeof FilesSplatRoute
@@ -144,11 +170,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInstallRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/nmap': {
+      id: '/api/nmap'
+      path: '/api/nmap'
+      fullPath: '/api/nmap'
+      preLoaderRoute: typeof ApiNmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/run': {
       id: '/api/run'
       path: '/api/run'
       fullPath: '/api/run'
       preLoaderRoute: typeof ApiRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/searchsploit': {
+      id: '/api/searchsploit'
+      path: '/api/searchsploit'
+      fullPath: '/api/searchsploit'
+      preLoaderRoute: typeof ApiSearchsploitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/udp': {
@@ -179,7 +219,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHydraRoute: ApiHydraRoute,
   ApiInstallRoute: ApiInstallRoute,
+  ApiNmapRoute: ApiNmapRoute,
   ApiRunRoute: ApiRunRoute,
+  ApiSearchsploitRoute: ApiSearchsploitRoute,
   ApiUdpRoute: ApiUdpRoute,
   ApiWfuzzRoute: ApiWfuzzRoute,
   FilesSplatRoute: FilesSplatRoute,

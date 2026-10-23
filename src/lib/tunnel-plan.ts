@@ -187,20 +187,20 @@ function chiselPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   const steps: Step[] = [
     {
       side: "Kali",
-      title: "Start the listener, and leave it running",
-      why: "The pivot dials in. Nothing is listening yet if you start the client first, and the error is connection refused, which is not a bad binary. --reverse means the port you will use is created on Kali. This window stays open for as long as the tunnel should live.",
+      title: "On Kali, start the listener and leave that window open",
+      why: `Open a terminal on Kali and leave it in the foreground. chisel server binds port ${listen.value} on Kali. That is the port the pivot will dial, not a port on the pivot. --reverse is required. Without it the server refuses the R: lines, so the client connects and then nothing is forwarded. You should see the process waiting, not exiting. If the port is already taken, it dies immediately and the later client gets connection refused. Do not close this window when you move to the pivot. Closing it removes the tunnel.`,
       cmd: `chisel server -p ${listen.value} --reverse`,
     },
     {
       side: "Kali",
-      title: "Confirm the release binary, then serve it",
-      why: `file must say ELF for a Linux pivot or PE32+ for 64-bit Windows. A file of a few hundred bytes, or one that starts with <html, is the download page. Serve ${binary} from this port only after file looks right. Do not upload the source tree.`,
+      title: "On Kali, check the binary, then serve it",
+      why: `Open a second terminal on Kali, in the directory that contains the release file named ${binary}. file is the check before anyone downloads it. ELF 64-bit means a Linux pivot. PE32+ executable (console) x86-64 means 64-bit Windows. HTML, ASCII text, or a file of a few hundred bytes is the GitHub page saved under the tool's name. Download the release asset again. python3 -m http.server then listens on port ${filePort} on Kali, and a log line later is the proof the pivot connected. Serve only this directory. The source tree is not a working client.`,
       cmd: `file ${binary}\npython3 -m http.server ${filePort}`,
     },
     {
       side: "Pivot",
-      title: "Prove the pivot can reach that Kali address",
-      why: "The client uses the same path as this request. Three seconds is the limit. A hang means the pivot has no route to your VPN address, and uploading Chisel again will hang the same way. Stop. A callback then has to land on this pivot, not on Kali.",
+      title: "On the pivot, prove it can reach that Kali address",
+      why: "Run this in the shell you already have on the pivot. The URL is your VPN address and the file-server port from the previous step. -m 3 gives up after three seconds, so a missing route cannot sit there. Success is quiet, because the body is discarded. Timeout or 'couldn't connect' means the pivot has no route to that Kali IP, and the upload will fail the same way. Stop. A tiny successful download can still be the HTML page, so the file check on Kali still matters.",
       cmd: probe,
     },
   ];
@@ -208,8 +208,8 @@ function chiselPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   if (loopback) {
     steps.push({
       side: "Pivot",
-      title: "Confirm the service is bound to the victim's loopback",
-      why: "0.0.0.0, or [::], means every interface. You may already have scanned that port from Kali. 127.0.0.1 means this host only, which is why nmap from the VPN never saw it. The port in the next command is the port on this line, not a port you guessed.",
+      title: "On the pivot, confirm the service is on its own 127.0.0.1",
+      why: "Still on the pivot. Read the address in this output, not only the port. 127.0.0.1 means the service accepts connections from this host and nowhere else, which is why nmap across the VPN never saw it. 0.0.0.0 or [::] means every interface, so Kali should already have seen it and this mode is the wrong one. Copy the port from this line into the forward. Guessing 80 or 3306 forwards a closed port, and the tunnel then looks broken when the service was simply on a different number.",
       cmd: findLoop,
     });
   }
@@ -217,20 +217,20 @@ function chiselPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   steps.push(
     {
       side: "Pivot",
-      title: socks ? "Ask Kali for a SOCKS proxy" : loopback ? "Forward the victim's 127.0.0.1" : "Forward one port the pivot can see",
+      title: socks ? "On the pivot, ask Kali for a SOCKS proxy" : loopback ? "On the pivot, forward its own 127.0.0.1" : "On the pivot, forward one port it can see",
       why: socks
-        ? "R:socks opens 127.0.0.1:1080 on Kali. A connection there leaves from the pivot, so you see networks the pivot can already see. You do not get a route, and hosts over there still cannot dial Kali. proxychains to 127.0.0.1 is Kali itself. A service bound only on the victim is the loopback mode, not this one."
+        ? "The first line saves the binary onto the pivot and marks it executable. The second line is the client, and it stays in the foreground. client points at the Chisel port on Kali. R:socks tells that server to open 127.0.0.1:1080 on Kali. Anything you send there is dialed by the pivot, so the far host sees the pivot's address, not yours. You do not get a route, UDP, or a path back to Kali. A service bound only to the victim's 127.0.0.1 is the loopback mode, not this one. When it works, the server window on Kali prints a new session. Connection refused means that window is not running. A hang with no session means the reachability check failed."
         : loopback
-          ? `R:${local.value}:127.0.0.1:${dest.value} is read on the victim. 127.0.0.1 in that command is the victim's loopback. After it connects, Kali's own 127.0.0.1:${local.value} is that same service. Those are two different machines that happen to share an address. SOCKS cannot make this hop.`
-          : `R:${local.value}:${far}:${dest.value} listens on Kali port ${local.value}. The pivot then connects to ${far} port ${dest.value}. That address is from the pivot's view, so it can be the pivot's LAN address or a second host. If the listener was 127.0.0.1, this is the wrong mode: the LAN address will not hit a loopback socket.`,
+          ? `The first line saves the binary onto the pivot. The client then stays in the foreground. R:${local.value}:127.0.0.1:${dest.value} is read on the victim: listen on Kali port ${local.value}, and from the pivot connect to its own 127.0.0.1 port ${dest.value}. 127.0.0.1 in that command is the victim, not Kali. After the session appears, Kali's 127.0.0.1:${local.value} is that service. SOCKS cannot do this hop, because a proxychains connection to 127.0.0.1 never leaves Kali. Connection refused means the server window died. A session with a closed local port means the number you forwarded was not the one ss or netstat showed.`
+          : `The first line saves the binary onto the pivot. The client then stays in the foreground. R:${local.value}:${far}:${dest.value} listens on Kali port ${local.value}, and the pivot connects to ${far} port ${dest.value}. That address is from the pivot's view. It can be another interface on the pivot or a second host only the pivot can see. If that service was bound to 127.0.0.1, this mode will not hit it: use the loopback mode instead. When it works, the Kali server window prints a session. You then use 127.0.0.1:${local.value} on Kali, not ${far}.`,
       cmd: `${fetchCmd}\n${client}`,
     },
     {
       side: "Kali",
-      title: socks ? "Use proxychains, and do not trust a SYN scan" : "Use the port that appeared on Kali",
+      title: socks ? "On Kali, use proxychains, and do not trust a SYN scan" : "On Kali, use the port that appeared on Kali",
       why: socks
-        ? "Tools do not enter the tunnel unless proxychains is in front of them, and the config must end in socks5 127.0.0.1 1080. The default file skips 10/8, 172.16/12, and 192.168/16, which are the exam networks, so the tunnel looks dead while the packets go direct. nmap through SOCKS is -sT. -sS never enters the proxy and reports ports open when they are closed."
-        : `Connect to 127.0.0.1 port ${local.value} on Kali. Do not connect to the pivot's address for this step: the tunnel already did that. curl -sI only makes sense when the service is HTTP. MySQL, SMB, and a debug port need their own client, aimed at that same Kali port. Close the server window when the host is done.`,
+        ? "This is a third window on Kali. A program does not enter the tunnel unless proxychains starts it. In /etc/proxychains4.conf the last uncommented line must be socks5 127.0.0.1 1080. Comment out the localnet lines for 10/8, 172.16/12, and 192.168/16 when the target sits in those ranges. Otherwise the packets go direct, the tunnel looks dead, and you still get an answer from the wrong network. nmap has to be -sT, a full connect. -sS sends raw SYN packets, which never enter a SOCKS proxy, and closed ports come back as open. Point the tool at the internal address, not at 127.0.0.1. 127.0.0.1 here is Kali."
+        : `This is another window on Kali. The service is now on 127.0.0.1 port ${local.value}, which Chisel opened. Point the browser, database client, or nxc at that address. Do not point them at the pivot or at ${far}: the tunnel already made that connection. curl -sI is only a test when the far port is HTTP. SMB, MySQL, and a debug port need their own client against the same Kali port. A connection refused on this port means the client on the pivot is not running, or the far port was closed. Ctrl-C the server window when you are finished with the host.`,
       cmd: use,
     },
   );
@@ -297,44 +297,44 @@ function ligoloPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   const steps: Step[] = [
     {
       side: "Kali",
-      title: "Create the tun device once per boot",
-      why: "Ligolo moves packets through an interface named ligolo, owned by you. If the add says file exists, the interface is already there. Do not add a second one, and do not delete it just because a scan failed. Leave it up.",
+      title: "On Kali, create the tun device once per boot",
+      why: "Run both lines on Kali, before the proxy, in a normal shell. The first creates a tun interface named ligolo and gives it to your user, so the proxy does not need to stay root. The second turns that interface on. If the add says file exists, an earlier attempt already created it. Leave it. Do not add a second interface, and do not delete it because a scan failed. ip link should then show ligolo, state UP. The interface alone does not route anything. That happens after start.",
       cmd: "sudo ip tuntap add user $USER mode tun ligolo\nsudo ip link set ligolo up",
     },
     {
       side: "Kali",
-      title: "Start the proxy before the agent",
-      why: "The agent dials this port. -selfcert makes the certificate so you do not bring one, and -ignore-cert on the agent is what accepts it. Leave this window open. session and start are typed here, not in a shell. Starting the agent first produces connection refused.",
+      title: "On Kali, start the proxy before the agent",
+      why: `Run this on Kali and leave the window in the foreground. It listens on port ${proxy.value} on every interface, which is the port the agent on the pivot will dial. -selfcert writes a certificate for this run so you do not have to bring one. The agent will pass -ignore-cert to accept it. You should see the proxy waiting for a session. If the port is in use, it exits at once and the agent later gets connection refused. session and start are typed in this same window, later. They are not shell commands. Starting the agent before this window is up produces connection refused, which is the order, not a bad binary.`,
       cmd: `./proxy -selfcert -laddr 0.0.0.0:${proxy.value}`,
     },
     {
       side: "Kali",
-      title: "Confirm the agent binary, then serve it",
-      why: "file must say ELF or PE, and the size must match the release you downloaded. The GitHub HTML page is a few hundred bytes and is not an agent. Match the pivot: Linux gets the ELF, 64-bit Windows gets the 64-bit exe.",
+      title: "On Kali, check the agent, then serve it",
+      why: `Open another terminal on Kali, in the directory that contains the release file named ${binary}. file must say ELF for a Linux pivot or PE32+ for 64-bit Windows, and the size must match the release you downloaded. A few hundred bytes, or HTML, is the GitHub page. python3 -m http.server then listens on port ${filePort} on Kali. That port is only the download. It is not the proxy port, and the agent does not speak HTTP to it after the file is saved. A log line is the proof the pivot reached it.`,
       cmd: `file ${binary}\npython3 -m http.server ${filePort}`,
     },
     {
       side: "Pivot",
-      title: "Prove the pivot can reach that Kali address",
-      why: "The agent uses the same path as this request. A hang means it will hang too. Do not keep re-uploading it. A host that cannot see Kali has to connect to this pivot instead, which is the callback step.",
+      title: "On the pivot, prove it can reach that Kali address",
+      why: "Run this in the shell you already have on the pivot. The URL is your VPN address and the file-server port, not the proxy port. -m 3 gives up after three seconds. Success is quiet. Timeout or 'couldn't connect' means the agent will hang too, so do not upload it yet. A host that cannot see Kali cannot run this agent. That host has to connect to the pivot instead, which is the callback step at the end.",
       cmd: probe,
     },
     {
       side: "Pivot",
-      title: "The agent joins. It does not scan anything",
-      why: "-connect is the proxy you just started. -ignore-cert accepts the certificate from -selfcert. The process sitting here is only a session. It does not add a route, and it does not open the subnet or the victim's loopback.",
+      title: "On the pivot, run the agent and leave it there",
+      why: `The first line saves the agent onto the pivot. The second line connects it to ${kali} port ${proxy.value}, which is the proxy you started on Kali, and -ignore-cert accepts the certificate from -selfcert. Leave this process in the foreground. It is only a session. It does not add a route, and it does not open the subnet or the victim's 127.0.0.1. Those are the next steps, back on Kali. When it works, the proxy window prints that an agent joined. Connection refused means the proxy is not running. A hang means the reachability check failed and this hop cannot see Kali.`,
       cmd: fetchCmd,
     },
     {
       side: "Proxy",
-      title: "Select the session, then start",
-      why: "Both words are typed in the proxy window. start is what builds the tunnel. A route added before this line points at an interface that is not carrying packets yet, which looks exactly like a dead subnet. If start says the interface is already in use, you already have a tunnel on it.",
+      title: "In the proxy window on Kali, select the session, then start",
+      why: "Go back to the proxy window on Kali. Do not type these in the pivot shell, and do not open a new terminal. session lists the agents and selects one. start is what attaches that session to the ligolo interface and starts carrying packets. You should see it bind the tunnel to the interface. If it says the interface is already in use, a tunnel is already on it from this session or an old one. A route you add before start points at an interface with no packets, which looks exactly like a dead subnet. Add the route only after this line succeeds.",
       cmd: "session\nstart",
     },
     {
       side: "Kali",
-      title: "Route the subnet after start",
-      why: `This sends ${subnet} into the tun device. It is the network you saw on the pivot's ip a or ipconfig, not your VPN range and not 127.0.0.0/8. After the route, nmap and nxc are ordinary commands. Ligolo does not read proxychains4.conf. Delete the route when the subnet is finished, and leave the tun device.`,
+      title: "On Kali, route the subnet only after start",
+      why: `In a normal Kali shell, after start. ip route add sends ${subnet} into the ligolo interface. That range is the one you saw on the pivot with ip a or ipconfig, not your tun0 range and not 127.0.0.0/8. After the route, nmap and nxc run as ordinary commands on Kali. You do not put proxychains in front of them, and Ligolo does not read proxychains4.conf. A timeout here means the route was added before start, the subnet is wrong, or the agent window died. Delete the route when you are finished with the subnet. Leave the tun device in place.`,
       cmd: `sudo ip route add ${subnet} dev ligolo\nnmap -Pn -sC -sV -p 22,80,445,3389,5985 ${host}\n# when finished\nsudo ip route del ${subnet}`,
     },
   ];
@@ -342,8 +342,8 @@ function ligoloPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   if (input.loopback) {
     steps.push({
       side: "Kali",
-      title: "Their loopback is 240.0.0.1",
-      why: `Ligolo treats 240.0.0.1 as the agent's 127.0.0.1. Add this route after start, same as the subnet. Your tools then use 240.0.0.1, never 127.0.0.1, because 127.0.0.1 on Kali is Kali. Do not route 127.0.0.0/8 into the tun device or Kali loses its own loopback. Port ${loopPort} is the port ss or netstat showed bound to 127.0.0.1 on the victim.`,
+      title: "On Kali, reach the victim's 127.0.0.1 as 240.0.0.1",
+      why: `Also on Kali, after start, in the same kind of shell as the subnet route. Ligolo reserves 240.0.0.1 to mean the agent's own 127.0.0.1. Your tools use 240.0.0.1 and port ${loopPort}. They must not use 127.0.0.1, because 127.0.0.1 on Kali is Kali. Do not route 127.0.0.0/8 into the tun device. That black-holes Kali's own loopback, including the proxy and your shells. Port ${loopPort} is the port ss or netstat showed bound to 127.0.0.1 on the victim. nmap -sT is enough for one port. curl -sI is only useful when that port is HTTP.`,
       cmd: `sudo ip route add 240.0.0.1/32 dev ligolo\nnmap -Pn -sT -p ${loopPort} 240.0.0.1\n# HTTP only:\ncurl -sI http://240.0.0.1:${loopPort}/`,
     });
   }
@@ -351,8 +351,8 @@ function ligoloPlan(input: TunnelInput, kali: string, pivot: string, filePort: s
   if (input.callback) {
     steps.push({
       side: "Proxy",
-      title: "Open a port on the pivot for a callback",
-      why: `The route lets you reach them. It does not let them reach Kali. This opens ${callback.value} on the pivot and carries it to Penelope on Kali port ${penelope.value}. The payload LHOST is ${pivot}, not ${kali}, and not 127.0.0.1. If the pivot already serves something on ${callback.value}, pick another port on both sides. Type this in the proxy window, after start.`,
+      title: "In the proxy window, open a callback port on the pivot",
+      why: `Type this in the proxy window on Kali, after start. The route lets you reach the far subnet. It does not let those hosts reach your VPN address, so a payload aimed at Kali will time out. listener_add opens port ${callback.value} on the pivot, on every interface, and forwards it to 127.0.0.1 port ${penelope.value} on Kali, where Penelope is already listening. The payload's LHOST is ${pivot}, the pivot, and LPORT is ${callback.value}. It is not ${kali} and it is not 127.0.0.1. listener_list should show the listener. If the pivot already serves something on ${callback.value}, the add fails or steals a real service. Pick another port on both sides.`,
       cmd: `listener_add --addr 0.0.0.0:${callback.value} --to 127.0.0.1:${penelope.value} --tcp\nlistener_list`,
     });
   }

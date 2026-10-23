@@ -12,6 +12,7 @@ import { UploadsPanel } from "@/components/uploads-panel";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
 import { CoverImage } from "@/components/cover-image";
+import { NmapReports } from "@/components/nmap-reports";
 
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
@@ -71,7 +72,7 @@ export function MethodDesk() {
     const q = query.trim().toLowerCase();
     return TECHNIQUES.filter((t) => {
       if (!q) {
-        if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes") return false;
+        if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes" || section === "Nmap") return false;
         if (section !== "All" && t.section !== section) return false;
       }
       if (openOnly && done.has(t.id)) return false;
@@ -230,6 +231,12 @@ export function MethodDesk() {
             onClick={() => setSection("Uploads")}
           />
           <SectionButton
+            label="Nmap"
+            count={0}
+            active={section === "Nmap"}
+            onClick={() => setSection("Nmap")}
+          />
+          <SectionButton
             label="Scripts"
             count={LAB_SCRIPTS.length}
             active={section === "Scripts"}
@@ -246,6 +253,7 @@ export function MethodDesk() {
         <main className="flex min-w-0 flex-col gap-4">
           {section === "Uploads" ? <UploadsPanel /> : null}
           {section === "Notes" ? <NotesPanel /> : null}
+          {section === "Nmap" ? <NmapReports withSearch /> : null}
           {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} /> : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}

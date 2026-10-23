@@ -1,21 +1,6 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { INSTALL_PACKAGES, INSTALL_TOOL_LABELS, manualInstallCommand } from "./install-tools";
-
-const PROBES = [
-  "hydra",
-  "hashcat",
-  "john",
-  "msfvenom",
-  "nxc",
-  "nmap",
-  "smbclient",
-  "socat",
-  "proxychains4",
-  "chisel",
-  "searchsploit",
-  "wfuzz",
-] as const;
+import { existsSync, readFileSync } from "node:fs";
+import { INSTALL_PACKAGES, INSTALL_TOOL_LABELS, TOOL_CHECKS, manualInstallCommand, type InstallSummary } from "./install-tools";
 
 const MAX_OUT = 500_000;
 const TIMEOUT_MS = 20 * 60 * 1000;
@@ -127,6 +112,12 @@ export function installRequirementsStream(signal: AbortSignal): ReadableStream<U
           child.on("close", (code) => finish(code));
         });
 
+      let reported = false;
+      const report = (summary: InstallSummary) => {
+        if (reported) return;
+        reported = true;
+        push(`@@STATUS ${JSON.stringify(summary)}@@\n`);
+      };
       try {
         if (!onKali()) {
           push(
@@ -137,6 +128,11 @@ export function installRequirementsStream(signal: AbortSignal): ReadableStream<U
               manualInstallCommand() +
               "\n",
           );
+          report({
+            verdict: "fail",
+            title: "This machine is not Kali, so nothing was installed.",
+            outstanding: [],
+          });
           return;
         }
         push(`Tools: ${INSTALL_TOOL_LABELS.join(", ")}\n`);
@@ -149,12 +145,14 @@ export function installRequirementsStream(signal: AbortSignal): ReadableStream<U
           const result = await run(step);
           child = null;
           if (result.missing) {
-            push(
+            const title =
               step.bin === "sudo"
-                ? "sudo was not found, and this process is not root.\n"
-                : "apt-get was not found. Run the desk on Kali.\n",
-            );
+                ? "sudo was not found, and this process is not root."
+                : "apt-get was not found. Run the desk on Kali.";
+            push(title + "\n");
             push(manualInstallCommand() + "\n");
+            report({ verdict: "fail", title, outstanding: [] });
+            blocked = true;
             break;
           }
           const needsPassword = /password is required|a terminal is required|no tty present/i.test(result.text);
@@ -165,23 +163,54 @@ export function installRequirementsStream(signal: AbortSignal): ReadableStream<U
                 manualInstallCommand() +
                 "\n",
             );
+            report({
+              verdict: "fail",
+              title: "sudo wants a password, so the install did not run.",
+              outstanding: [],
+            });
             break;
           }
           push(`[exit ${result.code ?? "unknown"}]\n\n`);
         }
         if (!killed && !blocked) {
           push("Checking the tools the desk runs:\n");
-          for (const bin of PROBES) {
+          const missing: string[] = [];
+          const present: string[] = [];
+          for (const check of TOOL_CHECKS) {
             if (killed) break;
-            const probe = await run({ bin, args: ["--version"] }, true);
+            const ok =
+              "file" in check
+                ? existsSync(check.file)
+                : !(await run({ bin: check.bin, args: ["--version"] }, true)).missing;
             child = null;
-            push(`${bin}: ${probe.missing ? "missing" : "present"}\n`);
+            push(`${check.label}: ${ok ? "present" : "missing"}\n`);
+            (ok ? present : missing).push(check.label);
+          }
+          if (!killed && missing.length === 0) {
+            report({ verdict: "pass", title: "All requirements are satisfied.", outstanding: [] });
+          } else if (!killed && present.length === 0) {
+            report({
+              verdict: "fail",
+              title: "None of the requirements are installed.",
+              outstanding: missing,
+            });
+          } else if (!killed) {
+            report({ verdict: "partial", title: "Some requirements are missing.", outstanding: missing });
           }
         }
       } catch (err) {
-        push(err instanceof Error ? `${err.message}\n` : "The install failed.\n");
+        const title = err instanceof Error ? err.message : "The install failed.";
+        push(title + "\n");
+        report({ verdict: "fail", title, outstanding: [] });
       } finally {
         if (killed) push("[stopped]\n");
+        if (!reported) {
+          report({
+            verdict: "fail",
+            title: killed ? "Stopped before the checks finished." : "The install ended without a result.",
+            outstanding: [],
+          });
+        }
         close();
       }
     },

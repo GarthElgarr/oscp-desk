@@ -1,8 +1,40 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { tunnelPlan, type ChiselMode, type PivotOs, type TunnelGraph, type TunnelTool } from "@/lib/tunnel-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
+
+function Hint({ text }: { text: string }) {
+  return (
+    <span className="group/hint relative inline-flex">
+      <button
+        type="button"
+        className="cursor-help rounded-full border border-border px-1.5 text-[10px] leading-4 text-muted"
+        aria-label={text}
+      >
+        ?
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-6 left-0 z-20 hidden w-64 rounded-lg border border-border bg-raised p-2 text-left font-sans text-xs font-normal normal-case tracking-normal text-fg shadow-lg group-hover/hint:block group-focus-within/hint:block"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <span className="inline-flex items-center gap-2 font-mono text-xs tracking-wide text-muted">
+        {label}
+        <Hint text={hint} />
+      </span>
+      {children}
+    </div>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -171,7 +203,7 @@ export function TunnelBuilder() {
   const all = plan.steps.map((step, index) => `# ${index + 1}. ${step.side}: ${step.title}\n${step.cmd}`).join("\n\n");
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article className="min-w-0 overflow-visible rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Builder</p>
         <h2 className="text-lg font-semibold">Tunnel</h2>
@@ -203,101 +235,94 @@ export function TunnelBuilder() {
       </div>
 
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-mono text-xs tracking-wide text-muted">KALI IP</span>
+        <Field label="KALI IP" hint="Your VPN address, the one the pivot can already reach. This is not 127.0.0.1 and not the internal network you are trying to enter.">
           <input className={control} value={kali} onChange={(e) => setKali(e.target.value)} placeholder="10.10.14.5" inputMode="decimal" spellCheck={false} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-mono text-xs tracking-wide text-muted">PIVOT IP</span>
+        </Field>
+        <Field label="PIVOT IP" hint="The machine you already have a shell on. It can see Kali, and it can see the network you cannot.">
           <input className={control} value={pivot} onChange={(e) => setPivot(e.target.value)} placeholder="10.10.10.20" inputMode="decimal" spellCheck={false} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-mono text-xs tracking-wide text-muted">PIVOT OS</span>
+        </Field>
+        <Field label="PIVOT OS" hint="Chooses the binary and the commands you type on the pivot. Linux gets the ELF. 64-bit Windows gets the exe.">
           <select className={control} value={os} onChange={(e) => setOs(e.target.value as PivotOs)}>
             <option value="linux">Linux</option>
             <option value="windows">Windows</option>
           </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-mono text-xs tracking-wide text-muted">FILE SERVER PORT</span>
+        </Field>
+        <Field label="FILE SERVER ON KALI" hint="python http.server binds this port on Kali. The pivot downloads the binary from http://KALI:this. It is not a port on the pivot, and it must not be the Chisel or Ligolo listen port.">
           <input className={control} value={filePort} onChange={(e) => setFilePort(e.target.value)} inputMode="numeric" spellCheck={false} />
-        </label>
+        </Field>
         {tool === "chisel" ? (
           <>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-mono text-xs tracking-wide text-muted">CHISEL MODE</span>
+            <Field label="CHISEL MODE" hint="SOCKS is a few hosts, and every tool needs proxychains. One port puts a single service onto a localhost port on Kali. Loopback is only for a service bound to 127.0.0.1 on the victim.">
               <select className={control} value={chiselMode} onChange={(e) => setChiselMode(e.target.value as ChiselMode)}>
                 <option value="socks">SOCKS, a few hosts</option>
                 <option value="port">One port the pivot can see</option>
                 <option value="loopback">Victim loopback, 127.0.0.1</option>
               </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-mono text-xs tracking-wide text-muted">CHISEL PORT</span>
+            </Field>
+            <Field label="CHISEL SERVER ON KALI" hint="chisel server listens on this port on Kali. The client on the pivot connects to it. It is not the SOCKS port (1080) and not the file-server port.">
               <input className={control} value={chiselPort} onChange={(e) => setChiselPort(e.target.value)} inputMode="numeric" spellCheck={false} />
-            </label>
+            </Field>
             {chiselMode !== "socks" ? (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-xs tracking-wide text-muted">KALI LOCAL PORT</span>
+              <Field label="LOCAL PORT ON KALI" hint="After the tunnel is up, you connect to 127.0.0.1 on this port on Kali. Chisel created it. The real service is still on the far side.">
                 <input className={control} value={localPort} onChange={(e) => setLocalPort(e.target.value)} inputMode="numeric" spellCheck={false} />
-              </label>
+              </Field>
             ) : null}
             {chiselMode === "loopback" ? (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-xs tracking-wide text-muted">PORT ON THE VICTIM</span>
+              <Field label="PORT ON THE VICTIM'S 127.0.0.1" hint="The port ss or netstat showed bound to 127.0.0.1 on the pivot. It is not a port on Kali. 127.0.0.1 in the Chisel command means the victim, not you.">
                 <input className={control} value={internalPort} onChange={(e) => setInternalPort(e.target.value)} placeholder="3306" inputMode="numeric" spellCheck={false} />
-              </label>
+              </Field>
             ) : (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-xs tracking-wide text-muted">{chiselMode === "socks" ? "HOST TO SCAN" : "HOST THE PIVOT CAN SEE"}</span>
+              <Field
+                label={chiselMode === "socks" ? "HOST YOU WILL SCAN" : "HOST THE PIVOT CAN SEE"}
+                hint={
+                  chiselMode === "socks"
+                    ? "An address on the pivot's side of the tunnel. You scan it from Kali with proxychains. It is not your VPN address."
+                    : "The host the pivot can already reach. Chisel will connect to it from the pivot and show one of its ports on Kali."
+                }
+              >
                 <input className={control} value={internal} onChange={(e) => setInternal(e.target.value)} placeholder="172.16.0.10" inputMode="decimal" spellCheck={false} />
-              </label>
+              </Field>
             )}
             {chiselMode === "port" ? (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-xs tracking-wide text-muted">PORT ON THAT HOST</span>
+              <Field label="PORT ON THAT FAR HOST" hint="The service port on the host the pivot can see, such as 80 or 445. Chisel places that service on the local port on Kali. This port is not opened on Kali.">
                 <input className={control} value={internalPort} onChange={(e) => setInternalPort(e.target.value)} inputMode="numeric" spellCheck={false} />
-              </label>
+              </Field>
             ) : null}
           </>
         ) : (
           <>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-mono text-xs tracking-wide text-muted">PROXY PORT</span>
+            <Field label="PROXY PORT ON KALI" hint="The Ligolo proxy listens on this port on Kali. The agent on the pivot connects to it. It is not a port on the pivot, and it must not be the file-server port.">
               <input className={control} value={proxyPort} onChange={(e) => setProxyPort(e.target.value)} inputMode="numeric" spellCheck={false} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-mono text-xs tracking-wide text-muted">SUBNET ON THE PIVOT</span>
+            </Field>
+            <Field label="SUBNET THE PIVOT CAN SEE" hint="The network from ip a or ipconfig on the pivot, such as 172.16.0.0/24. After start, you add a route to this on Kali. It is not your tun0 range and not 127.0.0.0/8.">
               <input className={control} value={subnet} onChange={(e) => setSubnet(e.target.value)} placeholder="172.16.0.0/24" spellCheck={false} />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-mono text-xs tracking-wide text-muted">ONE HOST IN THAT SUBNET</span>
+            </Field>
+            <Field label="ONE HOST IN THAT SUBNET" hint="One address you will nmap after the route exists. It has to sit inside the subnet above. You run that nmap on Kali, with no proxychains.">
               <input className={control} value={host} onChange={(e) => setHost(e.target.value)} placeholder="172.16.0.10" inputMode="decimal" spellCheck={false} />
-            </label>
-            <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+            </Field>
+            <div className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
               <input type="checkbox" checked={loopback} onChange={(e) => setLoopback(e.target.checked)} className="size-4" />
-              A service is bound to the victim's 127.0.0.1
-            </label>
+              <span>A service is bound to 127.0.0.1 on the victim, not on Kali</span>
+              <Hint text="Tick this when ss or netstat on the pivot shows 127.0.0.1. Ligolo then maps that loopback to 240.0.0.1. Routing 127.0.0.0/8 would black-hole Kali." />
+            </div>
             {loopback ? (
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-mono text-xs tracking-wide text-muted">PORT ON 127.0.0.1</span>
+              <Field label="PORT ON THE VICTIM'S 127.0.0.1" hint="The port bound to 127.0.0.1 on the pivot. On Kali you reach it as 240.0.0.1 and this port. 127.0.0.1 on Kali is still Kali.">
                 <input className={control} value={loopPort} onChange={(e) => setLoopPort(e.target.value)} placeholder="3306" inputMode="numeric" spellCheck={false} />
-              </label>
+              </Field>
             ) : null}
-            <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+            <div className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
               <input type="checkbox" checked={callback} onChange={(e) => setCallback(e.target.checked)} className="size-4" />
-              The far side must call back, and it cannot see Kali
-            </label>
+              <span>A far host must call back, and it cannot see Kali</span>
+              <Hint text="The route lets you reach them. It does not let them reach your VPN address. This opens a port on the pivot and forwards it to Penelope on Kali." />
+            </div>
             {callback ? (
               <>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-mono text-xs tracking-wide text-muted">PORT ON THE PIVOT</span>
+                <Field label="CALLBACK PORT ON THE PIVOT" hint="Ligolo opens this port on the pivot. The far host connects here. The payload LHOST is the pivot's address, not Kali, and not 127.0.0.1.">
                   <input className={control} value={callbackPort} onChange={(e) => setCallbackPort(e.target.value)} inputMode="numeric" spellCheck={false} />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-mono text-xs tracking-wide text-muted">PENELOPE PORT ON KALI</span>
+                </Field>
+                <Field label="PENELOPE PORT ON KALI" hint="Penelope is already listening on this port on Kali. The pivot forwards the callback to 127.0.0.1 and this port, which is Kali's own loopback.">
                   <input className={control} value={penelopePort} onChange={(e) => setPenelopePort(e.target.value)} inputMode="numeric" spellCheck={false} />
-                </label>
+                </Field>
               </>
             ) : null}
           </>

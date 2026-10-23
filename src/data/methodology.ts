@@ -57,7 +57,7 @@ nmap -Pn -sC -sV -p <new-ports> -oA scans/deep <ip>
 # 7. Any new password gets tried on the other hosts before you leave.`,
     alive: "You can name the next single check, and both the TCP list and the UDP top 20 exist under scans/.",
     dead: "You started from a kernel exploit, or you finished TCP and skipped UDP. Re-running the same scan is not the missing pass.",
-    next: "Open Services for one open port. nmap top 20 is the UDP port pass. The UDP protocol scanner on the Recon page is Cisco's tool: it sends a real DNS, NTP, TFTP, or SNMP packet and shows the reply in the terminal.",
+    next: "Open Services for one open port. nmap top 20 is the UDP port pass. The Recon page runs these four scans, and the Nmap tab reads the XML. The UDP protocol scanner on that page is Cisco's tool: it sends a real DNS, NTP, TFTP, or SNMP packet and shows the reply in the terminal.",
   },
   {
     id: "exam-stuck",
@@ -107,7 +107,7 @@ nmap -Pn -sC -sV -p <open> -oA scans/deep <ip>`,
 445/tcp  open  microsoft-ds
 2222/tcp open  ssh     OpenSSH`,
     dead: "All filtered, or only 135/139 with no 445 and no web. Do not spend 40 minutes on RPC alone.",
-    next: "One service at a time, highest value first: web, SMB, FTP, SSH, WinRM, MSSQL.",
+    next: "One service at a time, highest value first: web, SMB, FTP, SSH, WinRM, MSSQL. The same four scans can be started from the Recon page, and searchsploit is there for the version string.",
   },
   {
     id: "recon-search",
@@ -1393,7 +1393,7 @@ nxc smb <targets> -u users.txt -p '<one-password>' --continue-on-success
     id: "pv-when",
     section: "Tunneling",
     title: "When to pivot",
-    look: "A second interface, a route you do not have, or a port bound to 127.0.0.1. If ip a shows only the network you already scanned, you do not need Chisel or Ligolo.",
+    look: "Run this on the pivot, the machine you already have a shell on. You are looking for a second interface, a route Kali does not have, or a port bound to 127.0.0.1 on that host. If ip a shows only the network you already scanned, you do not need Chisel or Ligolo.",
     cmd: `# Linux
 ip a; ip route
 ss -tlnp
@@ -1411,7 +1411,7 @@ or
     id: "pv-ssh",
     section: "Tunneling",
     title: "SSH tunnels",
-    look: "You have an SSH login on the pivot. Use it before you upload Ligolo or Chisel. -L brings one of their ports to Kali. -D is a SOCKS proxy on Kali. -R is the remote card, for a callback.",
+    look: "You already have an SSH login on the pivot, so use it before you upload Ligolo or Chisel. -L is typed on Kali: it opens a port on Kali and the pivot connects onward. -D is a SOCKS proxy that also listens on Kali. -R is the other direction, for a callback, and it is the next card.",
     cmd: `# leave the session up. -N means no shell.
 # one internal web port
 ssh -N -L 8080:127.0.0.1:80 <user>@<pivot>
@@ -1431,7 +1431,7 @@ proxychains -q nmap -Pn -sT -p 22,80,445 <internal>
     id: "pv-chisel",
     section: "Tunneling",
     title: "Chisel",
-    look: "A shell, no SSH, and the target can reach your Kali IP. SOCKS for a few hosts. One R: line for a single port the pivot can see. A service bound to the victim's 127.0.0.1 is R:local:127.0.0.1:port, not SOCKS. A /24 is Ligolo.",
+    look: "A shell on the pivot, no SSH, and the pivot can reach your Kali IP. The server and the file download both listen on Kali. The client runs on the pivot. SOCKS is for a few hosts and needs proxychains on Kali. One R: line is a single port the pivot can see, shown on a localhost port on Kali. A service bound to 127.0.0.1 on the victim is R:local:127.0.0.1:port, not SOCKS. A whole /24 is Ligolo.",
     cmd: `# Kali first
 chisel server -p 8000 --reverse
 file chisel
@@ -1456,7 +1456,7 @@ curl -sI http://127.0.0.1:8081/
     id: "pv-ligolo",
     section: "Tunneling",
     title: "Ligolo-ng",
-    look: "A subnet, not one port. Ligolo is a TUN interface, so nmap, nxc, and curl run with no proxychains. The proxy listens before the agent. The route is added after start. The victim's 127.0.0.1 is 240.0.0.1 on that interface, not a route to 127. Callbacks from a host that cannot see Kali are the callback card.",
+    look: "Use this when you need a subnet, not one port. The proxy listens on Kali before the agent runs on the pivot. After start, you add a route on Kali, and nmap, nxc, and curl run with no proxychains. The victim's 127.0.0.1 is 240.0.0.1 on that interface. Do not route 127.0.0.0/8. A host that cannot see Kali calls back to the pivot, which is the callback card.",
     cmd: `# Kali, once per boot. 'file exists' means skip the add.
 sudo ip tuntap add user $USER mode tun ligolo
 sudo ip link set ligolo up

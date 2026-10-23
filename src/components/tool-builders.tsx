@@ -5,6 +5,8 @@ import { HashIdentifier } from "@/components/hash-identifier";
 import { LocalMatch } from "@/components/local-match";
 import { HydraRun, ToolRun } from "@/components/hydra-run";
 import { UdpScan } from "@/components/udp-scan";
+import { NmapScan } from "@/components/nmap-scan";
+import { SearchsploitRun } from "@/components/searchsploit-run";
 import { TunnelBuilder } from "@/components/tunnel-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { quoteHydraArg } from "@/lib/hydra-args";
@@ -1867,7 +1869,13 @@ export function Builders({ tools }: { tools: ToolId[] }) {
       {current === "hydra" ? <HydraBuilder /> : null}
       {current === "nxc" ? <NxcBuilder /> : null}
       {current === "local" ? <LocalMatch /> : null}
-      {current === "udp" ? <UdpScan /> : null}
+      {current === "udp" ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          <UdpScan />
+          <NmapScan />
+          <SearchsploitRun />
+        </div>
+      ) : null}
       {current === "tunnel" ? <TunnelBuilder /> : null}
       {current === "wfuzz" ? <WfuzzBuilder /> : null}
     </div>
