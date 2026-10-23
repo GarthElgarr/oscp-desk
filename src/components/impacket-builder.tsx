@@ -144,11 +144,14 @@ export function ImpacketBuilder() {
               </select>
             </Field>
             <LootPick
+              kinds={["user", "pass", "nt"]}
               onPick={(item) =>
                 set(
-                  item.kind === "hash"
-                    ? { user: item.user, hash: item.secret, password: "", kerberos: false }
-                    : { user: item.user, password: item.secret, hash: "", kerberos: false },
+                  item.kind === "nt"
+                    ? { user: item.user || form.user, hash: item.secret, password: "", kerberos: false }
+                    : item.kind === "pass"
+                      ? { user: item.user || form.user, password: item.secret, hash: "", kerberos: false }
+                      : { user: item.user || form.user },
                 )
               }
             />

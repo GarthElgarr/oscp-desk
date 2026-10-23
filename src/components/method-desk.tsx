@@ -11,6 +11,7 @@ import { Builders, type ToolId } from "@/components/tool-builders";
 import { UploadsPanel } from "@/components/uploads-panel";
 import { WinrmCard } from "@/components/winrm-card";
 import { PenelopeCard } from "@/components/penelope-card";
+import { getLoot, getLootServer, subscribeLoot } from "@/lib/loot";
 import { LootCard } from "@/components/loot-card";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
@@ -126,7 +127,8 @@ export function MethodDesk() {
   const showTransfer = (!query.trim() && (section === "Uploads" || section === "Shells")) || /certutil|wget|\biwr\b|transfer|tun0|uploads/i.test(query);
   const showWinrm = (!query.trim() && (section === "Windows" || section === "Shells")) || /evil-winrm|winrm/i.test(query);
   const showPenelope = (!query.trim() && section === "Shells") || /penelope|listener|\bnc\b/i.test(query);
-  const showLoot = (!query.trim() && (section === "Passwords" || section === "Windows" || section === "Active Directory" || section === "Shells")) || /loot|cred|nthash/i.test(query);
+  const showLoot = section === "Loot" || /\bloot\b|nthash|netntlm/i.test(query);
+  const lootCount = useSyncExternalStore(subscribeLoot, getLoot, getLootServer).length;
   const builderTools = useMemo(() => {
     const q = query.trim();
     const tools: ToolId[] = [];
@@ -164,7 +166,7 @@ export function MethodDesk() {
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">OSCP methodology</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
-                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark only ticks it. Reset desk clears the ticks and the runs. Notes and the report stay until you delete those yourself.
+                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark only ticks it. Reset desk clears the ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -242,6 +244,12 @@ export function MethodDesk() {
             count={0}
             active={section === "Notes"}
             onClick={() => setSection("Notes")}
+          />
+          <SectionButton
+            label="Loot"
+            count={lootCount}
+            active={section === "Loot"}
+            onClick={() => setSection("Loot")}
           />
           <SectionButton
             label="Uploads"

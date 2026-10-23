@@ -56,10 +56,13 @@ export function WinrmCard() {
           <input className={control} value={secret} onChange={(event) => setSecret(event.target.value)} placeholder={mode === "hash" ? "32 hex characters" : ""} spellCheck={false} />
         </label>
         <LootPick
+          kinds={["user", "pass", "nt"]}
           onPick={(item) => {
-            setUser(item.user);
-            setSecret(item.secret);
-            setMode(item.kind === "hash" ? "hash" : "pass");
+            if (item.user) setUser(item.user);
+            if (item.kind === "pass" || item.kind === "nt") {
+              setSecret(item.secret);
+              setMode(item.kind === "nt" ? "hash" : "pass");
+            }
           }}
         />
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">

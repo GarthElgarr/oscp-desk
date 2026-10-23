@@ -11,6 +11,7 @@ import { TunnelBuilder } from "@/components/tunnel-builder";
 import { ImpacketBuilder } from "@/components/impacket-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { LootPick } from "@/components/loot-card";
+import { LOOT_HASHCAT, type LootKind } from "@/lib/loot";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
 export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz" | "impacket";
@@ -577,6 +578,16 @@ function HashcatBuilder() {
           <input className={control} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={picked.hint} />
         </Field>
       )}
+      <LootPick
+        kinds={Object.keys(LOOT_HASHCAT) as LootKind[]}
+        onPick={(item) => {
+          const modeId = LOOT_HASHCAT[item.kind];
+          if (!modeId) return;
+          setSource("paste");
+          setPasted(item.secret);
+          setMode(modeId);
+        }}
+      />
       {attack === "wordlist" || attack === "rules" ? (
         <Field label="Wordlist">
           <select className={control} value={list} onChange={(e) => setList(e.target.value)}>
@@ -1437,12 +1448,16 @@ function HydraBuilder() {
         </Field>
       )}
       <LootPick
-        kinds={["pass"]}
+        kinds={["user", "pass"]}
         onPick={(item) => {
-          setUserMode("one");
-          setUser(item.user);
-          setPassMode("one");
-          setPassword(item.secret);
+          if (item.user) {
+            setUserMode("one");
+            setUser(item.user);
+          }
+          if (item.kind === "pass") {
+            setPassMode("one");
+            setPassword(item.secret);
+          }
         }}
       />
       {svc.path ? (
@@ -1744,10 +1759,13 @@ function NxcBuilder() {
       ) : null}
       {picked.id !== "zero" ? (
         <LootPick
+          kinds={["user", "pass", "nt"]}
           onPick={(item) => {
-            setUser(item.user);
-            setSecret(item.secret);
-            setAuth(item.kind === "hash" ? "hash" : "pass");
+            if (item.user) setUser(item.user);
+            if (item.kind === "pass" || item.kind === "nt") {
+              setSecret(item.secret);
+              setAuth(item.kind === "nt" ? "hash" : "pass");
+            }
           }}
         />
       ) : null}
