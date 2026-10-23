@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, ChevronDown, Copy, Download, Search } from "lucide-react";
 import { SECTIONS, TECHNIQUES, type Technique } from "@/data/methodology";
 import { LAB_SCRIPTS, type LabScript } from "@/data/lab-scripts";
@@ -13,6 +13,8 @@ import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
 import { CoverImage } from "@/components/cover-image";
 import { NmapReports } from "@/components/nmap-reports";
+import { JobList } from "@/components/job-list";
+import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
@@ -39,6 +41,11 @@ export function MethodDesk() {
   const [openSource, setOpenSource] = useState<string | null>(null);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const runs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
+
+  useEffect(() => {
+    void syncJobs();
+  }, []);
 
   useEffect(() => {
     setDone(loadDone());
@@ -72,7 +79,7 @@ export function MethodDesk() {
     const q = query.trim().toLowerCase();
     return TECHNIQUES.filter((t) => {
       if (!q) {
-        if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes" || section === "Nmap") return false;
+        if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes" || section === "Nmap" || section === "Runs") return false;
         if (section !== "All" && t.section !== section) return false;
       }
       if (openOnly && done.has(t.id)) return false;
@@ -149,7 +156,7 @@ export function MethodDesk() {
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">OSCP methodology</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
-                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark only ticks it.
+                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark only ticks it. Reset desk clears the ticks and the runs. Notes and the report stay until you delete those yourself.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -164,12 +171,16 @@ export function MethodDesk() {
                     return;
                   }
                   setDone(new Set());
+                  setQuery("");
+                  setSection("Exam");
+                  setOpenCard(null);
+                  setOpenOnly(false);
                   setConfirmClear(false);
+                  void clearJobs();
                 }}
-                disabled={marked === 0 && !confirmClear}
-                className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
+                className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
               >
-                {confirmClear ? "Confirm clear" : "Clear marks"}
+                {confirmClear ? "Confirm reset" : "Reset desk"}
               </button>
             </div>
           </div>
@@ -231,6 +242,12 @@ export function MethodDesk() {
             onClick={() => setSection("Uploads")}
           />
           <SectionButton
+            label="Runs"
+            count={runs.length}
+            active={section === "Runs"}
+            onClick={() => setSection("Runs")}
+          />
+          <SectionButton
             label="Nmap"
             count={0}
             active={section === "Nmap"}
@@ -253,6 +270,21 @@ export function MethodDesk() {
         <main className="flex min-w-0 flex-col gap-4">
           {section === "Uploads" ? <UploadsPanel /> : null}
           {section === "Notes" ? <NotesPanel /> : null}
+          {section === "Runs" ? (
+            <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+              <div className="border-b border-border px-4 py-3">
+                <p className="font-mono text-xs text-primary">Runs</p>
+                <h2 className="text-lg font-semibold">Scans and tools</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Nmap, the UDP scanner, searchsploit, hydra, wfuzz, hashcat, john, and the install. Leaving a page does not stop one.
+                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk clears every run. It does not touch notes or the report.
+                </p>
+              </div>
+              <div className="px-4 py-4">
+                <JobList empty="Nothing running or finished in this session yet." />
+              </div>
+            </article>
+          ) : null}
           {section === "Nmap" ? <NmapReports withSearch /> : null}
           {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} /> : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}

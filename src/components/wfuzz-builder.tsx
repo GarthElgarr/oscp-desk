@@ -350,6 +350,7 @@ export function WfuzzBuilder() {
         </div>
         <ToolRun
           endpoint="/api/wfuzz"
+          tool="wfuzz"
           disabled={!runnable}
           placeholder="--hc 403"
           onFlags={setExtraArgs}

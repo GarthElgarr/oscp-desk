@@ -1,8 +1,11 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { JobList } from "@/components/job-list";
+import { launchJob } from "@/lib/live-jobs";
 import { parseExtraFlags } from "@/lib/hydra-args";
 
 export function ToolRun({
   endpoint,
+  tool,
   disabled,
   placeholder,
   onFlags,
@@ -11,19 +14,17 @@ export function ToolRun({
   quickHint,
 }: {
   endpoint: string;
+  tool: string;
   disabled: boolean;
   placeholder: string;
   onFlags: (extra: string[]) => void;
-  buildBody: (extra: string[]) => unknown;
-  buildQuick?: () => unknown;
+  buildBody: (extra: string[]) => Record<string, unknown>;
+  buildQuick?: () => Record<string, unknown>;
   quickHint?: string;
 }) {
   const [flags, setFlags] = useState("");
-  const [output, setOutput] = useState("");
-  const [running, setRunning] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
   const parsed = parseExtraFlags(flags);
-  const canRun = !disabled && parsed.ok && !running;
+  const canRun = !disabled && parsed.ok;
 
   function changeFlags(value: string) {
     setFlags(value);
@@ -31,41 +32,9 @@ export function ToolRun({
     onFlags(next.ok ? next.args : []);
   }
 
-  async function run(body: unknown) {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setRunning(true);
-    setOutput("");
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      if (!response.body) {
-        setOutput(await response.text());
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let text = "";
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        text += decoder.decode(chunk.value, { stream: true });
-        setOutput(text);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        setOutput((prev) => prev + "\n[stopped]\n");
-      } else {
-        setOutput(err instanceof Error ? err.message : "The run failed.");
-      }
-    } finally {
-      setRunning(false);
-    }
+  async function run(body: Record<string, unknown>) {
+    const command = typeof body.args === "object" && Array.isArray(body.args) ? `${tool} ${body.args.join(" ")}` : tool;
+    await launchJob(endpoint, body, { tool, title: command.slice(0, 80), command: command.slice(0, 200) });
   }
 
   return (
@@ -79,7 +48,7 @@ export function ToolRun({
           className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-sm text-fg outline-none"
         />
         <span className={"text-xs " + (parsed.ok ? "text-muted" : "text-dead")}>
-          {parsed.ok ? "Added to the command. Not a shell. Stop ends the run." : parsed.error}
+          {parsed.ok ? "Added to the command. Not a shell. Kill stops the run. Remove drops it from the list." : parsed.error}
         </span>
       </label>
       <div className="flex flex-wrap gap-2">
@@ -89,31 +58,25 @@ export function ToolRun({
           disabled={!canRun}
           className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40"
         >
-          {running ? "Running" : "Run"}
+          Run
         </button>
         {buildQuick ? (
           <button
             type="button"
-            onClick={() => void run(buildQuick())}
-            disabled={disabled || running}
+            onClick={() => {
+              const body = buildQuick();
+              if (body) void run(body);
+            }}
+            disabled={disabled}
             className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40"
           >
             Quick run
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => abortRef.current?.abort()}
-          disabled={!running}
-          className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
-        >
-          Stop
-        </button>
       </div>
       {quickHint ? <p className="text-xs text-muted">{quickHint}</p> : null}
-      <pre className="max-h-80 min-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-        {output || (running ? "Waiting for output…" : "Output appears here.")}
-      </pre>
+      <p className="text-sm text-muted">Leaving this page does not stop a run. It is still here when you come back, and under Runs.</p>
+      <JobList tool={tool} />
     </div>
   );
 }
@@ -132,6 +95,7 @@ export function HydraRun({
   return (
     <ToolRun
       endpoint="/api/hydra"
+      tool="hydra"
       disabled={disabled || args.length === 0}
       placeholder="-V -I"
       onFlags={(extra) => onFlags("", extra)}

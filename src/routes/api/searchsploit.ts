@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { searchsploitRequest, searchsploitStream } from "@/lib/searchsploit.server";
+import { jobId } from "@/lib/live-jobs.server";
+import { searchsploitRequest, startSearchsploit } from "@/lib/searchsploit.server";
 
 export const Route = createFileRoute("/api/searchsploit")({
   server: {
@@ -13,9 +14,12 @@ export const Route = createFileRoute("/api/searchsploit")({
         }
         const job = searchsploitRequest(body);
         if ("error" in job) return new Response(`${job.error}\n`, { status: 400 });
-        return new Response(searchsploitStream(job.command, job.args, request.signal), {
-          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
-        });
+        const id = jobId((body as { id?: unknown }).id);
+        if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+        if (!startSearchsploit(id, job.command, job.args)) {
+          return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+        }
+        return Response.json({ ok: true });
       },
     },
   },

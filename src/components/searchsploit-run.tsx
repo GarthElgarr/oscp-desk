@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { JobList } from "@/components/job-list";
+import { launchJob } from "@/lib/live-jobs";
 import { searchsploitPlan } from "@/lib/searchsploit";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -12,9 +14,6 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
   const [exclude, setExclude] = useState("");
   const [nmapFile, setNmapFile] = useState(initialFile);
   const [edb, setEdb] = useState("");
-  const [output, setOutput] = useState("");
-  const [running, setRunning] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
 
   const plan = useMemo(
     () => searchsploitPlan({ mode, terms, title, exact, web, exclude, nmapFile, edb }),
@@ -23,38 +22,12 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
   const ready = !("error" in plan);
 
   async function run() {
-    if (!ready || running) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setRunning(true);
-    setOutput("");
-    try {
-      const response = await fetch("/api/searchsploit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode, terms, title, exact, web, exclude, nmapFile, edb }),
-        signal: controller.signal,
-      });
-      if (!response.body) {
-        setOutput(await response.text());
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let text = "";
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        text += decoder.decode(chunk.value, { stream: true });
-        setOutput(text);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") setOutput((prev) => `${prev}\n[stopped]\n`);
-      else setOutput(err instanceof Error ? err.message : "The search failed.");
-    } finally {
-      setRunning(false);
-    }
+    if (!ready || "error" in plan) return;
+    await launchJob(
+      "/api/searchsploit",
+      { mode, terms, title, exact, web, exclude, nmapFile, edb },
+      { tool: "search", title: plan.command.slice(0, 80), command: plan.command },
+    );
   }
 
   return (
@@ -128,19 +101,14 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
           {"error" in plan ? plan.error : plan.command}
         </pre>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => void run()} disabled={!ready || running} className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
-            {running ? "Searching…" : "Search"}
-          </button>
-          <button type="button" onClick={() => abortRef.current?.abort()} disabled={!running} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40">
-            Stop
+          <button type="button" onClick={() => void run()} disabled={!ready} className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
+            Search
           </button>
         </div>
         <p className="text-sm text-fg">
-          -t searches titles, which is what you want for a version. Without it, a word from the exploit instructions can match and the list gets long. --nmap reads the versions out of a saved XML. -p prints the file path of one id so you can open it.
+          -t searches titles, which is what you want for a version. Without it, a word from the exploit instructions can match and the list gets long. --nmap reads the versions out of a saved XML. -p prints the file path of one id so you can open it. Leaving this page does not stop the search.
         </p>
-        <pre className="max-h-80 min-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-          {output || (running ? "Waiting for searchsploit…" : "Output appears here.")}
-        </pre>
+        <JobList tool="search" />
       </div>
     </article>
   );

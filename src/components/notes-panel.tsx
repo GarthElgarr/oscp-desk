@@ -26,6 +26,7 @@ function blank(): Note {
 export function NotesPanel() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [ready, setReady] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
     const existing = loadNotes();
@@ -49,16 +50,32 @@ export function NotesPanel() {
           <p className="font-mono text-xs text-primary">Notes</p>
           <h2 className="text-lg font-semibold">This box</h2>
           <p className="mt-1 text-sm text-muted">
-            IPs, users, and what worked. Saved in this browser. Clear marks does not delete these.
+            IPs, users, and what worked. Saved in this browser. Reset desk does not delete these. Delete one note, or clear them all from this page.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setNotes((prev) => [blank(), ...prev])}
-          className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg"
-        >
-          New note
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setNotes((prev) => [blank(), ...prev])}
+            className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg"
+          >
+            New note
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirmClear) {
+                setConfirmClear(true);
+                return;
+              }
+              setNotes([]);
+              setConfirmClear(false);
+            }}
+            className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+          >
+            {confirmClear ? "Confirm clear" : "Clear notes"}
+          </button>
+        </div>
       </div>
       <div className="flex flex-col gap-4 px-4 py-4">
         {notes.map((note) => (

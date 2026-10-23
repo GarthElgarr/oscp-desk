@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Check, CircleX, TriangleAlert } from "lucide-react";
+import { JobList } from "@/components/job-list";
 import { INSTALL_TOOL_LABELS, manualInstallCommand, takeInstallStatus, type InstallSummary } from "@/lib/install-tools";
+import { getJobs, getJobsServer, launchJob, subscribeJobs } from "@/lib/live-jobs";
 
 function Verdict({ summary }: { summary: InstallSummary }) {
   if (summary.verdict === "pass") {
@@ -46,67 +48,15 @@ function Verdict({ summary }: { summary: InstallSummary }) {
 }
 
 export function InstallTools() {
-  const [open, setOpen] = useState(false);
-  const [output, setOutput] = useState("");
-  const [summary, setSummary] = useState<InstallSummary | null>(null);
-  const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
+  const install = jobs.find((job) => job.tool === "install");
+  const summary: InstallSummary | null = install ? takeInstallStatus(install.output).summary : null;
+  const running = install?.running ?? false;
   const command = manualInstallCommand();
 
-  function apply(text: string) {
-    const next = takeInstallStatus(text);
-    setOutput(next.output);
-    if (next.summary) setSummary(next.summary);
-  }
-
   async function run() {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setOpen(true);
-    setRunning(true);
-    setOutput("");
-    setSummary(null);
-    let raw = "";
-    try {
-      const response = await fetch("/api/install", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-        signal: controller.signal,
-      });
-      if (!response.body) {
-        apply(await response.text());
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        raw += decoder.decode(chunk.value, { stream: true });
-        apply(raw);
-      }
-      raw += decoder.decode();
-      apply(raw);
-      if (!takeInstallStatus(raw).summary) {
-        setSummary({ verdict: "fail", title: "The install ended without a result.", outstanding: [] });
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        apply(raw + "\n[stopped]\n");
-        setSummary({ verdict: "fail", title: "Stopped before the checks finished.", outstanding: [] });
-      } else {
-        setSummary({
-          verdict: "fail",
-          title: err instanceof Error ? err.message : "The install failed.",
-          outstanding: [],
-        });
-      }
-    } finally {
-      setRunning(false);
-    }
+    await launchJob("/api/install", {}, { tool: "install", title: "Install requirements", command: "apt-get update && apt-get install" });
   }
 
   return (
@@ -119,14 +69,6 @@ export function InstallTools() {
           className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40"
         >
           {running ? "Updating and installing…" : "Install requirements"}
-        </button>
-        <button
-          type="button"
-          onClick={() => abortRef.current?.abort()}
-          disabled={!running}
-          className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
-        >
-          Stop
         </button>
         <button
           type="button"
@@ -147,13 +89,12 @@ export function InstallTools() {
       <p className="mt-2 text-sm text-muted">
         Installs {INSTALL_TOOL_LABELS.join(", ")}. On Kali it runs apt-get update, then the packages, then unpacks
         rockyou. This preview is not Kali, so the same click only prints that command. It never types a sudo password.
+        Leaving this page does not stop it. Kill and Remove are on the run, and every run is also under Runs.
       </p>
       {summary && !running ? <Verdict summary={summary} /> : null}
-      {open ? (
-        <pre className="mt-3 max-h-80 min-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-          {output || (running ? "Waiting for apt…" : "Output appears here. Copy command is the same install if sudo wants a password.")}
-        </pre>
-      ) : null}
+      <div className="mt-3">
+        <JobList tool="install" />
+      </div>
     </div>
   );
 }

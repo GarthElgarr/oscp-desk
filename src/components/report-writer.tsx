@@ -52,6 +52,7 @@ export function ReportWriter() {
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState<"html" | "pdf" | null>(null);
   const [error, setError] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     const loaded = loadReport() ?? blankReport();
@@ -208,7 +209,7 @@ export function ReportWriter() {
         <p className="font-mono text-xs text-primary">Report</p>
         <h2 className="text-lg font-semibold">OSCP exam report</h2>
         <p className="mt-1 text-sm text-muted">
-          Same shape OffSec grades: who you are, a short summary, then each host as enumeration, initial access, privilege escalation, and proof. The PDF is the file you submit. HTML is the same document. Saved in this browser. A flag still needs one screenshot with id or whoami, the IP, and the file.
+          Same shape OffSec grades: who you are, a short summary, then each host as enumeration, initial access, privilege escalation, and proof. The PDF is the file you submit. HTML is the same document. Saved in this browser. A flag still needs one screenshot with id or whoami, the IP, and the file. Reset desk does not clear this. Reset report, on this page, does.
         </p>
       </div>
       <div className="flex flex-col gap-4 px-4 py-4">
@@ -232,6 +233,26 @@ export function ReportWriter() {
           <button type="button" onClick={() => void exportHtml()} disabled={busy !== null} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40">
             <Download className="size-4" aria-hidden="true" />
             {busy === "html" ? "Building HTML" : "Download HTML"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirmReset || !report) {
+                setConfirmReset(true);
+                return;
+              }
+              const ids = report.hosts.flatMap((host) => host.shots.map((shot) => shot.id));
+              void Promise.all(ids.map((id) => deleteShot(id).catch(() => undefined))).then(() => {
+                const blank = blankReport();
+                setShots(new Map());
+                setReport(blank);
+                setOpenId(blank.hosts[0]?.id ?? "");
+                setConfirmReset(false);
+              });
+            }}
+            className="inline-flex min-h-11 items-center rounded-lg border border-dead/40 px-3 text-sm text-dead"
+          >
+            {confirmReset ? "Confirm reset" : "Reset report"}
           </button>
           <button type="button" aria-pressed={preview} onClick={() => setPreview((value) => !value)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted">
             {preview ? "Hide preview" : "Preview"}

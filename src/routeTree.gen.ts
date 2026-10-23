@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
+import { Route as ApiJobsRouteImport } from './routes/api/jobs'
 import { Route as ApiNmapRouteImport } from './routes/api/nmap'
 import { Route as ApiRunRouteImport } from './routes/api/run'
 import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
@@ -32,6 +33,11 @@ const ApiHydraRoute = ApiHydraRouteImport.update({
 const ApiInstallRoute = ApiInstallRouteImport.update({
   id: '/api/install',
   path: '/api/install',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsRoute = ApiJobsRouteImport.update({
+  id: '/api/jobs',
+  path: '/api/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiNmapRoute = ApiNmapRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/install': typeof ApiInstallRoute
+  '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/hydra'
     | '/api/install'
+    | '/api/jobs'
     | '/api/nmap'
     | '/api/run'
     | '/api/searchsploit'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHydraRoute: typeof ApiHydraRoute
   ApiInstallRoute: typeof ApiInstallRoute
+  ApiJobsRoute: typeof ApiJobsRoute
   ApiNmapRoute: typeof ApiNmapRoute
   ApiRunRoute: typeof ApiRunRoute
   ApiSearchsploitRoute: typeof ApiSearchsploitRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/api/install'
       fullPath: '/api/install'
       preLoaderRoute: typeof ApiInstallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs': {
+      id: '/api/jobs'
+      path: '/api/jobs'
+      fullPath: '/api/jobs'
+      preLoaderRoute: typeof ApiJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/nmap': {
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHydraRoute: ApiHydraRoute,
   ApiInstallRoute: ApiInstallRoute,
+  ApiJobsRoute: ApiJobsRoute,
   ApiNmapRoute: ApiNmapRoute,
   ApiRunRoute: ApiRunRoute,
   ApiSearchsploitRoute: ApiSearchsploitRoute,

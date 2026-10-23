@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { JobList } from "@/components/job-list";
 import { SearchsploitRun } from "@/components/searchsploit-run";
 
 type Script = { id: string; output: string };
@@ -111,6 +112,7 @@ export function NmapReports({ withSearch = false }: { withSearch?: boolean }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <JobList tool="nmap" />
       <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
         <div className="border-b border-border px-4 py-3">
           <p className="font-mono text-xs text-primary">Reports</p>

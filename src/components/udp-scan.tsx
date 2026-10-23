@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy } from "lucide-react";
+import { JobList } from "@/components/job-list";
+import { launchJob } from "@/lib/live-jobs";
 import { UDP_PROBES, udpCommand, udpTarget, type UdpProbe } from "@/lib/udp-scan";
 
 const control = "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none";
@@ -7,10 +9,7 @@ const control = "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm 
 export function UdpScan() {
   const [target, setTarget] = useState("");
   const [probe, setProbe] = useState<UdpProbe>("all");
-  const [output, setOutput] = useState("");
-  const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
   const host = udpTarget(target);
   const command = useMemo(() => (host ? udpCommand(host, probe) : ""), [host, probe]);
 
@@ -26,41 +25,8 @@ export function UdpScan() {
   }
 
   async function run() {
-    if (!host || running) return;
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setRunning(true);
-    setOutput("");
-    try {
-      const response = await fetch("/api/udp", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ target: host, probe }),
-        signal: controller.signal,
-      });
-      if (!response.body) {
-        setOutput(await response.text());
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let text = "";
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        text += decoder.decode(chunk.value, { stream: true });
-        setOutput(text);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        setOutput((prev) => `${prev}\n[stopped]\n`);
-      } else {
-        setOutput(err instanceof Error ? err.message : "The scan failed.");
-      }
-    } finally {
-      setRunning(false);
-    }
+    if (!host) return;
+    await launchJob("/api/udp", { target: host, probe }, { tool: "udp", title: `udp ${probe} ${host}`, command });
   }
 
   return (
@@ -128,23 +94,14 @@ export function UdpScan() {
           <button
             type="button"
             onClick={() => void run()}
-            disabled={!host || running}
+            disabled={!host}
             className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40"
           >
-            {running ? "Scanning" : "Run"}
-          </button>
-          <button
-            type="button"
-            onClick={() => abortRef.current?.abort()}
-            disabled={!running}
-            className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
-          >
-            Stop
+            Run
           </button>
         </div>
-        <pre className="max-h-80 min-h-36 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-          {output || (running ? "Waiting for udp-proto-scanner…" : "Output appears here.")}
-        </pre>
+        <p className="text-sm text-muted">Leaving this page does not stop a scan. Kill stops it. Remove drops that terminal. The same list is under Runs.</p>
+        <JobList tool="udp" />
       </div>
     </article>
   );

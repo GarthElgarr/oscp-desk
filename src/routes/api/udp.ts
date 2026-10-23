@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { udpRequest, udpScanStream } from "@/lib/udp-scan.server";
+import { jobId } from "@/lib/live-jobs.server";
+import { startUdpScan, udpRequest } from "@/lib/udp-scan.server";
 
 export const Route = createFileRoute("/api/udp")({
   server: {
@@ -13,13 +14,14 @@ export const Route = createFileRoute("/api/udp")({
         }
         const scan = udpRequest(body);
         if (!scan) {
-          return new Response("Give one IPv4 address and a probe name. This page only runs Cisco's udp-proto-scanner.\n", {
-            status: 400,
-          });
+          return new Response("Give one IPv4 address and a probe name. This page only runs Cisco's udp-proto-scanner.\n", { status: 400 });
         }
-        return new Response(udpScanStream(scan.command, scan.args, request.signal), {
-          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
-        });
+        const id = jobId((body as { id?: unknown }).id);
+        if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+        if (!startUdpScan(id, scan.command, scan.args)) {
+          return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+        }
+        return Response.json({ ok: true });
       },
     },
   },

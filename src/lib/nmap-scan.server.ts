@@ -1,10 +1,8 @@
-import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { spawnLiveJob } from "./live-jobs.server";
 import { nmapExtra, nmapName, nmapPlan, nmapProfile, nmapPorts, nmapTarget, type NmapProfile } from "./nmap-scan";
 
-const MAX_OUT = 800_000;
-const MAX_SCANS = 4;
 const TIMEOUT_MS: Record<NmapProfile, number> = {
   quick: 10 * 60 * 1000,
   alltcp: 25 * 60 * 1000,
@@ -12,8 +10,6 @@ const TIMEOUT_MS: Record<NmapProfile, number> = {
   deep: 10 * 60 * 1000,
   custom: 15 * 60 * 1000,
 };
-
-let slots = 0;
 
 export function scansDir(): string {
   return path.resolve(process.cwd(), "scans");
@@ -67,76 +63,26 @@ export function nmapRequest(body: unknown): { command: string; bin: string; args
   };
 }
 
-export function nmapScanStream(
+export function startNmapScan(
   command: string,
   bin: string,
   args: string[],
   profile: NmapProfile,
-  signal: AbortSignal,
-): ReadableStream<Uint8Array> | null {
-  if (slots >= MAX_SCANS) return null;
-  slots += 1;
-  let released = false;
-  const release = () => {
-    if (released) return;
-    released = true;
-    slots = Math.max(0, slots - 1);
-  };
-  const encoder = new TextEncoder();
-  let sent = 0;
-  let killed = false;
-  let child: ReturnType<typeof spawn> | null = null;
-  const kill = () => {
-    killed = true;
-    child?.kill("SIGTERM");
-  };
-  const timer = setTimeout(kill, TIMEOUT_MS[profile]);
-  signal.addEventListener("abort", kill);
+  meta: { id: string; name: string; title: string },
+): boolean {
   mkdirSync(scansDir(), { recursive: true });
-
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      let closed = false;
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        clearTimeout(timer);
-        release();
-        try {
-          controller.close();
-        } catch {
-          /* already closed */
-        }
-      };
-      const push = (text: string) => {
-        if (!text || sent >= MAX_OUT || closed) return;
-        const slice = text.slice(0, MAX_OUT - sent);
-        sent += slice.length;
-        try {
-          controller.enqueue(encoder.encode(slice));
-        } catch {
-          killed = true;
-        }
-        if (sent >= MAX_OUT) kill();
-      };
-      push(`$ ${command}\n`);
-      child = spawn(bin, args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
-      const take = (buf: Buffer) => push(buf.toString());
-      child.stdout?.on("data", take);
-      child.stderr?.on("data", take);
-      child.on("error", (err: NodeJS.ErrnoException) => {
-        push(err.code === "ENOENT" ? `${bin} was not found. On Kali, the install button includes nmap.\n` : `${err.message}\n`);
-        close();
-      });
-      child.on("close", (code) => {
-        if (killed) push("\n[stopped]\n");
-        else push(`\n[nmap exit ${code ?? "unknown"}]\nSaved scans/${path.basename(args[args.indexOf("-oA") + 1] ?? "")}.{nmap,xml,gnmap}\n`);
-        close();
-      });
-    },
-    cancel() {
-      kill();
-      release();
-    },
+  return spawnLiveJob({
+    id: meta.id,
+    tool: "nmap",
+    title: meta.title,
+    command,
+    name: meta.name,
+    bin,
+    args,
+    timeoutMs: TIMEOUT_MS[profile],
+    maxOut: 800_000,
+    missing: `${bin} was not found. On Kali, the install button includes nmap.\n`,
+    doneLine: (code, stopped) =>
+      stopped ? "\n[stopped]\n" : `\n[nmap exit ${code ?? "unknown"}]\nSaved scans/${meta.name}.{nmap,xml,gnmap}\n`,
   });
 }

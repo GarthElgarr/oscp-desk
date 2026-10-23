@@ -1,13 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { installRequirementsStream } from "@/lib/install-tools.server";
+import { jobId } from "@/lib/live-jobs.server";
+import { startInstall } from "@/lib/install-tools.server";
 
 export const Route = createFileRoute("/api/install")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        return new Response(installRequirementsStream(request.signal), {
-          headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
-        });
+        let body: unknown = {};
+        try {
+          body = await request.json();
+        } catch {
+          body = {};
+        }
+        const id = jobId((body as { id?: unknown }).id);
+        if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+        if (!startInstall(id)) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+        return Response.json({ ok: true });
       },
     },
   },

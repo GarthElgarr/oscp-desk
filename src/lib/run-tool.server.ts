@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { openJob } from "./live-jobs.server";
 
 const BINS = new Set([
   "hashcat",
@@ -53,83 +54,57 @@ export function stepsOk(value: unknown): value is ToolStep[] {
   });
 }
 
-export function streamSteps(steps: ToolStep[], signal: AbortSignal): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  let sent = 0;
-  let killed = false;
-  let child: ReturnType<typeof spawn> | null = null;
-  const kill = () => {
-    killed = true;
-    child?.kill("SIGTERM");
-  };
-  const timer = setTimeout(kill, TIMEOUT_MS);
-  signal.addEventListener("abort", kill);
-
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const push = (text: string) => {
-        if (!text || sent >= MAX_OUT) return;
-        const slice = text.slice(0, MAX_OUT - sent);
-        sent += slice.length;
-        controller.enqueue(encoder.encode(slice));
-        if (sent >= MAX_OUT) kill();
-      };
-      try {
-        for (const step of steps) {
-          if (killed) break;
-          if (step.kind === "write") {
-            await writeFile(path.join(process.cwd(), step.name), step.text);
-            push(`wrote ${step.name} (${step.text.length} bytes)\n`);
-            continue;
-          }
-          push(`$ ${step.bin} ${step.args.join(" ")}\n`);
-          let captured = "";
-          const code = await new Promise<number | null>((resolve) => {
-            child = spawn(step.bin, step.args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
-            let settled = false;
-            const done = (value: number | null) => {
-              if (settled) return;
-              settled = true;
-              resolve(value);
-            };
-            child.stdout?.on("data", (buf: Buffer) => {
-              const text = buf.toString();
-              if (step.kind === "exec") push(text);
-              else captured += text;
-            });
-            child.stderr?.on("data", (buf: Buffer) => push(buf.toString()));
-            child.on("error", (err: NodeJS.ErrnoException) => {
-              push(
-                err.code === "ENOENT"
-                  ? `${step.bin} was not found. Run the desk on Kali, where it is already installed.\n`
-                  : `${err.message}\n`,
-              );
-              done(null);
-            });
-            child.on("close", (exitCode) => done(exitCode));
-          });
-          child = null;
-          if (step.kind === "exec-to-file") {
-            await writeFile(path.join(process.cwd(), step.name), captured);
-            if (captured) push(captured.endsWith("\n") ? captured : `${captured}\n`);
-            push(`wrote ${step.name}\n`);
-            if (code !== 0) {
-              push(`[${step.bin} exit ${code ?? "unknown"}]\n`);
-              break;
-            }
-          }
-          push(`[${step.bin} exit ${code ?? "unknown"}]\n`);
+export function startSteps(id: string, tool: string, title: string, steps: ToolStep[]): boolean {
+  const handle = openJob({ id, tool, title: title.slice(0, 80), command: title, timeoutMs: TIMEOUT_MS, maxOut: MAX_OUT });
+  if (!handle) return false;
+  void (async () => {
+    try {
+      for (const step of steps) {
+        if (handle.stopped()) break;
+        if (step.kind === "write") {
+          await writeFile(path.join(process.cwd(), step.name), step.text);
+          handle.push(`wrote ${step.name} (${step.text.length} bytes)\n`);
+          continue;
         }
-      } catch (err) {
-        push(err instanceof Error ? `${err.message}\n` : "The run failed.\n");
-      } finally {
-        clearTimeout(timer);
-        if (killed) push("[stopped]\n");
-        controller.close();
+        handle.push(`$ ${step.bin} ${step.args.join(" ")}\n`);
+        let captured = "";
+        const code = await new Promise<number | null>((resolve) => {
+          const child = spawn(step.bin, step.args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
+          handle.attach(child);
+          let settled = false;
+          const done = (value: number | null) => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+          };
+          child.stdout?.on("data", (buf: Buffer) => {
+            const text = buf.toString();
+            if (step.kind === "exec") handle.push(text);
+            else captured += text;
+          });
+          child.stderr?.on("data", (buf: Buffer) => handle.push(buf.toString()));
+          child.on("error", (err: NodeJS.ErrnoException) => {
+            handle.push(err.code === "ENOENT" ? `${step.bin} was not found. Run the desk on Kali, where it is already installed.\n` : `${err.message}\n`);
+            done(null);
+          });
+          child.on("close", (exitCode) => done(exitCode));
+        });
+        if (step.kind === "exec-to-file") {
+          await writeFile(path.join(process.cwd(), step.name), captured);
+          if (captured) handle.push(captured.endsWith("\n") ? captured : `${captured}\n`);
+          handle.push(`wrote ${step.name}\n`);
+          if (code !== 0) {
+            handle.push(`[${step.bin} exit ${code ?? "unknown"}]\n`);
+            break;
+          }
+        }
+        handle.push(`[${step.bin} exit ${code ?? "unknown"}]\n`);
       }
-    },
-    cancel() {
-      kill();
-    },
-  });
+    } catch (err) {
+      handle.push(err instanceof Error ? `${err.message}\n` : "The run failed.\n");
+    } finally {
+      handle.finish(handle.stopped() ? "\n[stopped]\n" : "");
+    }
+  })();
+  return true;
 }

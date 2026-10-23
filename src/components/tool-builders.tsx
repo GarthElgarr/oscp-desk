@@ -518,8 +518,9 @@ function HashcatBuilder() {
       footer={
         <ToolRun
           endpoint="/api/run"
+          tool="hashcat"
           disabled={!ready}
-          placeholder="--force --status"
+          placeholder="--status"
           onFlags={setExtraArgs}
           buildBody={(extra) => ({
             steps: hashcatSteps.map((step, index) =>
@@ -920,6 +921,7 @@ function JohnBuilder() {
       footer={
         <ToolRun
           endpoint="/api/run"
+          tool="john"
           disabled={!ready}
           placeholder="--fork=2"
           onFlags={setExtraArgs}
