@@ -11,6 +11,7 @@ import { Builders, type ToolId } from "@/components/tool-builders";
 import { UploadsPanel } from "@/components/uploads-panel";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
+import { CoverImage } from "@/components/cover-image";
 
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
@@ -141,6 +142,7 @@ export function MethodDesk() {
     <div className="min-h-screen bg-bg text-fg">
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6">
+          <CoverImage />
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
