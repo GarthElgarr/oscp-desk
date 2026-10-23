@@ -84,6 +84,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     if (seen.current && !output.startsWith(seen.current)) {
       view.reset();
       seen.current = "";
+      view.focus();
     }
     const next = output.slice(seen.current.length);
     if (next) view.write(next);

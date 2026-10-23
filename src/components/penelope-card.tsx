@@ -93,7 +93,7 @@ export function PenelopeCard() {
   }
 
   function onKeys(text: string) {
-    if (hold.current || !runningId.current) return;
+    if (hold.current || !caught || !runningId.current) return;
     pending.current += text;
     if (keyTimer.current) return;
     keyTimer.current = window.setTimeout(() => {
