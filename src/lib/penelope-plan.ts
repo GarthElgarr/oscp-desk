@@ -26,12 +26,12 @@ export function penelopePlan(input: {
   if (input.mode === "connect") {
     const host = input.host.trim();
     if (!hostOk(host)) return { error: "The bind shell is one IP or one host name." };
-    const args = ["-O", "-M", "-C", "-c", host, "-p", port];
+    const args = ["-O", "-C", "-c", host, "-p", port];
     return {
       args,
       command: `penelope ${args.join(" ")}`,
       nc: `nc ${host} ${port}`,
-      why: "This connects out to a shell that is already listening on the target. -c is that host. -p is its port. -O leaves the exam modules off. -M -C keep you in the menu, so a button is a menu command and not a command on the target. Interact enters the session. Detach comes back. Paste the command into your own terminal if you would rather not run it here.",
+      why: "This connects out to a shell that is already listening on the target. -c is that host. -p is its port. -O leaves the exam modules off. -C keeps you in the menu, so a button is a menu command and not a command on the target. Interact enters the session. Detach comes back. Paste the command into your own terminal if you would rather not run it here.",
     };
   }
   if (!ifaceOk(iface)) {
@@ -39,7 +39,7 @@ export function penelopePlan(input: {
       ? { error: "127.0.0.1 only accepts connections from this desk. Listen on 0.0.0.0. The payload LHOST is still your tun0 address." }
       : { error: "The interface is 0.0.0.0, tun0, or your tun0 address." };
   }
-  const args = ["-O", "-M", "-C", "-p", port];
+  const args = ["-O", "-C", "-p", port];
   if (iface && iface !== "0.0.0.0") args.push("-i", iface);
   return {
     args,
@@ -63,7 +63,6 @@ export function penelopeLine(action: string, session: string, local: string, rem
   if (action === "kill") return { text: `kill ${id}\n`, label: `kill ${id}` };
   if (action === "detach") return { text: "\u001b[24~", label: "detach" };
   if (action === "interrupt") return { text: "\u0003", label: "interrupt" };
-  if (action === "menu-exit") return { text: "\u0004", label: "leave menu" };
   if (action === "upload" || action === "download") {
     if (!PATH.test(local) || local.split("/").includes("..")) return { error: "The Kali path has no spaces and no .." };
     if (!PATH.test(remote) || remote.split("/").includes("..")) return { error: "The target path has no spaces and no .." };

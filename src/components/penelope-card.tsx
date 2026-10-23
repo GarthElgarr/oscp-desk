@@ -1,7 +1,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
-import { getJobs, getJobsServer, launchJob, sendJob, subscribeJobs } from "@/lib/live-jobs";
+import { getJobs, getJobsServer, launchJob, sendJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -47,8 +47,15 @@ export function PenelopeCard() {
     if (!running) return;
     const text = typed.replace(/[\r\0]/g, "").slice(0, 200);
     if (!text.trim()) return;
-    setTyped("");
-    await sendJob(running.id, text.endsWith("\n") ? text : `${text}\n`);
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ write: running.id, text: text.endsWith("\n") ? text : `${text}\n` }),
+    });
+    if (response.ok) {
+      setTyped("");
+      await syncJobs();
+    }
   }
 
   return (
@@ -143,7 +150,6 @@ export function PenelopeCard() {
               ["payloads", "Payloads"],
               ["listeners", "Listeners"],
               ["kill", "Kill session"],
-              ["menu-exit", "Leave menu"],
             ] as const
           ).map(([action, label]) => (
             <button key={action} type="button" disabled={!running || "error" in penelopeLine(action, session, local, remote)} onClick={() => void press(action)} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-bg px-3 text-sm text-fg disabled:opacity-40">
