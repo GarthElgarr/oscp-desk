@@ -6,9 +6,14 @@ import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
+function plain(output: string): string {
+  return output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+}
+
 function shellOpen(output: string): boolean {
+  const text = plain(output);
   let last = "";
-  for (const match of output.matchAll(/Interacting with session|Session detached/g)) last = match[0];
+  for (const match of text.matchAll(/Interacting with session|Session detached/g)) last = match[0];
   return last === "Interacting with session";
 }
 
@@ -25,7 +30,7 @@ export function PenelopeCard() {
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
   const shown = running ?? jobs.find((job) => job.tool === "penelope");
-  const caught = Boolean(shown && shown.output.includes("Interacting with session"));
+  const caught = Boolean(shown && plain(shown.output).includes("Interacting with session"));
   const atShell = shellOpen(shown?.output ?? "");
   const plan = useMemo(() => penelopePlan({ mode, port, iface, host }), [mode, port, iface, host]);
   const ready = !("error" in plan);
@@ -88,7 +93,7 @@ export function PenelopeCard() {
   }
 
   function onKeys(text: string) {
-    if (hold.current || !caught || !runningId.current) return;
+    if (hold.current || !runningId.current) return;
     pending.current += text;
     if (keyTimer.current) return;
     keyTimer.current = window.setTimeout(() => {

@@ -42,11 +42,21 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       const fitted = new FitAddon();
       next.loadAddon(fitted);
       next.open(host.current);
+      const area = host.current.querySelector(".xterm-helper-textarea");
+      if (area instanceof HTMLTextAreaElement) {
+        area.style.left = "0";
+        area.style.top = "0";
+        area.style.width = "1px";
+        area.style.height = "1px";
+        area.style.opacity = "0";
+        area.style.zIndex = "6";
+      }
       try {
         fitted.fit();
       } catch {
         /* the box has no size yet */
       }
+      next.focus();
       addon = fitted;
       view = next;
       term.current = next;
@@ -86,5 +96,15 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     return () => window.clearInterval(timer);
   }, [active]);
 
-  return <div ref={host} className="relative h-96 overflow-hidden rounded-lg bg-[#0c0c0c]" onMouseDown={() => term.current?.focus()} />;
+  return (
+    <>
+      <style>{".shell-term .xterm-helper-textarea{left:0!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;z-index:6!important;}"}</style>
+      <div
+        ref={host}
+        tabIndex={0}
+        className="shell-term relative h-96 cursor-text overflow-hidden rounded-lg bg-[#0c0c0c] outline-none"
+        onMouseDown={() => term.current?.focus()}
+      />
+    </>
+  );
 }
