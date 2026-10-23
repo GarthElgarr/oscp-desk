@@ -17,6 +17,7 @@ export const INSTALL_PACKAGES = [
   "wordlists",
   "wfuzz",
   "seclists",
+  "penelope",
 ] as const;
 
 /** Names the desk actually calls, including binaries that live inside a package. */
@@ -38,6 +39,7 @@ export const INSTALL_TOOL_LABELS = [
   "rockyou (wordlists)",
   "wfuzz",
   "seclists",
+  "penelope",
 ] as const;
 
 export function manualInstallCommand(): string {
@@ -67,6 +69,7 @@ export const TOOL_CHECKS = [
   { label: "rockyou", file: "/usr/share/wordlists/rockyou.txt" },
   { label: "wfuzz", bin: "wfuzz" },
   { label: "seclists", file: "/usr/share/seclists" },
+  { label: "penelope", bin: "penelope" },
 ] as const;
 
 export type InstallSummary = {

@@ -15,6 +15,7 @@ import { Route as ApiImpacketRouteImport } from './routes/api/impacket'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
 import { Route as ApiJobsRouteImport } from './routes/api/jobs'
 import { Route as ApiNmapRouteImport } from './routes/api/nmap'
+import { Route as ApiPenelopeRouteImport } from './routes/api/penelope'
 import { Route as ApiRunRouteImport } from './routes/api/run'
 import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
 import { Route as ApiSuggestRouteImport } from './routes/api/suggest'
@@ -50,6 +51,11 @@ const ApiJobsRoute = ApiJobsRouteImport.update({
 const ApiNmapRoute = ApiNmapRouteImport.update({
   id: '/api/nmap',
   path: '/api/nmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPenelopeRoute = ApiPenelopeRouteImport.update({
+  id: '/api/penelope',
+  path: '/api/penelope',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRunRoute = ApiRunRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
+  '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/suggest': typeof ApiSuggestRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
+  '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/suggest': typeof ApiSuggestRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/api/install': typeof ApiInstallRoute
   '/api/jobs': typeof ApiJobsRoute
   '/api/nmap': typeof ApiNmapRoute
+  '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
   '/api/suggest': typeof ApiSuggestRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
+    | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
     | '/api/suggest'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
+    | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
     | '/api/suggest'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/api/install'
     | '/api/jobs'
     | '/api/nmap'
+    | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
     | '/api/suggest'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   ApiInstallRoute: typeof ApiInstallRoute
   ApiJobsRoute: typeof ApiJobsRoute
   ApiNmapRoute: typeof ApiNmapRoute
+  ApiPenelopeRoute: typeof ApiPenelopeRoute
   ApiRunRoute: typeof ApiRunRoute
   ApiSearchsploitRoute: typeof ApiSearchsploitRoute
   ApiSuggestRoute: typeof ApiSuggestRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/api/nmap'
       fullPath: '/api/nmap'
       preLoaderRoute: typeof ApiNmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/penelope': {
+      id: '/api/penelope'
+      path: '/api/penelope'
+      fullPath: '/api/penelope'
+      preLoaderRoute: typeof ApiPenelopeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/run': {
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInstallRoute: ApiInstallRoute,
   ApiJobsRoute: ApiJobsRoute,
   ApiNmapRoute: ApiNmapRoute,
+  ApiPenelopeRoute: ApiPenelopeRoute,
   ApiRunRoute: ApiRunRoute,
   ApiSearchsploitRoute: ApiSearchsploitRoute,
   ApiSuggestRoute: ApiSuggestRoute,

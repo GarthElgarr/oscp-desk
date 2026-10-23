@@ -15,6 +15,7 @@ export type LiveJob = {
 const MAX_RUNNING = 6;
 const jobs: LiveJob[] = [];
 const killers = new Map<string, () => void>();
+const writers = new Map<string, (text: string) => void>();
 const dropped = new Set<string>();
 
 export function jobId(value: unknown): string | null {
@@ -78,6 +79,7 @@ export function openJob(input: {
     finished = true;
     clearTimeout(timer);
     killers.delete(job.id);
+    writers.delete(job.id);
     if (dropped.delete(job.id)) return;
     push(line);
     job.running = false;
@@ -115,6 +117,20 @@ export function spawnLiveJob(input: {
     handle.finish(input.doneLine(code, handle.stopped()));
   });
   return true;
+}
+
+export function writeJob(id: string, text: string): boolean {
+  const write = writers.get(id);
+  if (!write || text.length < 1 || text.length > 400 || text.includes("\0")) return false;
+  write(text);
+  const job = jobs.find((item) => item.id === id);
+  const preview = text.replace(/[^\x20-\x7e\n]/g, "").trim();
+  if (job && job.output.length < 800_000) job.output += preview ? `\n> ${preview}\n` : "\n> (key)\n";
+  return true;
+}
+
+export function attachWriter(id: string, write: (text: string) => void) {
+  writers.set(id, write);
 }
 
 export function stopJob(id: string): boolean {

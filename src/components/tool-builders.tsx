@@ -10,6 +10,7 @@ import { SearchsploitRun } from "@/components/searchsploit-run";
 import { TunnelBuilder } from "@/components/tunnel-builder";
 import { ImpacketBuilder } from "@/components/impacket-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
+import { LootPick } from "@/components/loot-card";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
 export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "tunnel" | "wfuzz" | "impacket";
@@ -1435,6 +1436,15 @@ function HydraBuilder() {
           <input className={control} value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
       )}
+      <LootPick
+        kinds={["pass"]}
+        onPick={(item) => {
+          setUserMode("one");
+          setUser(item.user);
+          setPassMode("one");
+          setPassword(item.secret);
+        }}
+      />
       {svc.path ? (
         <Field label="Path">
           <input className={control} value={basicPath} onChange={(e) => setBasicPath(e.target.value)} />
@@ -1731,6 +1741,15 @@ function NxcBuilder() {
         <Field label={auth === "hash" ? "NT hash" : auth === "key" ? "Private key" : "Password"}>
           <input className={control} value={secret} onChange={(e) => setSecret(e.target.value)} placeholder={auth === "hash" ? "32 hex" : ""} />
         </Field>
+      ) : null}
+      {picked.id !== "zero" ? (
+        <LootPick
+          onPick={(item) => {
+            setUser(item.user);
+            setSecret(item.secret);
+            setAuth(item.kind === "hash" ? "hash" : "pass");
+          }}
+        />
       ) : null}
       {auth !== "key" && auth !== "anon" && picked.id !== "zero" ? (
         <Field label="Domain (optional)">

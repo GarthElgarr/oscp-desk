@@ -9,6 +9,9 @@ import { JwtCheck } from "@/components/jwt-check";
 import { ReportWriter } from "@/components/report-writer";
 import { Builders, type ToolId } from "@/components/tool-builders";
 import { UploadsPanel } from "@/components/uploads-panel";
+import { WinrmCard } from "@/components/winrm-card";
+import { PenelopeCard } from "@/components/penelope-card";
+import { LootCard } from "@/components/loot-card";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
 import { CoverImage } from "@/components/cover-image";
@@ -120,6 +123,10 @@ export function MethodDesk() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
+  const showTransfer = (!query.trim() && (section === "Uploads" || section === "Shells")) || /certutil|wget|\biwr\b|transfer|tun0|uploads/i.test(query);
+  const showWinrm = (!query.trim() && (section === "Windows" || section === "Shells")) || /evil-winrm|winrm/i.test(query);
+  const showPenelope = (!query.trim() && section === "Shells") || /penelope|listener|\bnc\b/i.test(query);
+  const showLoot = (!query.trim() && (section === "Passwords" || section === "Windows" || section === "Active Directory" || section === "Shells")) || /loot|cred|nthash/i.test(query);
   const builderTools = useMemo(() => {
     const q = query.trim();
     const tools: ToolId[] = [];
@@ -269,7 +276,10 @@ export function MethodDesk() {
         </nav>
 
         <main className="flex min-w-0 flex-col gap-4">
-          {section === "Uploads" ? <UploadsPanel /> : null}
+          {showTransfer ? <UploadsPanel /> : null}
+          {showLoot ? <LootCard /> : null}
+          {showPenelope ? <PenelopeCard /> : null}
+          {showWinrm ? <WinrmCard /> : null}
           {section === "Notes" ? <NotesPanel /> : null}
           {section === "Runs" ? (
             <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">

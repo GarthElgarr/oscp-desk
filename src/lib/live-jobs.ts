@@ -87,6 +87,10 @@ export function removeJob(id: string) {
   return post({ remove: id });
 }
 
+export function sendJob(id: string, text: string) {
+  return post({ write: id, text });
+}
+
 export function clearJobs() {
   return post({ clear: true });
 }

@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
 import { impacketPlan, type ImpacketInput, type ImpacketMode } from "@/lib/impacket-plan";
+import { LootPick } from "@/components/loot-card";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -139,6 +140,15 @@ export function ImpacketBuilder() {
                 <option value="yes">Use the ccache</option>
               </select>
             </Field>
+            <LootPick
+              onPick={(item) =>
+                set(
+                  item.kind === "hash"
+                    ? { user: item.user, hash: item.secret, password: "", kerberos: false }
+                    : { user: item.user, password: item.secret, hash: "", kerberos: false },
+                )
+              }
+            />
           </>
         ) : null}
         {show(["psexec", "smbexec", "wmiexec", "atexec"]) ? (

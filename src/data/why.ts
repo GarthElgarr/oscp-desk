@@ -431,7 +431,8 @@ gpp-decrypt turns the cpassword string into the clear password when the module d
 nxc smb --use-kcache authenticates with that ticket instead of a password. You still pass -u so it knows which name is in the cache. impacket-psexec -k -no-pass does the same for a shell. -k means Kerberos.
 Clock skew too great is a time problem. Sync once and retry once. A ticket that is valid but not an admin will not give you psexec. That ticket is not broken.`,
 
-  "ad-adcs": `certipy find lists templates. -u is user@domain, -p is the password, -dc-ip is the controller. -vulnerable hides the healthy templates. -stdout prints the result.
+  "ad-adcs": `You open this card only when a domain login is already yours and roast, ACL, and shares are dead. No CA means you leave. You do not study the other ESC numbers on exam day.
+certipy find lists templates. -u is user@domain, -p is the password, -dc-ip is the controller. -vulnerable hides the healthy templates. -stdout prints the result.
 certipy req asks the CA for a certificate. -ca and -template are copied from the find output, not guessed. -upn administrator@domain is the ESC1 part: the template lets you put someone else's name on the certificate. That someone is Administrator, once.
 certipy auth -pfx uses the certificate file the request just wrote. It prints an NT hash for that account. You pass the hash. You do not crack it. Any template that is not ESC1 is not this card.`,
 
