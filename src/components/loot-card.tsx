@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
-import { addLoot, getLoot, getLootServer, lootLabel, LOOT_KINDS, removeLoot, setLootLocked, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
+import { addLoot, getLoot, getLootServer, lootLabel, LOOT_KINDS, removeLoot, setLootLocked, setLootPass, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
 import { launchJob } from "@/lib/live-jobs";
 import { getNotes, getNotesServer, subscribeNotes } from "@/lib/notes";
 
@@ -49,7 +49,9 @@ function SshCrack({ item }: { item: LootItem }) {
   const [list, setList] = useState("/usr/share/wordlists/rockyou.txt");
   const [custom, setCustom] = useState("");
   const [error, setError] = useState("");
+  const [found, setFound] = useState("");
   const wordlist = list === "custom" ? custom.trim() : list;
+  const tool = item.secret.startsWith("PuTTY-User-Key-File-") ? "putty2john" : "ssh2john";
 
   async function crack() {
     const plan = sshCrackSteps(item, wordlist);
@@ -58,12 +60,18 @@ function SshCrack({ item }: { item: LootItem }) {
       return;
     }
     setError("");
-    await launchJob("/api/run", { steps: plan.steps }, { tool: "john", title: plan.command.split("\n")[0] ?? "ssh2john", command: plan.command });
+    await launchJob("/api/run", { steps: plan.steps }, { tool: "john", title: plan.command.split("\n")[0] ?? tool, command: plan.command });
+  }
+
+  function saveFound() {
+    const result = setLootPass(item.id, found);
+    setError(result ? result.error : "");
+    if (!result) setFound("");
   }
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <p className="text-sm text-muted">The key asks for a password you do not have. This writes the key, runs ssh2john, then john, then john --show.</p>
+      <p className="text-sm text-muted">The key asks for a password you do not have. This writes the key, runs {tool}, then john, then john --show. A second click uses a new file, so it does not interrupt the first run.</p>
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-mono text-xs tracking-wide text-muted">WORDLIST</span>
         <select className={control} value={list} onChange={(event) => setList(event.target.value)}>
@@ -78,6 +86,13 @@ function SshCrack({ item }: { item: LootItem }) {
       {error ? <p className="text-sm text-dead">{error}</p> : null}
       <button type="button" onClick={() => void crack()} disabled={!wordlist} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
         Crack with John
+      </button>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-mono text-xs tracking-wide text-muted">PASSWORD JOHN PRINTED</span>
+        <input className={control} value={found} onChange={(event) => setFound(event.target.value)} placeholder="Paste it here" spellCheck={false} />
+      </label>
+      <button type="button" onClick={saveFound} disabled={!found.trim()} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40">
+        Save it on this key
       </button>
     </div>
   );

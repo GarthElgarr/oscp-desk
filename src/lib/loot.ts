@@ -201,12 +201,24 @@ export function unlinkBox(boxId: string) {
 /** Writes id_rsa, then the ssh command. The key password is not in this script. */
 export function sshKeyScript(item: LootItem): string {
   const who = item.user || "<user>";
-  return [`cat > id_rsa << 'EOF'`, item.secret.trim(), "EOF", "chmod 600 id_rsa", `ssh -i id_rsa ${who}@<ip>`].join("\n");
+  return [`cat > id_rsa << 'EOF'`, item.secret.trim(), "EOF", "chmod 600 id_rsa", `ssh -i id_rsa '${who}'@<ip>`].join("\n");
 }
 
 export function setLootLocked(id: string, locked: boolean) {
   ensure();
   save(getLoot().map((item) => (item.id === id && item.kind === "sshkey" ? { ...item, locked } : item)));
+}
+
+export function setLootPass(id: string, pass: string): { error: string } | null {
+  const raw = pass.trim();
+  const shown = raw.match(/^[A-Za-z0-9._-]+\.(?:key|hash):([\s\S]+)$/);
+  const next = shown ? shown[1] : raw;
+  if (next.length < 1 || next.length > 128 || /[\r\n\0]/.test(next)) return { error: "The key password is one line." };
+  ensure();
+  const item = getLoot().find((row) => row.id === id && row.kind === "sshkey");
+  if (!item) return { error: "That key is no longer in the list." };
+  save(getLoot().map((row) => (row.id === id ? { ...row, pass: next } : row)));
+  return null;
 }
 
 const WORDLIST = /^[A-Za-z0-9_./:@+=,~-]{1,200}$/;
@@ -217,12 +229,13 @@ export function sshCrackSteps(item: LootItem, wordlist: string): { steps: { kind
   if (item.pass) return { error: "This key already has a password. There is nothing to crack." };
   const list = wordlist.trim();
   if (!WORDLIST.test(list) || list.split("/").includes("..")) return { error: "The wordlist is rockyou, found.txt, or one path." };
-  const base = item.id.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 40) || "key";
+  const base = `${item.id.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 24) || "key"}-${Date.now().toString(36)}`;
   const keyName = `${base}.key`;
   const hashName = `${base}.hash`;
   const bin = item.secret.startsWith("PuTTY-User-Key-File-") ? "putty2john" : "ssh2john";
+  const keyText = item.secret.endsWith("\n") ? item.secret : `${item.secret}\n`;
   const steps = [
-    { kind: "write", name: keyName, text: item.secret },
+    { kind: "write", name: keyName, text: keyText },
     { kind: "exec-to-file", bin, args: [keyName], name: hashName },
     { kind: "exec", bin: "john", args: [`--wordlist=${list}`, hashName] },
     { kind: "exec", bin: "john", args: ["--show", hashName] },
