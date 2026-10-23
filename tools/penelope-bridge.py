@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """Give Penelope a terminal, and relay this process's stdin and stdout to it."""
 
+import fcntl
 import os
 import select
 import signal
+import struct
 import sys
+import termios
 
 def main() -> None:
     args = sys.argv[1:]
     if not args:
         sys.stderr.write("penelope-bridge needs the Penelope command.\n")
         sys.exit(1)
+    os.environ["TERM"] = "xterm-256color"
+    os.environ["COLUMNS"] = "120"
+    os.environ["LINES"] = "40"
     pid, fd = os.forkpty()
     if pid == 0:
         os.execvp(args[0], args)
         return
+    try:
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+    except OSError:
+        pass
 
     def stop(_signum, _frame) -> None:
         try:

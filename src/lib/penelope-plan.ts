@@ -26,12 +26,12 @@ export function penelopePlan(input: {
   if (input.mode === "connect") {
     const host = input.host.trim();
     if (!hostOk(host)) return { error: "The bind shell is one IP or one host name." };
-    const args = ["-O", "-C", "-c", host, "-p", port];
+    const args = ["-O", "-c", host, "-p", port];
     return {
       args,
       command: `penelope ${args.join(" ")}`,
       nc: `nc ${host} ${port}`,
-      why: "This connects out to a shell that is already listening on the target. -c is that host. -p is its port. -O leaves the exam modules off. -C keeps you in the menu, so a button is a menu command and not a command on the target. Interact enters the session. Detach comes back. Paste the command into your own terminal if you would rather not run it here.",
+      why: "This connects out to a shell that is already listening on the target. -c is that host. -p is its port. -O leaves the exam modules off. When the shell is caught, Penelope enters it. The box below types on that shell. Sessions, Upload, and Download step back to the menu first. Paste the command into your own terminal if you would rather not run it here.",
     };
   }
   if (!ifaceOk(iface)) {
@@ -39,13 +39,13 @@ export function penelopePlan(input: {
       ? { error: "127.0.0.1 only accepts connections from this desk. Listen on 0.0.0.0. The payload LHOST is still your tun0 address." }
       : { error: "The interface is 0.0.0.0, tun0, or your tun0 address." };
   }
-  const args = ["-O", "-C", "-p", port];
+  const args = ["-O", "-p", port];
   if (iface && iface !== "0.0.0.0") args.push("-i", iface);
   return {
     args,
     command: `penelope ${args.join(" ")}`,
     nc: `nc -lvnp ${port}`,
-    why: "Penelope listens here and stays in its menu. The payload LHOST is your tun0 address, not 127.0.0.1, and the port is this port. -O keeps the exam modules off. Interact enters a session. Detach returns to the menu before Upload, Download, or Sessions. Those words typed inside the shell run on the target.",
+    why: "Penelope listens here. The payload LHOST is your tun0 address, not 127.0.0.1, and the port is this port. -O keeps the exam modules off. When a shell arrives, Penelope enters it, and the box below runs on that shell. Sessions, Upload, and Download leave the shell first, then run. Detach is that same step without a command after it.",
   };
 }
 

@@ -1,7 +1,7 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
-import { getJobs, getJobsServer, launchJob, sendJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
+import { getJobs, getJobsServer, launchJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -16,6 +16,8 @@ export function PenelopeCard() {
   const [remote, setRemote] = useState("/tmp/linpeas.sh");
   const [typed, setTyped] = useState("");
   const [copied, setCopied] = useState("");
+  const [atShell, setAtShell] = useState(true);
+  const [sendError, setSendError] = useState("");
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
   const plan = useMemo(() => penelopePlan({ mode, port, iface, host }), [mode, port, iface, host]);
@@ -36,26 +38,53 @@ export function PenelopeCard() {
     await launchJob("/api/penelope", { mode, port, iface, host }, { tool: "penelope", title: plan.command, command: plan.command });
   }
 
+  async function write(text: string) {
+    if (!running) return false;
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ write: running.id, text }),
+    });
+    if (!response.ok) {
+      setSendError("That command did not reach Penelope. If the run has ended, start it again.");
+      return false;
+    }
+    setSendError("");
+    await syncJobs();
+    return true;
+  }
+
   async function press(action: string) {
     if (!running) return;
     const line = penelopeLine(action, session, local, remote);
     if ("error" in line) return;
-    await sendJob(running.id, line.text);
+    const menu = action !== "detach" && action !== "interrupt";
+    if (menu && atShell) {
+      const left = await write("\u001b[24~");
+      if (!left) return;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    const sent = await write(line.text);
+    if (!sent) return;
+    if (action === "detach") setAtShell(false);
+    else if (action === "interact") setAtShell(true);
+    else if (menu) setAtShell(false);
   }
 
   async function sendTyped() {
     if (!running) return;
     const text = typed.replace(/[\r\0]/g, "").slice(0, 200);
     if (!text.trim()) return;
-    const response = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ write: running.id, text: text.endsWith("\n") ? text : `${text}\n` }),
-    });
-    if (response.ok) {
-      setTyped("");
-      await syncJobs();
+    if (!atShell) {
+      const line = penelopeLine("interact", session, local, remote);
+      if ("error" in line) return;
+      const back = await write(line.text);
+      if (!back) return;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setAtShell(true);
     }
+    const sent = await write(text.endsWith("\n") ? text : `${text}\n`);
+    if (sent) setTyped("");
   }
 
   return (
@@ -64,7 +93,7 @@ export function PenelopeCard() {
         <p className="font-mono text-xs text-primary">Listener</p>
         <h2 className="text-lg font-semibold">Penelope</h2>
         <p className="mt-1 text-sm text-muted">
-          Starts Penelope in the desk. The buttons type its menu commands. Copy the line if you want the same listener in your own terminal.
+          Starts Penelope in the desk and enters the shell when it arrives. The box runs on that shell. Sessions, Upload, and Download step out to the menu first.
         </p>
       </div>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
@@ -116,10 +145,9 @@ export function PenelopeCard() {
           <p className="font-mono text-xs text-primary">HOW TO</p>
           <ol className="mt-2 list-decimal space-y-1 pl-4">
             <li>Start this before the payload. LHOST is your tun0 address. The port is the one above.</li>
-            <li>You stay in the menu. A new session is listed. It is not entered. Interact opens it, then whoami.</li>
-            <li>Detach before Upload, Download, or Sessions. Inside the shell those words run on the target.</li>
-            <li>Kill drops one session. Stop on the run below stops Penelope. Ctrl-C in the menu does not.</li>
-            <li>payloads prints a callback aimed at this listener. Copy that line onto the target if you do not already have one.</li>
+            <li>When the shell arrives, Penelope enters it. Type in the box and press Send. That runs on the target, not in the menu.</li>
+            <li>Sessions, Upload, Download, Payloads, and Kill leave the shell first, then run. Interact goes back in. Detach only leaves.</li>
+            <li>Ctrl-C goes to the target. Stop on the run below stops Penelope.</li>
           </ol>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -164,11 +192,12 @@ export function PenelopeCard() {
             void sendTyped();
           }}
         >
-          <input className={control + " min-w-0 flex-1"} value={typed} onChange={(event) => setTyped(event.target.value)} placeholder="Or type a menu command, such as help upload" spellCheck={false} disabled={!running} />
-          <button type="submit" disabled={!running || !typed.trim()} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40">
-            Send
+          <input className={control + " min-w-0 flex-1"} value={typed} onChange={(event) => setTyped(event.target.value)} placeholder="whoami" spellCheck={false} disabled={!running} />
+          <button type="submit" disabled={!running || !typed.trim()} className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
+            Send to shell
           </button>
         </form>
+        {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         <JobList tool="penelope" empty="Penelope is not running." />
       </div>
     </article>
