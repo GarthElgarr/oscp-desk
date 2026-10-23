@@ -49,14 +49,7 @@ export function startPenelope(id: string, command: string, args: string[]): bool
       }
     });
   }
-  const take = (buf: Buffer) =>
-    handle.push(
-      buf
-        .toString()
-        .replace(/\x1b\[[0-9;?]*[A-Za-z~]/g, "")
-        .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
-        .replace(/\r(?!\n)/g, "\n"),
-    );
+  const take = (buf: Buffer) => handle.push(buf.toString("utf8").replace(/\0/g, ""));
   child.stdout?.on("data", take);
   child.stderr?.on("data", take);
   child.on("error", (err: NodeJS.ErrnoException) => {

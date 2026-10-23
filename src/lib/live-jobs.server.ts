@@ -119,10 +119,11 @@ export function spawnLiveJob(input: {
   return true;
 }
 
-export function writeJob(id: string, text: string): boolean {
+export function writeJob(id: string, text: string, silent = false): boolean {
   const write = writers.get(id);
-  if (!write || text.length < 1 || text.length > 400 || text.includes("\0")) return false;
+  if (!write || text.length < 1 || text.length > 8000 || text.includes("\0")) return false;
   write(text);
+  if (silent) return true;
   const job = jobs.find((item) => item.id === id);
   const preview = text.replace(/[^\x20-\x7e\n]/g, "").trim();
   if (job && job.output.length < 800_000) job.output += preview ? `\n> ${preview}\n` : "\n> (key)\n";

@@ -1,6 +1,12 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { getJobs, getJobsServer, removeJob, stopJob, subscribeJobs, syncJobs, type LiveJob } from "@/lib/live-jobs";
 
+function plain(text: string) {
+  return text
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\r(?!\n)/g, "\n");
+}
 function jobState(job: LiveJob): "running" | "done" | "partial" | "failed" {
   if (job.running) return "running";
   if (job.output.includes('"verdict":"partial"')) return "partial";
@@ -55,7 +61,7 @@ export function JobList({ tool, empty }: { tool?: string; empty?: string }) {
               </div>
             </div>
             <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-              {job.output.replace(/@@STATUS .*@@\n?/g, "") || (job.running ? "Waiting for output…" : "")}
+              {plain(job.output).replace(/@@STATUS .*@@\n?/g, "") || (job.running ? "Waiting for output…" : "")}
             </pre>
           </section>
         );
