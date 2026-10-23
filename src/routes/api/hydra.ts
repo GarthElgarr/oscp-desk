@@ -14,6 +14,10 @@ function listFile(text: unknown): string | null {
   return `${lines.join("\n")}\n`;
 }
 
+function lootFile(args: string[], kind: "users" | "passwords"): string | null {
+  return args.find((arg) => new RegExp(`^loot-${kind}-[a-z0-9]+\\.txt$`).test(arg)) ?? null;
+}
+
 export const Route = createFileRoute("/api/hydra")({
   server: {
     handlers: {
@@ -27,17 +31,17 @@ export const Route = createFileRoute("/api/hydra")({
         const args = (body as { args?: unknown }).args;
         if (!hydraArgsOk(args)) return new Response("Those arguments are not a hydra command this desk will run.\n", { status: 400 });
         const lists = (body as { lists?: { users?: unknown; passwords?: unknown } }).lists;
-        const wantsUsers = args.includes("loot-users.txt");
-        const wantsPasses = args.includes("loot-passwords.txt");
-        if (wantsUsers) {
+        const userFile = lootFile(args, "users");
+        const passFile = lootFile(args, "passwords");
+        if (userFile) {
           const file = listFile(lists?.users);
           if (!file) return new Response("There are no saved users to try.\n", { status: 400 });
-          writeFileSync(path.join(process.cwd(), "loot-users.txt"), file);
+          writeFileSync(path.join(process.cwd(), userFile), file);
         }
-        if (wantsPasses) {
+        if (passFile) {
           const file = listFile(lists?.passwords);
           if (!file) return new Response("There are no saved passwords to try.\n", { status: 400 });
-          writeFileSync(path.join(process.cwd(), "loot-passwords.txt"), file);
+          writeFileSync(path.join(process.cwd(), passFile), file);
         }
         const id = jobId((body as { id?: unknown }).id);
         if (!id) return new Response("The scan id is missing.\n", { status: 400 });

@@ -424,13 +424,14 @@ function HashcatBuilder() {
   const [incMin, setIncMin] = useState("");
   const [incMax, setIncMax] = useState("");
   const [charset, setCharset] = useState("");
+  const [hashStamp, setHashStamp] = useState(() => Date.now().toString(36));
 
   const picked = HASH_MODES.find((m) => m.id === mode) ?? HASH_MODES[0];
   const saved = useSyncExternalStore(subscribeLoot, getLoot, getLootServer);
   const lootKind = (Object.entries(LOOT_HASHCAT).find(([, id]) => id === mode)?.[0] ?? "") as LootKind | "";
   const savedHashes = lootKind ? [...new Set(saved.filter((item) => item.kind === lootKind && item.secret).map((item) => item.secret))] : [];
   const wordlist = list === "custom" ? cleanPath(customList) : list;
-  const hashFile = source === "file" ? cleanPath(file) : picked.file;
+  const hashFile = source === "file" ? cleanPath(file) : source === "loot" ? `loot-${mode}-${hashStamp}.txt` : picked.file;
   const hash = cleanLoose(pasted).replace(/\s+/g, "");
   const hashOk = source === "loot" ? savedHashes.length > 0 : source === "file" || (hash.length > 0 && !/['"\\;&|`]/.test(hash));
   const maskOk = attack !== "mask" || /^\?[ludsab](?:\?[ludsab]|[A-Za-z0-9!@#$%&*._-]|\?l|\?u|\?d|\?s|\?a|\?b){0,30}$/.test(mask) || /^[\?ludsabA-Za-z0-9!@#$%&*._-]+$/.test(mask);
@@ -450,7 +451,7 @@ function HashcatBuilder() {
       hashcatSteps.push({ kind: "write", name: picked.file, text: `${hash}\n` });
     } else if (source === "loot") {
       lines.push(`# ${savedHashes.length} saved ${picked.label} hashes`);
-      hashcatSteps.push({ kind: "write", name: picked.file, text: `${savedHashes.join("\n")}\n` });
+      hashcatSteps.push({ kind: "write", name: hashFile, text: `${savedHashes.join("\n")}\n` });
     }
     const crack = ["-m", picked.id];
     if (username) crack.push("--username");
@@ -495,7 +496,7 @@ function HashcatBuilder() {
     }
     command = lines.join("\n");
     if (source === "paste") hashcatQuick.push({ kind: "write", name: picked.file, text: `${hash}\n` });
-    if (source === "loot") hashcatQuick.push({ kind: "write", name: picked.file, text: `${savedHashes.join("\n")}\n` });
+    if (source === "loot") hashcatQuick.push({ kind: "write", name: hashFile, text: `${savedHashes.join("\n")}\n` });
     const quickCrack = ["-m", picked.id];
     if (username) quickCrack.push("--username");
     if (attack === "show") quickCrack.push(hashFile, "--show");
@@ -542,6 +543,7 @@ function HashcatBuilder() {
           })}
           buildQuick={() => ({ steps: hashcatQuick })}
           quickHint="Quick run is -m, the hash, and the wordlist, then --show. A mask attack stays a mask. Rules, -O, and --force stay off."
+          onRan={() => setHashStamp(Date.now().toString(36))}
         />
       }
     >
@@ -587,7 +589,7 @@ function HashcatBuilder() {
         </Field>
       ) : (
         <p className="text-sm text-muted sm:col-span-2">
-          {savedHashes.length ? `${savedHashes.length} saved hashes of this type are written to ${picked.file} when you run.` : "Nothing of this type is saved in loot yet."}
+          {savedHashes.length ? `${savedHashes.length} saved hashes of this type are written to ${hashFile} when you run. A second run uses a new file.` : "Nothing of this type is saved in loot yet."}
         </p>
       )}
       <LootPick
@@ -1297,12 +1299,15 @@ function HydraBuilder() {
   const [hydraFmt, setHydraFmt] = useState("text");
   const [modOpt, setModOpt] = useState("");
   const [webGuide, setWebGuide] = useState("method");
+  const [stamp, setStamp] = useState(() => Date.now().toString(36));
+  const lootUserFile = `loot-users-${stamp}.txt`;
+  const lootPassFile = `loot-passwords-${stamp}.txt`;
 
   const svc = HYDRA_SERVICES.find((s) => s.id === serviceId) ?? HYDRA_SERVICES[0];
   const host = cleanTarget(target);
   const portOk = port.trim() === "" || (Number(port) >= 1 && Number(port) <= 65535 && /^\d+$/.test(port.trim()));
-  const userValue = userMode === "loot" ? (savedUsers.length ? "loot-users.txt" : "") : userMode === "file" ? cleanPath(user) : cleanUser(user);
-  const passPath = passMode === "loot" ? (savedPasses.length ? "loot-passwords.txt" : "") : cleanPath(passFile);
+  const userValue = userMode === "loot" ? (savedUsers.length ? lootUserFile : "") : userMode === "file" ? cleanPath(user) : cleanUser(user);
+  const passPath = passMode === "loot" ? (savedPasses.length ? lootPassFile : "") : cleanPath(passFile);
   const passOne = cleanLoose(password);
   const rockyou = /rockyou/i.test(passFile) || /rockyou/i.test(password);
   const formPath = path.trim();
@@ -1331,7 +1336,7 @@ function HydraBuilder() {
     if (svc.user && (userMode === "file" || userMode === "loot") && passMode !== "one") tail.push("-u");
     if (svc.user) tail.push(userMode === "one" ? "-l" : "-L", userValue);
     if (passMode === "one") tail.push("-p", passOne);
-    else tail.push("-P", passMode === "loot" ? "loot-passwords.txt" : passPath);
+    else tail.push("-P", passMode === "loot" ? lootPassFile : passPath);
     if (port.trim() && port.trim() !== svc.port) tail.push("-s", port.trim());
     tail.push(host, svc.module);
     if (svc.path) tail.push(basicPath.trim());
@@ -1359,7 +1364,10 @@ function HydraBuilder() {
     if (/^[A-Za-z0-9=,:._@/+-]{1,120}$/.test(modOpt.trim())) args.push("-m", modOpt.trim());
     args.push(...tail, ...extraArgs);
     quickArgs = ["-t", "1", "-f", "-I", "-V", ...tail];
-    command = ["hydra", ...args.map(quoteHydraArg)].join(" ");
+    const prelude: string[] = [];
+    if (userMode === "loot") prelude.push(`cat > ${lootUserFile} << 'EOF'`, ...savedUsers, "EOF");
+    if (passMode === "loot") prelude.push(`cat > ${lootPassFile} << 'EOF'`, ...savedPasses, "EOF");
+    command = [...prelude, ["hydra", ...args.map(quoteHydraArg)].join(" ")].join("\n");
   }
 
   const blocked = rockyou
@@ -1392,6 +1400,7 @@ function HydraBuilder() {
             ...(userMode === "loot" ? { users: savedUsers.join("\n") } : {}),
             ...(passMode === "loot" ? { passwords: savedPasses.join("\n") } : {}),
           }}
+          onRan={() => setStamp(Date.now().toString(36))}
         />
       }
     >
@@ -1462,7 +1471,7 @@ function HydraBuilder() {
         </Field>
       ) : null}
       {svc.user && userMode === "loot" ? (
-        <p className="text-sm text-muted sm:col-span-2">{savedUsers.length ? `${savedUsers.length} saved users are written to loot-users.txt when you run.` : "No users are saved in loot yet."}</p>
+        <p className="text-sm text-muted sm:col-span-2">{savedUsers.length ? `${savedUsers.length} saved users. The run writes ${lootUserFile}. Copy includes that file, so a pasted command still works.` : "No users are saved in loot yet."}</p>
       ) : null}
       <Field label="Password">
         <select className={control} value={passMode} onChange={(e) => setPassMode(e.target.value as typeof passMode)}>
@@ -1476,7 +1485,7 @@ function HydraBuilder() {
           <input className={control} value={passFile} onChange={(e) => setPassFile(e.target.value)} />
         </Field>
       ) : passMode === "loot" ? (
-        <p className="text-sm text-muted sm:col-span-2">{savedPasses.length ? `${savedPasses.length} saved passwords are written to loot-passwords.txt when you run. A key password is included. A hash is not.` : "No passwords are saved in loot yet."}</p>
+        <p className="text-sm text-muted sm:col-span-2">{savedPasses.length ? `${savedPasses.length} saved passwords. The run writes ${lootPassFile}. A key password is included. A hash is not.` : "No passwords are saved in loot yet."}</p>
       ) : (
         <Field label="Password">
           <input className={control} value={password} onChange={(e) => setPassword(e.target.value)} />

@@ -12,6 +12,7 @@ export function ToolRun({
   buildBody,
   buildQuick,
   quickHint,
+  onRan,
 }: {
   endpoint: string;
   tool: string;
@@ -21,6 +22,7 @@ export function ToolRun({
   buildBody: (extra: string[]) => Record<string, unknown>;
   buildQuick?: () => Record<string, unknown>;
   quickHint?: string;
+  onRan?: () => void;
 }) {
   const [flags, setFlags] = useState("");
   const parsed = parseExtraFlags(flags);
@@ -35,6 +37,7 @@ export function ToolRun({
   async function run(body: Record<string, unknown>) {
     const listed = typeof body.command === "string" ? body.command : typeof body.args === "object" && Array.isArray(body.args) ? `${tool} ${body.args.join(" ")}` : tool;
     await launchJob(endpoint, body, { tool, title: listed.slice(0, 80), command: listed.slice(0, 200) });
+    onRan?.();
   }
 
   return (
@@ -87,12 +90,14 @@ export function HydraRun({
   disabled,
   onFlags,
   lists,
+  onRan,
 }: {
   args: string[];
   quickArgs: string[];
   disabled: boolean;
   onFlags: (flags: string, extra: string[]) => void;
   lists?: { users?: string; passwords?: string };
+  onRan?: () => void;
 }) {
   return (
     <ToolRun
@@ -103,7 +108,8 @@ export function HydraRun({
       onFlags={(extra) => onFlags("", extra)}
       buildBody={(extra) => ({ args: [...args, ...extra], lists })}
       buildQuick={() => ({ args: quickArgs, lists })}
-      quickHint="Quick run is -t 1 -f -I -V plus the host and the list. It skips the optional flags. Saved loot lists are written again for that run."
+      quickHint="Quick run is -t 1 -f -I -V plus the host and the list. It skips the optional flags. Each run writes its own list file."
+      onRan={onRan}
     />
   );
 }
