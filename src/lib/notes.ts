@@ -8,6 +8,7 @@ const KEY = "oscp-box-notes-v1";
 const EMPTY: BoxNote[] = [];
 let notes: BoxNote[] = EMPTY;
 let loaded = false;
+let seq = 0;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -53,7 +54,7 @@ export function getNotesServer(): BoxNote[] {
 
 export function addNote(): BoxNote {
   ensure();
-  const note: BoxNote = { id: `box-${Date.now().toString(36)}`, title: "Box", body: "" };
+  const note: BoxNote = { id: `box-${Date.now().toString(36)}-${seq++}`, title: "Box", body: "" };
   save([note, ...getNotes()]);
   return note;
 }

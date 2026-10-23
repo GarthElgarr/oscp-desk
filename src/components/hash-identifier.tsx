@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import { identifyPaste, type HashRow } from "@/lib/hash-id";
+import { LootPick } from "@/components/loot-card";
+import { LOOT_HASHCAT, type LootKind } from "@/lib/loot";
 
 const control =
   "min-h-36 w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs text-fg outline-none";
@@ -100,6 +102,12 @@ export function HashIdentifier() {
             spellCheck={false}
           />
         </label>
+        <div className="mt-3">
+          <LootPick
+            kinds={Object.keys(LOOT_HASHCAT) as LootKind[]}
+            onPick={(item) => setText(item.secret)}
+          />
+        </div>
       </div>
       {text.trim() ? (
         <div className="flex flex-col gap-4 px-4 pb-4">

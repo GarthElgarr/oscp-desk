@@ -10,7 +10,8 @@ export function NotesPanel() {
   const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
-    if (getNotes().length === 0) addNote();
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("oscp-box-notes-v1") === null && getNotes().length === 0) addNote();
   }, []);
 
   return (

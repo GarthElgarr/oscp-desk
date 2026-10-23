@@ -43,6 +43,7 @@ const EMPTY: LootItem[] = [];
 const KINDS = new Set<string>(LOOT_KINDS.map((item) => item.id));
 let items: LootItem[] = EMPTY;
 let loaded = false;
+let seq = 0;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -92,6 +93,14 @@ function save(next: LootItem[]) {
   emit();
 }
 
+function splitWindowsHash(secret: string): { user: string; lm: string; nt: string } | null {
+  const pair = secret.match(/^([0-9a-fA-F]{32}):([0-9a-fA-F]{32})$/);
+  if (pair) return { user: "", lm: pair[1], nt: pair[2] };
+  const dump = secret.match(/^([^:\r\n]+):\d+:([0-9a-fA-F]{32}):([0-9a-fA-F]{32})(?::|$)/);
+  if (dump) return { user: dump[1], lm: dump[2], nt: dump[3] };
+  return null;
+}
+
 function secretOk(kind: LootKind, secret: string): string | null {
   if (kind === "user") return secret === "" ? null : "A user has no secret. Leave that box empty.";
   if (/[\r\n\0]/.test(secret)) return "The secret is one line.";
@@ -126,8 +135,15 @@ export function lootLabel(kind: LootKind): string {
 }
 
 export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[] }): { error: string } | null {
-  const user = input.user.trim();
-  const secret = input.kind === "user" ? "" : input.secret.trim();
+  let user = input.user.trim();
+  let secret = input.kind === "user" ? "" : input.secret.trim();
+  if (input.kind === "nt" || input.kind === "lm") {
+    const split = splitWindowsHash(secret);
+    if (split) {
+      secret = input.kind === "lm" ? split.lm : split.nt;
+      if (!user && /^[A-Za-z0-9][A-Za-z0-9._$@-]{0,64}$/.test(split.user)) user = split.user;
+    }
+  }
   const note = input.note.trim().slice(0, 80);
   if (input.kind === "user" && !/^[A-Za-z0-9][A-Za-z0-9._$@-]{0,64}$/.test(user)) return { error: "The user is the account name." };
   if (user && !/^[A-Za-z0-9][A-Za-z0-9._$@-]{0,64}$/.test(user)) return { error: "The user is the account name, or leave it empty." };
@@ -135,7 +151,7 @@ export function addLoot(input: { user: string; secret: string; kind: LootKind; n
   if (bad) return { error: bad };
   ensure();
   const boxes = (input.boxes ?? []).filter((id) => typeof id === "string").slice(0, 12);
-  save([{ id: `loot-${Date.now().toString(36)}`, user, secret, kind: input.kind, note, boxes }, ...getLoot()]);
+  save([{ id: `loot-${Date.now().toString(36)}-${seq++}`, user, secret, kind: input.kind, note, boxes }, ...getLoot()]);
   return null;
 }
 
