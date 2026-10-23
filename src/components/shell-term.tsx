@@ -9,18 +9,18 @@ type View = {
 };
 
 /** A real terminal for one Penelope job. Keystrokes go to the shell. Output is what Penelope prints. */
-export function ShellTerm({ jobId, output, active }: { jobId: string; output: string; active: boolean }) {
+export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; output: string; active: boolean; onKeys: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const term = useRef<View | null>(null);
   const seen = useRef("");
-  const pending = useRef("");
   const idRef = useRef(jobId);
+  const onKeysRef = useRef(onKeys);
   const [tick, setTick] = useState(0);
   idRef.current = jobId;
+  onKeysRef.current = onKeys;
 
   useEffect(() => {
     let disposed = false;
-    let timer = 0;
     let view: View | null = null;
     let addon: { fit: () => void; dispose: () => void } | null = null;
     const onResize = () => addon?.fit();
@@ -42,35 +42,25 @@ export function ShellTerm({ jobId, output, active }: { jobId: string; output: st
       const fitted = new FitAddon();
       next.loadAddon(fitted);
       next.open(host.current);
-      fitted.fit();
+      try {
+        fitted.fit();
+      } catch {
+        /* the box has no size yet */
+      }
       addon = fitted;
       view = next;
       term.current = next;
-      next.writeln("Click here and type. This is the shell. Ctrl-C goes to the target.");
+      next.writeln("Click here and type once a shell is on screen. Ctrl-C goes to the target.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
       next.onData((data) => {
         if (!idRef.current) return;
-        pending.current += data;
-        if (timer) return;
-        timer = window.setTimeout(() => {
-          timer = 0;
-          const text = pending.current;
-          pending.current = "";
-          const id = idRef.current;
-          if (!text || !id) return;
-          void fetch("/api/jobs", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ write: id, text, silent: true }),
-          }).then(() => syncJobs());
-        }, 30);
+        onKeysRef.current(data);
       });
     })();
 
     return () => {
       disposed = true;
-      window.clearTimeout(timer);
       window.removeEventListener("resize", onResize);
       addon?.dispose();
       view?.dispose();

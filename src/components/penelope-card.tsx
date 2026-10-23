@@ -1,10 +1,16 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { ShellTerm } from "@/components/shell-term";
 import { getJobs, getJobsServer, launchJob, stopJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
+
+function shellOpen(output: string): boolean {
+  let last = "";
+  for (const match of output.matchAll(/Interacting with session|Session detached/g)) last = match[0];
+  return last === "Interacting with session";
+}
 
 export function PenelopeCard() {
   const [mode, setMode] = useState<"listen" | "connect">("listen");
@@ -15,12 +21,20 @@ export function PenelopeCard() {
   const [local, setLocal] = useState("/home/kali/linpeas.sh");
   const [remote, setRemote] = useState("/tmp/linpeas.sh");
   const [copied, setCopied] = useState("");
-  const [atShell, setAtShell] = useState(true);
   const [sendError, setSendError] = useState("");
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
+  const shown = running ?? jobs.find((job) => job.tool === "penelope");
+  const caught = Boolean(shown && shown.output.includes("Interacting with session"));
+  const atShell = shellOpen(shown?.output ?? "");
   const plan = useMemo(() => penelopePlan({ mode, port, iface, host }), [mode, port, iface, host]);
   const ready = !("error" in plan);
+  const chain = useRef(Promise.resolve());
+  const hold = useRef(false);
+  const pending = useRef("");
+  const keyTimer = useRef(0);
+  const runningId = useRef("");
+  runningId.current = running?.id ?? "";
 
   async function copy(id: string, text: string) {
     try {
@@ -37,49 +51,91 @@ export function PenelopeCard() {
     await launchJob("/api/penelope", { mode, port, iface, host }, { tool: "penelope", title: plan.command, command: plan.command });
   }
 
-  async function write(text: string) {
-    if (!running) return false;
-    const response = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ write: running.id, text, silent: true }),
-    });
-    if (!response.ok) {
-      setSendError("That command did not reach Penelope. If the run has ended, start it again.");
-      return false;
+  function enqueue(text: string): Promise<boolean> {
+    const run = chain.current.then(() => deliver(text));
+    chain.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  async function deliver(text: string): Promise<boolean> {
+    const id = runningId.current;
+    if (!id) return false;
+    for (let i = 0; i < text.length; i += 4000) {
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ write: id, text: text.slice(i, i + 4000), silent: true }),
+      });
+      if (!response.ok) {
+        setSendError("That command did not reach Penelope. If the run has ended, start it again.");
+        return false;
+      }
     }
     setSendError("");
     await syncJobs();
     return true;
   }
 
+  function flushKeys() {
+    window.clearTimeout(keyTimer.current);
+    keyTimer.current = 0;
+    const text = pending.current;
+    pending.current = "";
+    if (text) void enqueue(text);
+  }
+
+  function onKeys(text: string) {
+    if (hold.current || !caught || !runningId.current) return;
+    pending.current += text;
+    if (keyTimer.current) return;
+    keyTimer.current = window.setTimeout(() => {
+      keyTimer.current = 0;
+      const next = pending.current;
+      pending.current = "";
+      if (next) void enqueue(next);
+    }, 30);
+  }
+
+  async function write(text: string) {
+    flushKeys();
+    return enqueue(text);
+  }
+
   async function press(action: string) {
-    if (!running) return;
+    if (!running || !caught) return;
     const line = penelopeLine(action, session, local, remote);
     if ("error" in line) return;
-    const menu = action !== "detach" && action !== "interrupt";
-    if (menu && atShell) {
-      const left = await write("\u001b[24~");
-      if (!left) return;
-      await new Promise((resolve) => setTimeout(resolve, 400));
+    hold.current = true;
+    try {
+      const menu = action !== "detach" && action !== "interrupt";
+      if (menu && atShell) {
+        const left = await write("\u001b[24~");
+        if (!left) return;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      await write(line.text);
+    } finally {
+      hold.current = false;
     }
-    const sent = await write(line.text);
-    if (!sent) return;
-    if (action === "detach") setAtShell(false);
-    else if (action === "interact") setAtShell(true);
-    else if (menu) setAtShell(false);
   }
 
   async function useSession(n: number) {
     setSession(String(n));
-    if (!running) return;
-    if (atShell) {
-      const left = await write("\u001b[24~");
-      if (!left) return;
-      await new Promise((resolve) => setTimeout(resolve, 400));
+    if (!running || !caught) return;
+    hold.current = true;
+    try {
+      if (atShell) {
+        const left = await write("\u001b[24~");
+        if (!left) return;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      await write(`interact ${n}\n`);
+    } finally {
+      hold.current = false;
     }
-    const sent = await write(`interact ${n}\n`);
-    if (sent) setAtShell(true);
   }
 
   return (
@@ -139,20 +195,20 @@ export function PenelopeCard() {
         <div className="flex flex-wrap items-center gap-1">
           <span className="px-1 font-mono text-xs text-muted">SESSION</span>
           {["1", "2", "3", "4", "5"].map((n) => (
-            <button key={n} type="button" disabled={!running} onClick={() => void useSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
+            <button key={n} type="button" disabled={!running || !caught} onClick={() => void useSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs disabled:opacity-40 " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
               {n}
             </button>
           ))}
-          <button type="button" disabled={!running} onClick={() => void press("detach")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !caught} onClick={() => void press("detach")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Menu
           </button>
-          <button type="button" disabled={!running} onClick={() => void press("interact")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !caught} onClick={() => void press("interact")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Shell
           </button>
-          <button type="button" disabled={!running} onClick={() => void press("payloads")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !caught} onClick={() => void press("payloads")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Payloads
           </button>
-          <button type="button" disabled={!running} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
+          <button type="button" disabled={!running || !caught} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
             Kill session
           </button>
           <button type="button" disabled={!running} onClick={() => running && void stopJob(running.id)} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
@@ -162,16 +218,16 @@ export function PenelopeCard() {
         <div className="flex flex-wrap items-center gap-1">
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={local} onChange={(event) => setLocal(event.target.value.trim())} aria-label="Kali path" spellCheck={false} />
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={remote} onChange={(event) => setRemote(event.target.value.trim())} aria-label="Target path" spellCheck={false} />
-          <button type="button" disabled={!running || "error" in penelopeLine("upload", session, local, remote)} onClick={() => void press("upload")} className="inline-flex h-9 items-center rounded-lg border border-primary bg-raised px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !caught || "error" in penelopeLine("upload", session, local, remote)} onClick={() => void press("upload")} className="inline-flex h-9 items-center rounded-lg border border-primary bg-raised px-2 text-xs text-fg disabled:opacity-40">
             Upload
           </button>
-          <button type="button" disabled={!running || "error" in penelopeLine("download", session, local, remote)} onClick={() => void press("download")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !caught || "error" in penelopeLine("download", session, local, remote)} onClick={() => void press("download")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Left box is the file on Kali. Right box is the path on the target. Upload and Download leave the shell, then run. Click Shell to go back. Ctrl-C is the keyboard.</p>
+        <p className="text-xs text-muted">Typing stays off until the shell is on screen, so a key cannot quit the listener. Left box is the file on Kali. Right box is the path on the target. The terminal stays after you press Stop, so you can still read it.</p>
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
-        {running ? <ShellTerm jobId={running.id} output={running.output} active={running.running} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
+        {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>
     </article>
   );

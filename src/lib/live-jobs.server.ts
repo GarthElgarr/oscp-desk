@@ -42,6 +42,7 @@ export function openJob(input: {
   name?: string;
   timeoutMs: number;
   maxOut?: number;
+  trim?: boolean;
 }): { push: (text: string) => void; finish: (line: string) => void; kill: () => void; stopped: () => boolean; attach: (child: ChildProcess) => void } | null {
   if (!jobId(input.id)) return null;
   if (jobs.some((job) => job.running && job.id === input.id)) return null;
@@ -72,7 +73,12 @@ export function openJob(input: {
     const slice = text.slice(0, maxOut - sent);
     sent += slice.length;
     job.output += slice;
-    if (sent >= maxOut) kill();
+    if (sent >= maxOut) {
+      if (input.trim) {
+        job.output = job.output.slice(-Math.floor(maxOut / 2));
+        sent = job.output.length;
+      } else kill();
+    }
   };
   const finish = (line: string) => {
     if (finished) return;

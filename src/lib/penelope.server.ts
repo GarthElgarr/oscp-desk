@@ -30,7 +30,8 @@ export function startPenelope(id: string, command: string, args: string[]): bool
     title: command.slice(0, 80),
     command,
     timeoutMs: 6 * 60 * 60 * 1000,
-    maxOut: 800_000,
+    maxOut: 2_000_000,
+    trim: true,
   });
   if (!handle) return false;
   handle.push(`$ ${command}\n`);
