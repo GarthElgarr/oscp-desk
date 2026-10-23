@@ -11,6 +11,7 @@ export const LOOT_KINDS = [
   { id: "sha256", label: "SHA256" },
   { id: "sha512", label: "SHA512" },
   { id: "bcrypt", label: "bcrypt" },
+  { id: "sshkey", label: "SSH private key" },
 ] as const;
 
 export type LootKind = (typeof LOOT_KINDS)[number]["id"];
@@ -36,6 +37,8 @@ export type LootItem = {
   kind: LootKind;
   note: string;
   boxes: string[];
+  /** Passphrase for an SSH private key. Empty when the key does not ask. */
+  pass: string;
 };
 
 const KEY = "oscp-loot-v1";
@@ -73,6 +76,7 @@ function normalise(value: LootItem & { kind?: unknown }): LootItem {
     kind,
     note: typeof value.note === "string" ? value.note : "",
     boxes,
+    pass: typeof value.pass === "string" ? value.pass : "",
   };
 }
 
@@ -103,6 +107,7 @@ function splitWindowsHash(secret: string): { user: string; lm: string; nt: strin
 
 function secretOk(kind: LootKind, secret: string): string | null {
   if (kind === "user") return secret === "" ? null : "A user has no secret. Leave that box empty.";
+  if (kind === "sshkey") return sshKeyOk(secret);
   if (/[\r\n\0]/.test(secret)) return "The secret is one line.";
   if (kind === "pass") return secret.length >= 1 && secret.length <= 128 ? null : "The password is one line.";
   if (kind === "nt" || kind === "lm" || kind === "md5") return /^[0-9a-fA-F]{32}$/.test(secret) ? null : "That hash is 32 hex characters.";
@@ -114,6 +119,18 @@ function secretOk(kind: LootKind, secret: string): string | null {
   if (kind === "asrep") return /krb5asrep/i.test(secret) && secret.length <= 2000 ? null : "AS-REP is the hashcat line, the one containing krb5asrep.";
   if (kind === "tgs") return /krb5tgs/i.test(secret) && secret.length <= 2000 ? null : "A TGS is the hashcat line, the one containing krb5tgs.";
   return "That kind is not one this list stores.";
+}
+
+function sshKeyOk(secret: string): string | null {
+  if (secret.includes("\0") || secret.length < 40 || secret.length > 16000) {
+    return "Paste the private key, including the BEGIN and END lines.";
+  }
+  if (/^ssh-(rsa|ed25519|dss|ecdsa)\s/.test(secret)) return "That is a public key. Paste the private key.";
+  const begin = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(secret);
+  const end = /-----END [A-Z0-9 ]*PRIVATE KEY-----/.test(secret);
+  if (begin && end) return null;
+  if (/^PuTTY-User-Key-File-/.test(secret)) return null;
+  return "Paste the private key, including the BEGIN and END lines.";
 }
 
 export function subscribeLoot(listener: () => void) {
@@ -134,9 +151,10 @@ export function lootLabel(kind: LootKind): string {
   return LOOT_KINDS.find((item) => item.id === kind)?.label ?? kind;
 }
 
-export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[] }): { error: string } | null {
+export function addLoot(input: { user: string; secret: string; kind: LootKind; note: string; boxes?: string[]; pass?: string }): { error: string } | null {
   let user = input.user.trim();
-  let secret = input.kind === "user" ? "" : input.secret.trim();
+  let secret = input.kind === "user" ? "" : input.secret.replace(/\r\n/g, "\n").trim();
+  const pass = input.kind === "sshkey" ? (input.pass ?? "").trim() : "";
   if (input.kind === "nt" || input.kind === "lm") {
     const split = splitWindowsHash(secret);
     if (split) {
@@ -149,9 +167,10 @@ export function addLoot(input: { user: string; secret: string; kind: LootKind; n
   if (user && !/^[A-Za-z0-9][A-Za-z0-9._$@-]{0,64}$/.test(user)) return { error: "The user is the account name, or leave it empty." };
   const bad = secretOk(input.kind, secret);
   if (bad) return { error: bad };
+  if (pass.length > 128 || /[\r\n\0]/.test(pass)) return { error: "The key password is one line, or leave it empty." };
   ensure();
   const boxes = (input.boxes ?? []).filter((id) => typeof id === "string").slice(0, 12);
-  save([{ id: `loot-${Date.now().toString(36)}-${seq++}`, user, secret, kind: input.kind, note, boxes }, ...getLoot()]);
+  save([{ id: `loot-${Date.now().toString(36)}-${seq++}`, user, secret, kind: input.kind, note, boxes, pass }, ...getLoot()]);
   return null;
 }
 
@@ -173,4 +192,10 @@ export function unlinkLoot(id: string, boxId: string) {
 export function unlinkBox(boxId: string) {
   ensure();
   save(getLoot().map((item) => ({ ...item, boxes: item.boxes.filter((box) => box !== boxId) })));
+}
+
+/** Writes id_rsa, then the ssh command. The key password is not in this script. */
+export function sshKeyScript(item: LootItem): string {
+  const who = item.user || "<user>";
+  return [`cat > id_rsa << 'EOF'`, item.secret.trim(), "EOF", "chmod 600 id_rsa", `ssh -i id_rsa ${who}@<ip>`].join("\n");
 }

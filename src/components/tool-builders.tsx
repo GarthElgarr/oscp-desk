@@ -987,6 +987,15 @@ function JohnBuilder() {
           />
         </Field>
       ))}
+      {job.id === "ssh" ? (
+        <LootPick
+          kinds={["sshkey"]}
+          onPick={() => {
+            setJobId("ssh");
+            setFiles((prev) => ({ ...prev, key: "id_rsa" }));
+          }}
+        />
+      ) : null}
       {attack === "wordlist" ? (
         <Field label="Wordlist">
           <select className={control} value={list} onChange={(e) => setList(e.target.value)}>
@@ -1759,8 +1768,15 @@ function NxcBuilder() {
       ) : null}
       {picked.id !== "zero" ? (
         <LootPick
-          kinds={["user", "pass", "nt"]}
+          kinds={proto === "ssh" ? ["user", "pass", "sshkey"] : ["user", "pass", "nt"]}
           onPick={(item) => {
+            if (item.kind === "sshkey") {
+              if (item.user) setUser(item.user);
+              setProto("ssh");
+              setAuth("key");
+              setSecret("id_rsa");
+              return;
+            }
             if (item.user) setUser(item.user);
             if (item.kind === "pass" || item.kind === "nt") {
               setSecret(item.secret);
