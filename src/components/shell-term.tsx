@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent as ReactClip, type KeyboardEvent as ReactKey, type MouseEvent as ReactMouse } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent as ReactClip, type KeyboardEvent as ReactKey } from "react";
 import { syncJobs } from "@/lib/live-jobs";
 
 type View = {
@@ -6,11 +6,14 @@ type View = {
   reset: () => void;
   dispose: () => void;
   focus: () => void;
+  hasSelection: () => boolean;
+  getSelection: () => string;
 };
 
 function keyToData(event: ReactKey): string | null {
   if (event.altKey || event.metaKey || event.nativeEvent.isComposing) return null;
   if (event.ctrlKey) {
+    if (event.shiftKey) return null;
     const key = event.key.toLowerCase();
     if (key.length === 1 && key >= "a" && key <= "z") return String.fromCharCode(key.charCodeAt(0) - 96);
     return null;
@@ -74,7 +77,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       view = next;
       term.current = next;
       host.current.focus();
-      next.writeln("Click this black box and type. Enter is sent as a real terminal key. The shell prints the letters back.");
+      next.writeln("Click this black box and type. Drag across text to copy it. Ctrl+Shift+C copies the selection again.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
     })();
@@ -110,12 +113,33 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     onKeysRef.current(data);
   }
 
-  function focusTerm(event: ReactMouse) {
-    event.preventDefault();
+  async function copySelection() {
+    const text = term.current?.hasSelection() ? term.current.getSelection() : "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+  }
+
+  function focusTerm() {
     host.current?.focus();
   }
 
   function onKeyDown(event: ReactKey) {
+    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      void copySelection();
+      return;
+    }
     const data = keyToData(event);
     if (!data) return;
     event.preventDefault();
@@ -137,6 +161,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
         tabIndex={0}
         className="shell-term relative h-96 cursor-text overflow-hidden rounded-lg bg-[#0c0c0c] outline-none focus:ring-1 focus:ring-primary"
         onMouseDown={focusTerm}
+        onMouseUp={() => void copySelection()}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
       />
