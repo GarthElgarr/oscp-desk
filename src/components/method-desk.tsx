@@ -28,7 +28,7 @@ type DeskLink = { label: string; section: string; tool?: ToolId; anchor: string 
 
 const CARD_LINKS: Record<string, DeskLink[]> = {
   "recon-nmap": [{ label: "Nmap scanner", section: "Recon", tool: "udp", anchor: "builder-nmap" }],
-  "recon-search": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "recon-search": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "recon-udp": [{ label: "UDP scanner", section: "Recon", tool: "udp", anchor: "builder-udp" }],
   "svc-ntp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
   "svc-snmp": [{ label: "SNMP", section: "Services", tool: "snmp", anchor: "builder-snmp" }, { label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
@@ -50,10 +50,10 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "svc-krb": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
   "web-dirs": [{ label: "wfuzz", section: "Web", tool: "wfuzz", anchor: "builder-wfuzz" }],
   "web-finger": [{ label: "wfuzz", section: "Web", tool: "wfuzz", anchor: "builder-wfuzz" }],
-  "web-cms": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
-  "web-wp": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
-  "web-tomcat": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
-  "web-jenkins": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "web-cms": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
+  "web-wp": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
+  "web-tomcat": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
+  "web-jenkins": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "sh-penelope": [{ label: "Penelope", section: "Shells", anchor: "panel-penelope" }],
   "sh-penelope-sheet": [{ label: "Penelope", section: "Shells", anchor: "panel-penelope" }],
   "sh-msfvenom": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
@@ -64,9 +64,9 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "sh-xfer-lin": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
   "sh-xfer-win": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
   "lin-kernel": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
-  "lin-baron": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "lin-baron": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "lin-dirtypipe": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
-  "lin-pkexec": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "lin-pkexec": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "lin-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
   "win-kernel": [{ label: "Local suggester", section: "Windows", tool: "local", anchor: "builder-local" }],
   "win-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
@@ -272,6 +272,7 @@ export function MethodDesk() {
     );
     want("udp", section === "Recon" || section === "Services", /udp|nmap|tftp/i);
     want("snmp", section === "Recon" || section === "Services", /snmp|onesixtyone|snmpwalk|ssid/i);
+    want("search", false, /searchsploit|exploit-db|exploitdb/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
     want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient/i);
@@ -402,7 +403,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={10}
+            count={11}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />
@@ -429,7 +430,7 @@ export function MethodDesk() {
               </div>
             </article>
           ) : null}
-          {section === "Nmap" ? <NmapReports withSearch /> : null}
+          {section === "Nmap" ? <NmapReports /> : null}
           {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} tab={builderTab} onTab={setBuilderTab} /> : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}

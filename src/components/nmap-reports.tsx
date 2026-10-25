@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { JobList } from "@/components/job-list";
-import { SearchsploitRun } from "@/components/searchsploit-run";
 
 type Script = { id: string; output: string };
 type Port = { proto: string; port: string; state: string; service: string; detail: string; scripts: Script[] };
@@ -43,7 +42,7 @@ function interesting(port: Port): boolean {
   return port.state === "open" || port.state === "open|filtered";
 }
 
-export function NmapReports({ withSearch = false }: { withSearch?: boolean }) {
+export function NmapReports() {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [error, setError] = useState("");
   const [label, setLabel] = useState("");
@@ -223,7 +222,6 @@ export function NmapReports({ withSearch = false }: { withSearch?: boolean }) {
           })}
         </div>
       </article>
-      {withSearch ? <SearchsploitRun /> : null}
     </div>
   );
 }
