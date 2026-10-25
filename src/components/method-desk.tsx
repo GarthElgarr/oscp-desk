@@ -16,6 +16,7 @@ import { LootCard } from "@/components/loot-card";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
 import { CoverImage } from "@/components/cover-image";
+import { MatrixRain } from "@/components/matrix-rain";
 import { NmapReports } from "@/components/nmap-reports";
 import { JobList } from "@/components/job-list";
 import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
@@ -295,9 +296,11 @@ export function MethodDesk() {
   const marked = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => done.has(t.id)).length;
 
   return (
-    <div className="min-h-screen bg-bg text-fg">
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6">
+    <div className="relative min-h-screen text-fg">
+      <MatrixRain />
+      <div className="relative z-10">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 bg-bg px-4 py-5 sm:px-6">
           <CoverImage />
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
@@ -495,6 +498,7 @@ export function MethodDesk() {
             </p>
           ) : null}
         </main>
+      </div>
       </div>
     </div>
   );
