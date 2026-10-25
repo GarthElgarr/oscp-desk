@@ -7,7 +7,8 @@ import { suggestPlan } from "@/lib/suggest";
 const control =
   "min-h-36 w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs text-fg outline-none";
 
-const SAMPLE = `Linux victim 5.15.11 #1 SMP Thu Jan 1 00:00:00 UTC 2026 x86_64 GNU/Linux`;
+const SAMPLE = `Linux victim 5.15.11 #1 SMP x86_64 GNU/Linux
+Sudo version 1.8.31`;
 
 export function LocalMatch() {
   const [text, setText] = useState("");
@@ -24,11 +25,13 @@ export function LocalMatch() {
     <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Builder</p>
-        <h2 className="text-lg font-semibold">Local version match</h2>
+        <h2 className="text-lg font-semibold">Kernel / sudo exploit</h2>
         <p className="mt-1 text-sm text-muted">
-          Paste <span className="font-mono">uname -a</span>, <span className="font-mono">/proc/version</span>,{" "}
-          <span className="font-mono">sudo --version</span>, or <span className="font-mono">systeminfo</span>. This
-          is a local short list, not a web search. A lead is then passed to linux-exploit-suggester or searchsploit. A dead row is not.
+          Linux, sudo, and Windows. Paste <span className="font-mono">uname -a</span>,{" "}
+          <span className="font-mono">sudo --version</span>, or <span className="font-mono">systeminfo</span>. The
+          short list reads the kernel and the sudo version on the same paste. A lead is passed to linux-exploit-suggester,
+          searchsploit, or wes. A dead row is not. Baron is sudo 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. 1.8.31p2 and 1.9.5p2
+          are patched.
         </p>
       </div>
       <div className="px-4 py-4">

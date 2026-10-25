@@ -172,7 +172,7 @@ function sudoHits(text: string): LocalHit[] | null {
     return [
       {
         title: "Baron Samedit, version only",
-        state: "note",
+        state: "lead",
         why: `${version} is inside 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. A backport can keep an old number and still be patched.`,
         next: "The Baron cards. sudoedit -s / is the test. A usage: line means stop. Do not fetch a PoC yet.",
       },

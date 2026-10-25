@@ -64,12 +64,12 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "sh-ps": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
   "sh-xfer-lin": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
   "sh-xfer-win": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
-  "lin-kernel": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
-  "lin-baron": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
-  "lin-dirtypipe": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
+  "lin-kernel": [{ label: "Kernel / sudo", section: "Linux", tool: "local", anchor: "builder-local" }],
+  "lin-baron": [{ label: "Kernel / sudo", section: "Linux", tool: "local", anchor: "builder-local" }],
+  "lin-dirtypipe": [{ label: "Kernel / sudo", section: "Linux", tool: "local", anchor: "builder-local" }],
   "lin-pkexec": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "lin-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
-  "win-kernel": [{ label: "Local suggester", section: "Windows", tool: "local", anchor: "builder-local" }],
+  "win-kernel": [{ label: "Kernel / sudo", section: "Windows", tool: "local", anchor: "builder-local" }],
   "win-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
   "win-sam": [{ label: "impacket", section: "Windows", tool: "impacket", anchor: "builder-impacket" }, { label: "Identify", section: "Passwords", tool: "identify", anchor: "builder-identify" }],
   "ad-enum": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
@@ -436,7 +436,7 @@ export function MethodDesk() {
                 <p className="font-mono text-xs text-primary">Runs</p>
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Nmap, the UDP scanner, searchsploit, the local exploit suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one.
+                  Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one.
                   Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk clears every run. It does not touch notes or the report.
                 </p>
               </div>

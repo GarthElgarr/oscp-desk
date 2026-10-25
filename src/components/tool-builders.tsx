@@ -24,7 +24,7 @@ const LABELS: Record<ToolId, string> = {
   john: "john",
   hydra: "hydra",
   nxc: "nxc",
-  local: "local",
+  local: "kernel/sudo",
   udp: "udp",
   nmap: "nmap",
   snmp: "snmp",
