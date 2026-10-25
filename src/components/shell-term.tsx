@@ -15,7 +15,7 @@ function keyToData(event: ReactKey): string | null {
     if (key.length === 1 && key >= "a" && key <= "z") return String.fromCharCode(key.charCodeAt(0) - 96);
     return null;
   }
-  if (event.key === "Enter") return "\n";
+  if (event.key === "Enter") return "\r";
   if (event.key === "Backspace") return "\x7f";
   if (event.key === "Tab") return "\t";
   if (event.key === "Escape") return "\x1b";
@@ -30,30 +30,11 @@ function keyToData(event: ReactKey): string | null {
   return null;
 }
 
-/** What the user should see for keys the remote shell will not echo. Penelope often has no TTY. */
-function echoLocal(view: View, data: string) {
-  if (data === "\x7f") {
-    view.write("\b \b");
-    return;
-  }
-  if (data === "\n" || data === "\r") {
-    view.write("\r\n");
-    return;
-  }
-  if (data === "\x03") {
-    view.write("^C\r\n");
-    return;
-  }
-  const shown = data.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
-  if (shown) view.write(shown);
-}
-
 /** A real terminal for one Penelope job. Keystrokes go to the shell. Output is what Penelope prints. */
 export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; output: string; active: boolean; onKeys: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const term = useRef<View | null>(null);
   const seen = useRef("");
-  const echoed = useRef("");
   const idRef = useRef(jobId);
   const onKeysRef = useRef(onKeys);
   const [tick, setTick] = useState(0);
@@ -93,7 +74,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       view = next;
       term.current = next;
       host.current.focus();
-      next.writeln("Click this black box and type. Letters show here as you type, and Enter runs the line.");
+      next.writeln("Click this black box and type. Enter is sent as a real terminal key. The shell prints the letters back.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
     })();
@@ -113,16 +94,8 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     if (seen.current && !output.startsWith(seen.current)) {
       view.reset();
       seen.current = "";
-      echoed.current = "";
     }
-    let next = output.slice(seen.current.length);
-    if (echoed.current && next.startsWith(echoed.current)) {
-      next = next.slice(echoed.current.length);
-      echoed.current = "";
-    } else if (echoed.current && echoed.current.startsWith(next)) {
-      echoed.current = echoed.current.slice(next.length);
-      next = "";
-    }
+    const next = output.slice(seen.current.length);
     if (next) view.write(next);
     seen.current = output;
   }, [output, tick]);
@@ -134,12 +107,6 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
   }, [active]);
 
   function send(data: string) {
-    const view = term.current;
-    if (view) {
-      echoLocal(view, data);
-      const shown = data === "\n" || data === "\r" ? "\r\n" : data === "\x7f" ? "\b \b" : data.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
-      if (shown) echoed.current += shown;
-    }
     onKeysRef.current(data);
   }
 
@@ -159,7 +126,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     const text = event.clipboardData.getData("text");
     if (!text) return;
     event.preventDefault();
-    send(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));
+    send(text.replace(/\r\n/g, "\r").replace(/\n/g, "\r"));
   }
 
   return (

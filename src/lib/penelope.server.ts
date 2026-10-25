@@ -56,8 +56,11 @@ export function startPenelope(id: string, command: string, args: string[]): bool
     return "Penelope is already running. Stop that one before you start another.\n";
   }
   const bridge = path.join(process.cwd(), "tools", "penelope-bridge.py");
-  const found = spawnSync("which", ["penelope"], { encoding: "utf8" });
-  const bin = found.status === 0 ? found.stdout.trim().split("\n")[0] : "";
+  const script = "/opt/penelope/penelope.py";
+  const bundled = existsSync(script);
+  const found = bundled ? null : spawnSync("which", ["penelope"], { encoding: "utf8" });
+  const bin = bundled ? "python3" : found && found.status === 0 ? found.stdout.trim().split("\n")[0] : "";
+  const commandArgs = bundled ? [script, ...args] : args;
   const handle = openJob({
     id,
     tool: "penelope",
@@ -73,7 +76,7 @@ export function startPenelope(id: string, command: string, args: string[]): bool
     handle.finish(`${bin ? "The Penelope bridge is missing from tools/." : "penelope was not found. On Kali, the install button includes it."}\n[penelope exit 1]\n`);
     return true;
   }
-  const child = spawn("python3", [bridge, bin, ...args], { shell: false, stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn("python3", [bridge, bin, ...commandArgs], { shell: false, stdio: ["pipe", "pipe", "pipe"] });
   if (child.pid) listeners.set(id, child.pid);
   const port = listenPort(args);
   if (port) usedPorts.add(port);

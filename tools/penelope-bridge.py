@@ -20,6 +20,11 @@ def main() -> None:
     pid, fd = os.forkpty()
     if pid == 0:
         try:
+            import tty
+            tty.setraw(0)
+        except Exception:
+            pass
+        try:
             import ctypes
             ctypes.CDLL(None).prctl(1, signal.SIGKILL)
         except Exception:
