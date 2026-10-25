@@ -1,8 +1,42 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { attachWriter, listJobs, openJob } from "./live-jobs.server";
+import { attachWriter, listJobs, openJob, stopJob } from "./live-jobs.server";
 import { penelopePlan } from "./penelope-plan";
+
+const listeners = new Map<string, number>();
+const usedPorts = new Set<string>();
+
+function listenPort(args: string[]): string {
+  const at = args.indexOf("-p");
+  const port = at >= 0 ? args[at + 1] ?? "" : "";
+  return /^\d{1,5}$/.test(port) && Number(port) >= 1 && Number(port) <= 65535 ? port : "";
+}
+
+function freePort(port: string) {
+  if (!listenPort(["-p", port])) return;
+  spawnSync("fuser", ["-k", `${port}/tcp`], { timeout: 3000 });
+}
+
+export function killPenelope(port: string): string {
+  for (const job of listJobs()) {
+    if (job.tool === "penelope" && job.running) stopJob(job.id);
+  }
+  for (const pid of listeners.values()) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* the wrapper has already exited */
+    }
+  }
+  listeners.clear();
+  const ports = new Set(usedPorts);
+  if (listenPort(["-p", port])) ports.add(port);
+  for (const item of ports) freePort(item);
+  usedPorts.clear();
+  spawnSync("pkill", ["-9", "-x", "penelope"], { timeout: 3000 });
+  return "Penelope is killed and the port is free. Start can listen again.\n";
+}
 
 export function penelopeRequest(body: unknown): { command: string; args: string[] } | { error: string } {
   if (!body || typeof body !== "object") return { error: "The request was not JSON." };
@@ -40,6 +74,9 @@ export function startPenelope(id: string, command: string, args: string[]): bool
     return true;
   }
   const child = spawn("python3", [bridge, bin, ...args], { shell: false, stdio: ["pipe", "pipe", "pipe"] });
+  if (child.pid) listeners.set(id, child.pid);
+  const port = listenPort(args);
+  if (port) usedPorts.add(port);
   handle.attach(child);
   if (child.stdin) {
     attachWriter(id, (text) => {

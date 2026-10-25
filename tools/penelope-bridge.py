@@ -19,6 +19,11 @@ def main() -> None:
     os.environ["LINES"] = "40"
     pid, fd = os.forkpty()
     if pid == 0:
+        try:
+            import ctypes
+            ctypes.CDLL(None).prctl(1, signal.SIGKILL)
+        except Exception:
+            pass
         os.execvp(args[0], args)
         return
     try:
@@ -26,11 +31,17 @@ def main() -> None:
     except OSError:
         pass
 
-    def stop(_signum, _frame) -> None:
+    def kill_child() -> None:
         try:
-            os.kill(pid, signal.SIGTERM)
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
         except OSError:
-            pass
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    def stop(_signum, _frame) -> None:
+        kill_child()
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, stop)
@@ -65,10 +76,7 @@ def main() -> None:
             if done:
                 break
     finally:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
+        kill_child()
         try:
             os.waitpid(pid, 0)
         except ChildProcessError:

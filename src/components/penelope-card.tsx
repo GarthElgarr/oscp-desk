@@ -27,6 +27,7 @@ export function PenelopeCard() {
   const [remote, setRemote] = useState("/tmp/linpeas.sh");
   const [copied, setCopied] = useState("");
   const [sendError, setSendError] = useState("");
+  const [killNote, setKillNote] = useState("");
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
   const shown = running ?? jobs.find((job) => job.tool === "penelope");
@@ -49,6 +50,18 @@ export function PenelopeCard() {
     } catch {
       setCopied("");
     }
+  }
+
+  async function killListener() {
+    setKillNote("");
+    if (running) void stopJob(running.id);
+    const response = await fetch("/api/penelope", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kill: true, port }),
+    });
+    setKillNote(await response.text());
+    await syncJobs();
   }
 
   async function start() {
@@ -194,9 +207,15 @@ export function PenelopeCard() {
           </div>
         ) : null}
         {ready ? <p className="text-sm text-fg">{plan.why}</p> : null}
-        <button type="button" onClick={() => void start()} disabled={!ready || Boolean(running)} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
-          {running ? "Penelope is running" : "Start Penelope"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => void start()} disabled={!ready || Boolean(running)} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40">
+            {running ? "Penelope is running" : "Start Penelope"}
+          </button>
+          <button type="button" onClick={() => void killListener()} className="inline-flex min-h-11 w-fit items-center rounded-lg border border-dead px-3 text-sm text-dead">
+            Kill listener
+          </button>
+        </div>
+        {killNote ? <p className="text-sm text-muted">{killNote}</p> : null}
         <div className="flex flex-wrap items-center gap-1">
           <span className="px-1 font-mono text-xs text-muted">SESSION</span>
           {["1", "2", "3", "4", "5"].map((n) => (
@@ -216,8 +235,8 @@ export function PenelopeCard() {
           <button type="button" disabled={!running || !caught} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
             Kill session
           </button>
-          <button type="button" disabled={!running} onClick={() => running && void stopJob(running.id)} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
-            Stop
+          <button type="button" onClick={() => void killListener()} className="inline-flex h-9 items-center rounded-lg border border-dead px-2 text-xs text-dead">
+            Kill listener
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-1">
@@ -230,7 +249,7 @@ export function PenelopeCard() {
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Click the black terminal and type. The prompt on screen is the shell. Left box is the file on Kali. Right box is the path on the target. The terminal stays after you press Stop, so you can still read it.</p>
+        <p className="text-xs text-muted">Click the black terminal and type. Kill listener frees the port, including a Penelope that kept listening after an earlier run, so Start can use it again. Left box is the file on Kali. Right box is the path on the target.</p>
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>
