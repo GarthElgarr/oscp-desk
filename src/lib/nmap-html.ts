@@ -1,3 +1,5 @@
+import { deskCard, deskCardHref } from "./nmap-card.ts";
+
 const AMP = "&" + "amp;";
 const LT = "&" + "lt;";
 const GT = "&" + "gt;";
@@ -53,6 +55,14 @@ export function nmapReportHtml(xml: string, name: string): string {
         const open = port.match(/<port\b[^>]*>/)?.[0] ?? "";
         const service = port.match(/<service\b[^>]*>/)?.[0] ?? "";
         const detail = [attr(service, "product"), attr(service, "version"), attr(service, "extrainfo")].filter(Boolean).join(" ");
+        const portNo = attr(open, "portid");
+        const proto = attr(open, "protocol") || "tcp";
+        const serviceName = attr(service, "name");
+        const card = deskCard(portNo, serviceName, attr(service, "tunnel"));
+        const portText = `${esc(portNo)}/${esc(proto)}`;
+        const portCell = card
+          ? `<a href="${esc(deskCardHref(card))}" title="Open the ${esc(card.title)} card">${portText}</a>`
+          : portText;
         const scripts = blocks(port, "script")
           .map((script) => {
             const id = attr(script, "id");
@@ -62,7 +72,7 @@ export function nmapReportHtml(xml: string, name: string): string {
           .join("");
         return {
           state: attr(port.match(/<state\b[^>]*>/)?.[0] ?? "", "state") || "unknown",
-          line: `<tr><td>${esc(attr(open, "portid"))}/${esc(attr(open, "protocol") || "tcp")}</td><td>${esc(attr(port.match(/<state\b[^>]*>/)?.[0] ?? "", "state"))}</td><td>${esc([attr(service, "name"), detail].filter(Boolean).join(" ") || "unknown")}${scripts}</td></tr>`,
+          line: `<tr><td>${portCell}</td><td>${esc(attr(port.match(/<state\b[^>]*>/)?.[0] ?? "", "state"))}</td><td>${esc([attr(service, "name"), detail].filter(Boolean).join(" ") || "unknown")}${scripts}</td></tr>`,
         };
       });
       const shown = ports.filter((port) => port.state === "open" || port.state === "open|filtered");
@@ -94,6 +104,7 @@ function page(title: string, body: string): string {
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; vertical-align: top; padding: 0.45rem 0.4rem; border-top: 1px solid #2c3830; }
   th { color: #93a398; font-weight: 500; font-size: 0.75rem; }
+  a { color: #d4a054; }
   td:first-child { font-family: ui-monospace, monospace; white-space: nowrap; }
   pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #101410; padding: 0.6rem; border-radius: 0.4rem; font-size: 0.8rem; }
 </style>
@@ -101,6 +112,7 @@ function page(title: string, body: string): string {
 <body>
 <main>
 <h1>${title}</h1>
+<p class="meta">An open port with a matching card links back to that card in the desk.</p>
 ${body}
 </main>
 </body>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getJobs, getJobsServer, subscribeJobs } from "@/lib/live-jobs";
+import { deskCard } from "@/lib/nmap-card";
 
 type Script = { id: string; output: string };
 type Port = { proto: string; port: string; state: string; service: string; detail: string; scripts: Script[] };
@@ -42,7 +43,7 @@ function interesting(port: Port): boolean {
   return port.state === "open" || port.state === "open|filtered";
 }
 
-export function NmapReports() {
+export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section: string) => void }) {
   const [hosts, setHosts] = useState<Host[]>([]);
   const [error, setError] = useState("");
   const [label, setLabel] = useState("");
@@ -193,9 +194,19 @@ export function NmapReports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {ports.map((port) => (
+                        {ports.map((port) => {
+                          const card = deskCard(port.port, port.service);
+                          return (
                           <tr key={`${port.proto}-${port.port}`} className="border-t border-border align-top">
-                            <td className="px-3 py-2 font-mono text-xs">{port.port}/{port.proto}</td>
+                            <td className="px-3 py-2 font-mono text-xs">
+                              {card && onOpenCard ? (
+                                <button type="button" onClick={() => onOpenCard(card.id, card.section)} className="text-primary underline" title={`Open the ${card.title} card`}>
+                                  {port.port}/{port.proto}
+                                </button>
+                              ) : (
+                                `${port.port}/${port.proto}`
+                              )}
+                            </td>
                             <td className={"px-3 py-2 " + (interesting(port) ? "text-alive" : "text-muted")}>{port.state}</td>
                             <td className="px-3 py-2">
                               <p>{[port.service, port.detail].filter(Boolean).join(" ") || "unknown"}</p>
@@ -213,7 +224,8 @@ export function NmapReports() {
                               })}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

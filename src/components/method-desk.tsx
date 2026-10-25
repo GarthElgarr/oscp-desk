@@ -153,6 +153,17 @@ export function MethodDesk() {
   }, []);
 
   useEffect(() => {
+    const card = new URLSearchParams(window.location.search).get("card");
+    if (!card) return;
+    const item = TECHNIQUES.find((technique) => technique.id === card);
+    if (!item) return;
+    setQuery("");
+    setOpenOnly(false);
+    setSection(item.section);
+    setOpenCard(item.id);
+  }, []);
+
+  useEffect(() => {
     if (!ready) return;
     localStorage.setItem(STORE, JSON.stringify([...done]));
   }, [done, ready]);
@@ -432,7 +443,16 @@ export function MethodDesk() {
             </article>
           ) : null}
           {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} tab={builderTab} onTab={setBuilderTab} /> : null}
-          {section === "Nmap" ? <NmapReports /> : null}
+          {section === "Nmap" ? (
+            <NmapReports
+              onOpenCard={(id, next) => {
+                setQuery("");
+                setOpenOnly(false);
+                setSection(next);
+                setOpenCard(id);
+              }}
+            />
+          ) : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}
           {visibleScripts.map((s) => (
