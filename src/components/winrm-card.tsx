@@ -27,7 +27,7 @@ export function WinrmCard() {
   }
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article id="panel-winrm" className="min-w-0 scroll-mt-4 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Shell</p>
         <h2 className="text-lg font-semibold">evil-winrm</h2>

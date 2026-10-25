@@ -1926,14 +1926,10 @@ function nxcWhy(proto: string, action: string, auth: string, local: boolean) {
   return `nxc ${proto} talks to that service on the target. ${authBit}${localBit}${actionBit[action] ?? ""}`;
 }
 
-export function Builders({ tools }: { tools: ToolId[] }) {
-  const [tab, setTab] = useState<ToolId>(tools[0] ?? "msfvenom");
-  useEffect(() => {
-    if (!tools.includes(tab)) setTab(tools[0] ?? "msfvenom");
-  }, [tools, tab]);
+export function Builders({ tools, tab, onTab }: { tools: ToolId[]; tab: ToolId | null; onTab: (id: ToolId) => void }) {
+  const current = tab && tools.includes(tab) ? tab : (tools[0] ?? "msfvenom");
 
   if (tools.length === 0) return null;
-  const current = tools.includes(tab) ? tab : tools[0];
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -1943,7 +1939,7 @@ export function Builders({ tools }: { tools: ToolId[] }) {
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => onTab(id)}
               className={
                 "inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 font-mono text-sm " +
                 (current === id ? "border-primary bg-raised text-fg" : "border-border bg-bg text-muted")
@@ -1954,23 +1950,69 @@ export function Builders({ tools }: { tools: ToolId[] }) {
           ))}
         </div>
       ) : null}
-      {current === "msfvenom" ? <VenomBuilder /> : null}
-      {current === "identify" ? <HashIdentifier /> : null}
-      {current === "hashcat" ? <HashcatBuilder /> : null}
-      {current === "john" ? <JohnBuilder /> : null}
-      {current === "hydra" ? <HydraBuilder /> : null}
-      {current === "nxc" ? <NxcBuilder /> : null}
-      {current === "local" ? <LocalMatch /> : null}
-      {current === "udp" ? (
-        <div className="flex min-w-0 flex-col gap-4">
-          <UdpScan />
-          <NmapScan />
-          <SearchsploitRun />
+      {current === "msfvenom" ? (
+        <div id="builder-msfvenom" className="scroll-mt-4">
+          <VenomBuilder />
         </div>
       ) : null}
-      {current === "tunnel" ? <TunnelBuilder /> : null}
-      {current === "wfuzz" ? <WfuzzBuilder /> : null}
-      {current === "impacket" ? <ImpacketBuilder /> : null}
+      {current === "identify" ? (
+        <div id="builder-identify" className="scroll-mt-4">
+          <HashIdentifier />
+        </div>
+      ) : null}
+      {current === "hashcat" ? (
+        <div id="builder-hashcat" className="scroll-mt-4">
+          <HashcatBuilder />
+        </div>
+      ) : null}
+      {current === "john" ? (
+        <div id="builder-john" className="scroll-mt-4">
+          <JohnBuilder />
+        </div>
+      ) : null}
+      {current === "hydra" ? (
+        <div id="builder-hydra" className="scroll-mt-4">
+          <HydraBuilder />
+        </div>
+      ) : null}
+      {current === "nxc" ? (
+        <div id="builder-nxc" className="scroll-mt-4">
+          <NxcBuilder />
+        </div>
+      ) : null}
+      {current === "local" ? (
+        <div id="builder-local" className="scroll-mt-4">
+          <LocalMatch />
+        </div>
+      ) : null}
+      {current === "udp" ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          <div id="builder-udp" className="scroll-mt-4">
+            <UdpScan />
+          </div>
+          <div id="builder-nmap" className="scroll-mt-4">
+            <NmapScan />
+          </div>
+          <div id="builder-search" className="scroll-mt-4">
+            <SearchsploitRun />
+          </div>
+        </div>
+      ) : null}
+      {current === "tunnel" ? (
+        <div id="builder-tunnel" className="scroll-mt-4">
+          <TunnelBuilder />
+        </div>
+      ) : null}
+      {current === "wfuzz" ? (
+        <div id="builder-wfuzz" className="scroll-mt-4">
+          <WfuzzBuilder />
+        </div>
+      ) : null}
+      {current === "impacket" ? (
+        <div id="builder-impacket" className="scroll-mt-4">
+          <ImpacketBuilder />
+        </div>
+      ) : null}
     </div>
   );
 }

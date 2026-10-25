@@ -24,6 +24,99 @@ const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
 const STORE = "oscp-field-notes-v1";
 
+type DeskLink = { label: string; section: string; tool?: ToolId; anchor: string };
+
+const CARD_LINKS: Record<string, DeskLink[]> = {
+  "recon-nmap": [{ label: "Nmap scanner", section: "Recon", tool: "udp", anchor: "builder-nmap" }],
+  "recon-search": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "recon-udp": [{ label: "UDP scanner", section: "Recon", tool: "udp", anchor: "builder-udp" }],
+  "svc-ntp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
+  "svc-snmp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
+  "svc-tftp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
+  "svc-ftp": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-ssh": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }, { label: "Loot", section: "Loot", anchor: "panel-loot" }],
+  "svc-smb": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "svc-http": [{ label: "wfuzz", section: "Web", tool: "wfuzz", anchor: "builder-wfuzz" }],
+  "svc-smtp": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-ldap": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "svc-mysql": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-mssql": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }, { label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "svc-rdp": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-winrm": [{ label: "evil-winrm", section: "Windows", anchor: "panel-winrm" }, { label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "svc-telnet": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-mail": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-vnc": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-postgres": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "svc-krb": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "web-dirs": [{ label: "wfuzz", section: "Web", tool: "wfuzz", anchor: "builder-wfuzz" }],
+  "web-finger": [{ label: "wfuzz", section: "Web", tool: "wfuzz", anchor: "builder-wfuzz" }],
+  "web-cms": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "web-wp": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "web-tomcat": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "web-jenkins": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "sh-penelope": [{ label: "Penelope", section: "Shells", anchor: "panel-penelope" }],
+  "sh-penelope-sheet": [{ label: "Penelope", section: "Shells", anchor: "panel-penelope" }],
+  "sh-msfvenom": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
+  "sh-which": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
+  "sh-bash": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
+  "sh-php": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
+  "sh-ps": [{ label: "msfvenom", section: "Shells", tool: "msfvenom", anchor: "builder-msfvenom" }],
+  "sh-xfer-lin": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
+  "sh-xfer-win": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
+  "lin-kernel": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
+  "lin-baron": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "lin-dirtypipe": [{ label: "Local suggester", section: "Linux", tool: "local", anchor: "builder-local" }],
+  "lin-pkexec": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
+  "lin-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
+  "win-kernel": [{ label: "Local suggester", section: "Windows", tool: "local", anchor: "builder-local" }],
+  "win-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
+  "win-sam": [{ label: "impacket", section: "Windows", tool: "impacket", anchor: "builder-impacket" }, { label: "Identify", section: "Passwords", tool: "identify", anchor: "builder-identify" }],
+  "ad-enum": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-roast": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }, { label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-pth": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "ad-dcsync": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "ad-nocreds": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-bh": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-deleg": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "ad-laps": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-gpp": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-shares": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-ptt": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
+  "ad-adcs": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-zerologon": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "pw-id": [{ label: "Identify", section: "Passwords", tool: "identify", anchor: "builder-identify" }],
+  "pw-john": [{ label: "john", section: "Passwords", tool: "john", anchor: "builder-john" }],
+  "pw-hashcat": [{ label: "hashcat", section: "Passwords", tool: "hashcat", anchor: "builder-hashcat" }],
+  "pw-landed": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
+  "pw-linuxhash": [{ label: "john", section: "Passwords", tool: "john", anchor: "builder-john" }],
+  "pw-sshkey": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
+  "pw-hydra": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "pw-hydra-form": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "pw-spray": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "pw-reuse": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "pv-when": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-which": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-ssh": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-chisel": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-ligolo": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-proxy": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-px-use": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-ligolo-agent": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-ligolo-back": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-chisel-win": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-ssh-r": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "tun-socat": [{ label: "Tunnel builder", section: "Tunneling", tool: "tunnel", anchor: "builder-tunnel" }],
+  "pv-files": [{ label: "Uploads", section: "Uploads", anchor: "panel-uploads" }],
+  "jwt-read": [{ label: "JWT reader", section: "API", anchor: "panel-jwt" }],
+  "jwt-trust": [{ label: "JWT reader", section: "API", anchor: "panel-jwt" }],
+  "jwt-hmac": [{ label: "JWT reader", section: "API", anchor: "panel-jwt" }],
+  "jwt-rs": [{ label: "JWT reader", section: "API", anchor: "panel-jwt" }],
+  "jwt-kid": [{ label: "JWT reader", section: "API", anchor: "panel-jwt" }],
+  "rep-live": [{ label: "Report", section: "Report", anchor: "panel-report" }],
+  "rep-map": [{ label: "Report", section: "Report", anchor: "panel-report" }],
+  "rep-flags": [{ label: "Report", section: "Report", anchor: "panel-report" }],
+};
+
 function loadDone(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
@@ -46,6 +139,8 @@ export function MethodDesk() {
   const [openSource, setOpenSource] = useState<string | null>(null);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [builderTab, setBuilderTab] = useState<ToolId | null>(null);
+  const [jump, setJump] = useState<{ anchor: string; n: number } | null>(null);
   const runs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
 
   useEffect(() => {
@@ -112,6 +207,34 @@ export function MethodDesk() {
       setCopied(null);
     }
   }
+
+  function jumpTo(link: DeskLink) {
+    setQuery("");
+    setOpenOnly(false);
+    setSection(link.section);
+    if (link.tool) setBuilderTab(link.tool);
+    setJump({ anchor: link.anchor, n: Date.now() });
+  }
+
+  useEffect(() => {
+    if (!jump) return;
+    let tries = 0;
+    let timer = 0;
+    const go = () => {
+      const node = document.getElementById(jump.anchor);
+      if (!node && tries < 8) {
+        tries += 1;
+        timer = window.setTimeout(go, 40);
+        return;
+      }
+      if (!node) return;
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      node.classList.add("ring-2", "ring-primary");
+      window.setTimeout(() => node.classList.remove("ring-2", "ring-primary"), 1600);
+    };
+    timer = window.setTimeout(go, 0);
+    return () => window.clearTimeout(timer);
+  }, [jump]);
 
   function download(file: string, source: string) {
     const blob = new Blob([source], { type: "text/plain" });
@@ -306,7 +429,7 @@ export function MethodDesk() {
             </article>
           ) : null}
           {section === "Nmap" ? <NmapReports withSearch /> : null}
-          {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} /> : null}
+          {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} tab={builderTab} onTab={setBuilderTab} /> : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}
           {visibleScripts.map((s) => (
@@ -335,6 +458,8 @@ export function MethodDesk() {
                 onOpen={() => setOpenCard((id) => (id === t.id ? null : t.id))}
                 onToggle={() => toggle(t.id)}
                 onCopy={() => copy(t.id, t.cmd)}
+                links={CARD_LINKS[t.id] ?? []}
+                onJump={jumpTo}
               />
             ))}
           {section !== "Uploads" &&
@@ -514,6 +639,8 @@ function Card({
   onOpen,
   onToggle,
   onCopy,
+  links,
+  onJump,
 }: {
   item: Technique;
   open: boolean;
@@ -522,6 +649,8 @@ function Card({
   onOpen: () => void;
   onToggle: () => void;
   onCopy: () => void;
+  links: DeskLink[];
+  onJump: (link: DeskLink) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -543,7 +672,17 @@ function Card({
             {open ? null : <span className="mt-1 line-clamp-2 block text-sm text-muted">{item.look}</span>}
           </span>
         </button>
-        <div className="flex shrink-0 items-center pr-3">
+        <div className="flex shrink-0 flex-col items-end justify-center gap-2 py-2 pr-3">
+          {links.map((link) => (
+            <button
+              key={link.anchor + link.label}
+              type="button"
+              onClick={() => onJump(link)}
+              className="inline-flex min-h-8 items-center font-mono text-xs text-primary underline decoration-primary/40 underline-offset-2"
+            >
+              {link.label}
+            </button>
+          ))}
           <button
             type="button"
             onClick={onToggle}

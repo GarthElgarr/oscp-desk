@@ -144,7 +144,7 @@ export function PenelopeCard() {
   }
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article id="panel-penelope" className="min-w-0 scroll-mt-4 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Listener</p>
         <h2 className="text-lg font-semibold">Penelope</h2>

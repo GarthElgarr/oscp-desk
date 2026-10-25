@@ -156,7 +156,7 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
   }
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article id="panel-loot" className="min-w-0 scroll-mt-4 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Loot</p>
         <h2 className="text-lg font-semibold">Users, passwords, hashes</h2>

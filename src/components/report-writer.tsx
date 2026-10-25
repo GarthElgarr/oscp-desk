@@ -204,7 +204,7 @@ export function ReportWriter() {
   if (!report) return null;
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article id="panel-report" className="min-w-0 scroll-mt-4 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Report</p>
         <h2 className="text-lg font-semibold">OSCP exam report</h2>
