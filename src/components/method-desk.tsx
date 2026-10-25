@@ -29,10 +29,10 @@ type DeskLink = { label: string; section: string; tool?: ToolId; anchor: string 
 const CARD_LINKS: Record<string, DeskLink[]> = {
   "recon-nmap": [{ label: "Nmap scanner", section: "Nmap", tool: "nmap", anchor: "builder-nmap" }],
   "recon-search": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
-  "recon-udp": [{ label: "UDP scanner", section: "Recon", tool: "udp", anchor: "builder-udp" }],
-  "svc-ntp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
-  "svc-snmp": [{ label: "SNMP", section: "Services", tool: "snmp", anchor: "builder-snmp" }, { label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
-  "svc-tftp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
+  "recon-udp": [{ label: "UDP scanner", section: "Builders", tool: "udp", anchor: "builder-udp" }],
+  "svc-ntp": [{ label: "UDP scanner", section: "Builders", tool: "udp", anchor: "builder-udp" }],
+  "svc-snmp": [{ label: "SNMP", section: "Builders", tool: "snmp", anchor: "builder-snmp" }, { label: "UDP scanner", section: "Builders", tool: "udp", anchor: "builder-udp" }],
+  "svc-tftp": [{ label: "UDP scanner", section: "Builders", tool: "udp", anchor: "builder-udp" }],
   "svc-ftp": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
   "svc-ssh": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }, { label: "Loot", section: "Loot", anchor: "panel-loot" }],
   "svc-smb": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
@@ -281,9 +281,9 @@ export function MethodDesk() {
       section === "Linux" || section === "Windows",
       /uname|systeminfo|\/proc\/version|dirty ?(?:cow|pipe)|local vuln|kernel version|sudo --version/i,
     );
-    want("udp", section === "Recon" || section === "Services", /udp|tftp|proto-scanner/i);
+    want("udp", false, /udp|tftp|proto-scanner/i);
     want("nmap", section === "Nmap", /\bnmap\b/i);
-    want("snmp", section === "Recon" || section === "Services", /snmp|onesixtyone|snmpwalk|ssid/i);
+    want("snmp", false, /snmp|onesixtyone|snmpwalk|ssid/i);
     want("search", false, /searchsploit|exploit-db|exploitdb/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
