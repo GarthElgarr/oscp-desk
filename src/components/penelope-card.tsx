@@ -249,7 +249,7 @@ export function PenelopeCard() {
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+Shift+C copies that selection again. Ctrl+C still goes to the shell. Kill listener frees the port, including a Penelope that kept listening after an earlier run, so Start can use it again. Left box is the file on Kali. Right box is the path on the target.</p>
+        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+V pastes. Ctrl+Shift+C copies the selection again. Ctrl+C still goes to the shell. Kill listener frees the port, including a Penelope that kept listening after an earlier run, so Start can use it again. Left box is the file on Kali. Right box is the path on the target.</p>
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>

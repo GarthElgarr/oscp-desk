@@ -77,7 +77,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       view = next;
       term.current = next;
       host.current.focus();
-      next.writeln("Click this black box and type. Drag across text to copy it. Ctrl+Shift+C copies the selection again.");
+      next.writeln("Click this black box and type. Drag across text to copy it. Ctrl+V pastes. Ctrl+Shift+C copies again.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
     })();
@@ -134,10 +134,27 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     host.current?.focus();
   }
 
+  async function pasteClipboard() {
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      return;
+    }
+    if (!text) return;
+    send(text.replace(/\r\n/g, "\r").replace(/\n/g, "\r"));
+  }
+
   function onKeyDown(event: ReactKey) {
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+    const key = event.key.toLowerCase();
+    if (event.ctrlKey && event.shiftKey && key === "c") {
       event.preventDefault();
       void copySelection();
+      return;
+    }
+    if ((event.ctrlKey && key === "v") || (event.shiftKey && event.key === "Insert")) {
+      event.preventDefault();
+      void pasteClipboard();
       return;
     }
     const data = keyToData(event);
