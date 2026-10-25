@@ -15,7 +15,7 @@ function keyToData(event: ReactKey): string | null {
     if (key.length === 1 && key >= "a" && key <= "z") return String.fromCharCode(key.charCodeAt(0) - 96);
     return null;
   }
-  if (event.key === "Enter") return "\r";
+  if (event.key === "Enter") return "\n";
   if (event.key === "Backspace") return "\x7f";
   if (event.key === "Tab") return "\t";
   if (event.key === "Escape") return "\x1b";
@@ -30,11 +30,30 @@ function keyToData(event: ReactKey): string | null {
   return null;
 }
 
+/** What the user should see for keys the remote shell will not echo. Penelope often has no TTY. */
+function echoLocal(view: View, data: string) {
+  if (data === "\x7f") {
+    view.write("\b \b");
+    return;
+  }
+  if (data === "\n" || data === "\r") {
+    view.write("\r\n");
+    return;
+  }
+  if (data === "\x03") {
+    view.write("^C\r\n");
+    return;
+  }
+  const shown = data.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
+  if (shown) view.write(shown);
+}
+
 /** A real terminal for one Penelope job. Keystrokes go to the shell. Output is what Penelope prints. */
 export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; output: string; active: boolean; onKeys: (text: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const term = useRef<View | null>(null);
   const seen = useRef("");
+  const echoed = useRef("");
   const idRef = useRef(jobId);
   const onKeysRef = useRef(onKeys);
   const [tick, setTick] = useState(0);
@@ -56,6 +75,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       if (disposed || !host.current) return;
       const next = new Terminal({
         cursorBlink: true,
+        disableStdin: true,
         fontSize: 13,
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         theme: { background: "#0c0c0c", foreground: "#d6f5d6", cursor: "#d6f5d6" },
@@ -64,31 +84,18 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       const fitted = new FitAddon();
       next.loadAddon(fitted);
       next.open(host.current);
-      const area = host.current.querySelector(".xterm-helper-textarea");
-      if (area instanceof HTMLTextAreaElement) {
-        area.style.left = "0";
-        area.style.top = "0";
-        area.style.width = "1px";
-        area.style.height = "1px";
-        area.style.opacity = "0";
-        area.style.zIndex = "6";
-      }
       try {
         fitted.fit();
       } catch {
         /* the box has no size yet */
       }
-      next.focus();
       addon = fitted;
       view = next;
       term.current = next;
-      next.writeln("Click here and type. The keys go to the shell on screen. Ctrl-C goes to the target.");
+      host.current.focus();
+      next.writeln("Click this black box and type. Letters show here as you type, and Enter runs the line.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
-      next.onData((data) => {
-        if (!idRef.current) return;
-        onKeysRef.current(data);
-      });
     })();
 
     return () => {
@@ -106,8 +113,16 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     if (seen.current && !output.startsWith(seen.current)) {
       view.reset();
       seen.current = "";
+      echoed.current = "";
     }
-    const next = output.slice(seen.current.length);
+    let next = output.slice(seen.current.length);
+    if (echoed.current && next.startsWith(echoed.current)) {
+      next = next.slice(echoed.current.length);
+      echoed.current = "";
+    } else if (echoed.current && echoed.current.startsWith(next)) {
+      echoed.current = echoed.current.slice(next.length);
+      next = "";
+    }
     if (next) view.write(next);
     seen.current = output;
   }, [output, tick]);
@@ -118,33 +133,38 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     return () => window.clearInterval(timer);
   }, [active]);
 
+  function send(data: string) {
+    const view = term.current;
+    if (view) {
+      echoLocal(view, data);
+      const shown = data === "\n" || data === "\r" ? "\r\n" : data === "\x7f" ? "\b \b" : data.replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
+      if (shown) echoed.current += shown;
+    }
+    onKeysRef.current(data);
+  }
+
   function focusTerm(event: ReactMouse) {
     event.preventDefault();
-    term.current?.focus();
-    const area = host.current?.querySelector(".xterm-helper-textarea");
-    if (area instanceof HTMLTextAreaElement && document.activeElement === area) return;
     host.current?.focus();
   }
 
   function onKeyDown(event: ReactKey) {
-    if (event.target instanceof HTMLTextAreaElement) return;
     const data = keyToData(event);
     if (!data) return;
     event.preventDefault();
-    onKeysRef.current(data);
+    send(data);
   }
 
   function onPaste(event: ReactClip) {
-    if (event.target instanceof HTMLTextAreaElement) return;
     const text = event.clipboardData.getData("text");
     if (!text) return;
     event.preventDefault();
-    onKeysRef.current(text.replace(/\n/g, "\r"));
+    send(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));
   }
 
   return (
     <>
-      <style>{".shell-term .xterm-helper-textarea{left:0!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;z-index:6!important;}"}</style>
+      <style>{".shell-term .xterm-helper-textarea{pointer-events:none!important;}"}</style>
       <div
         ref={host}
         tabIndex={0}
