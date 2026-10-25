@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { JobList } from "@/components/job-list";
 import { getJobs, getJobsServer, launchJob, subscribeJobs } from "@/lib/live-jobs";
 import { nmapExtra, nmapName, nmapPlan, nmapPorts, nmapTarget, type NmapProfile } from "@/lib/nmap-scan";
@@ -21,6 +21,7 @@ export function NmapScan() {
   const [ports, setPorts] = useState("");
   const [extra, setExtra] = useState("");
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
+  const starting = useRef(false);
 
   const host = nmapTarget(target);
   const parsedExtra = nmapExtra(extra);
@@ -32,6 +33,7 @@ export function NmapScan() {
   }, [host, safeName, parsedExtra, profile, ports]);
 
   const runningCount = jobs.filter((job) => job.running && job.tool === "nmap").length;
+  const nameBusy = Boolean(safeName && jobs.some((job) => job.running && job.tool === "nmap" && job.name === safeName));
   const problem = !target.trim()
     ? ""
     : !host
@@ -44,12 +46,19 @@ export function NmapScan() {
             ? "Deep needs the ports, such as 8080,8443."
             : profile === "custom" && parsedExtra.args.length === 0
               ? "Custom needs at least one flag, such as -F or -p 80,443."
-              : "";
+              : nameBusy
+                ? "That output name is already running. Pick another name, or wait until it finishes."
+                : "";
 
   async function run() {
-    if (!plan || !host || !safeName || runningCount >= 4) return;
+    if (starting.current || !plan || !host || !safeName || runningCount >= 4 || nameBusy) return;
+    starting.current = true;
     const title = `${PROFILES.find((item) => item.id === profile)?.label.split("—")[0]?.trim() ?? profile} ${host}`;
-    await launchJob("/api/nmap", { profile, target: host, name: safeName, ports, extra }, { tool: "nmap", title, command: plan.command, name: safeName });
+    try {
+      await launchJob("/api/nmap", { profile, target: host, name: safeName, ports, extra }, { tool: "nmap", title, command: plan.command, name: safeName });
+    } finally {
+      starting.current = false;
+    }
   }
 
   return (
@@ -118,7 +127,7 @@ export function NmapScan() {
           <button
             type="button"
             onClick={() => void run()}
-            disabled={!plan || runningCount >= 4}
+            disabled={!plan || runningCount >= 4 || nameBusy}
             className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40"
           >
             {runningCount >= 4 ? "Four scans running" : "Run scan"}

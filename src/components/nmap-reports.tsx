@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { JobList } from "@/components/job-list";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { getJobs, getJobsServer, subscribeJobs } from "@/lib/live-jobs";
 
 type Script = { id: string; output: string };
 type Port = { proto: string; port: string; state: string; service: string; detail: string; scripts: Script[] };
@@ -50,6 +50,8 @@ export function NmapReports() {
   const [showClosed, setShowClosed] = useState(false);
   const [saved, setSaved] = useState<string[]>([]);
   const [openScript, setOpenScript] = useState<string | null>(null);
+  const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
+  const nmapRunning = jobs.filter((job) => job.tool === "nmap" && job.running).length;
 
   function loadList() {
     void fetch("/api/nmap")
@@ -60,7 +62,7 @@ export function NmapReports() {
 
   useEffect(() => {
     loadList();
-  }, []);
+  }, [nmapRunning]);
 
   function showXml(xml: string, title: string) {
     const parsed = parseNmapXml(xml);
@@ -111,14 +113,13 @@ export function NmapReports() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <JobList tool="nmap" />
       <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
         <div className="border-b border-border px-4 py-3">
           <p className="font-mono text-xs text-primary">Reports</p>
           <h2 className="text-lg font-semibold">Nmap output</h2>
           <p className="mt-1 text-sm text-muted">
-            XML is drawn as hosts and ports. HTML is shown as the page nmap produced, with scripts off. Scans you start
-            on the Recon page are listed here once the XML exists.
+            XML is drawn as hosts and ports. HTML is shown as the page nmap produced, with scripts off. A scan started
+            above is listed here when its XML has been written.
           </p>
         </div>
         <div className="flex flex-col gap-3 px-4 py-4">
