@@ -59,7 +59,7 @@ export function NmapScan() {
         <h2 className="text-lg font-semibold">nmap</h2>
         <p className="mt-1 text-sm text-muted">
           The four passes from the order of work. Quick and all-TCP can run together. Each scan keeps its own terminal.
-          The output name is the file: scans/name.nmap, .xml, and .gnmap. Read the XML in the Nmap tab.
+          The output name is the file: scans/name.nmap, .xml, and .gnmap. The saved XML is listed under this scanner.
         </p>
       </div>
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">

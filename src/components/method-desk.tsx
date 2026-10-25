@@ -27,7 +27,7 @@ const STORE = "oscp-field-notes-v1";
 type DeskLink = { label: string; section: string; tool?: ToolId; anchor: string };
 
 const CARD_LINKS: Record<string, DeskLink[]> = {
-  "recon-nmap": [{ label: "Nmap scanner", section: "Recon", tool: "udp", anchor: "builder-nmap" }],
+  "recon-nmap": [{ label: "Nmap scanner", section: "Nmap", tool: "nmap", anchor: "builder-nmap" }],
   "recon-search": [{ label: "searchsploit", section: "Builders", tool: "search", anchor: "builder-search" }],
   "recon-udp": [{ label: "UDP scanner", section: "Recon", tool: "udp", anchor: "builder-udp" }],
   "svc-ntp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
@@ -270,7 +270,8 @@ export function MethodDesk() {
       section === "Linux" || section === "Windows",
       /uname|systeminfo|\/proc\/version|dirty ?(?:cow|pipe)|local vuln|kernel version|sudo --version/i,
     );
-    want("udp", section === "Recon" || section === "Services", /udp|nmap|tftp/i);
+    want("udp", section === "Recon" || section === "Services", /udp|tftp|proto-scanner/i);
+    want("nmap", section === "Nmap", /\bnmap\b/i);
     want("snmp", section === "Recon" || section === "Services", /snmp|onesixtyone|snmpwalk|ssid/i);
     want("search", false, /searchsploit|exploit-db|exploitdb/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
@@ -403,7 +404,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={11}
+            count={12}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />
@@ -430,8 +431,8 @@ export function MethodDesk() {
               </div>
             </article>
           ) : null}
-          {section === "Nmap" ? <NmapReports /> : null}
           {builderTools.length > 0 ? <Builders key={builderTools.join(",")} tools={builderTools} tab={builderTab} onTab={setBuilderTab} /> : null}
+          {section === "Nmap" ? <NmapReports /> : null}
           {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}
           {visibleScripts.map((s) => (

@@ -15,7 +15,7 @@ import { LootPick } from "@/components/loot-card";
 import { getLoot, getLootServer, lootLines, LOOT_HASHCAT, subscribeLoot, type LootKind } from "@/lib/loot";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -26,6 +26,7 @@ const LABELS: Record<ToolId, string> = {
   nxc: "nxc",
   local: "local",
   udp: "udp",
+  nmap: "nmap",
   snmp: "snmp",
   search: "searchsploit",
   tunnel: "tunnel",
@@ -1989,13 +1990,13 @@ export function Builders({ tools, tab, onTab }: { tools: ToolId[]; tab: ToolId |
         </div>
       ) : null}
       {current === "udp" ? (
-        <div className="flex min-w-0 flex-col gap-4">
-          <div id="builder-udp" className="scroll-mt-4">
-            <UdpScan />
-          </div>
-          <div id="builder-nmap" className="scroll-mt-4">
-            <NmapScan />
-          </div>
+        <div id="builder-udp" className="scroll-mt-4">
+          <UdpScan />
+        </div>
+      ) : null}
+      {current === "nmap" ? (
+        <div id="builder-nmap" className="scroll-mt-4">
+          <NmapScan />
         </div>
       ) : null}
       {current === "search" ? (
