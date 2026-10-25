@@ -230,7 +230,7 @@ export function PenelopeCard() {
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Typing stays off until the shell is on screen, so a key cannot quit the listener. Left box is the file on Kali. Right box is the path on the target. The terminal stays after you press Stop, so you can still read it.</p>
+        <p className="text-xs text-muted">Click the black terminal and type. The prompt on screen is the shell. Left box is the file on Kali. Right box is the path on the target. The terminal stays after you press Stop, so you can still read it.</p>
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>

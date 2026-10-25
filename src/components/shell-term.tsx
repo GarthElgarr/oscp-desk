@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent as ReactClip, type KeyboardEvent as ReactKey, type MouseEvent as ReactMouse } from "react";
 import { syncJobs } from "@/lib/live-jobs";
 
 type View = {
@@ -7,6 +7,28 @@ type View = {
   dispose: () => void;
   focus: () => void;
 };
+
+function keyToData(event: ReactKey): string | null {
+  if (event.altKey || event.metaKey || event.nativeEvent.isComposing) return null;
+  if (event.ctrlKey) {
+    const key = event.key.toLowerCase();
+    if (key.length === 1 && key >= "a" && key <= "z") return String.fromCharCode(key.charCodeAt(0) - 96);
+    return null;
+  }
+  if (event.key === "Enter") return "\r";
+  if (event.key === "Backspace") return "\x7f";
+  if (event.key === "Tab") return "\t";
+  if (event.key === "Escape") return "\x1b";
+  if (event.key === "ArrowUp") return "\x1b[A";
+  if (event.key === "ArrowDown") return "\x1b[B";
+  if (event.key === "ArrowRight") return "\x1b[C";
+  if (event.key === "ArrowLeft") return "\x1b[D";
+  if (event.key === "Home") return "\x1b[H";
+  if (event.key === "End") return "\x1b[F";
+  if (event.key === "Delete") return "\x1b[3~";
+  if (event.key.length === 1) return event.key;
+  return null;
+}
 
 /** A real terminal for one Penelope job. Keystrokes go to the shell. Output is what Penelope prints. */
 export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; output: string; active: boolean; onKeys: (text: string) => void }) {
@@ -60,7 +82,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       addon = fitted;
       view = next;
       term.current = next;
-      next.writeln("Click here and type once a shell is on screen. Ctrl-C goes to the target.");
+      next.writeln("Click here and type. The keys go to the shell on screen. Ctrl-C goes to the target.");
       if (!disposed) setTick((n) => n + 1);
       window.addEventListener("resize", onResize);
       next.onData((data) => {
@@ -84,7 +106,6 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     if (seen.current && !output.startsWith(seen.current)) {
       view.reset();
       seen.current = "";
-      view.focus();
     }
     const next = output.slice(seen.current.length);
     if (next) view.write(next);
@@ -97,14 +118,40 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
     return () => window.clearInterval(timer);
   }, [active]);
 
+  function focusTerm(event: ReactMouse) {
+    event.preventDefault();
+    term.current?.focus();
+    const area = host.current?.querySelector(".xterm-helper-textarea");
+    if (area instanceof HTMLTextAreaElement && document.activeElement === area) return;
+    host.current?.focus();
+  }
+
+  function onKeyDown(event: ReactKey) {
+    if (event.target instanceof HTMLTextAreaElement) return;
+    const data = keyToData(event);
+    if (!data) return;
+    event.preventDefault();
+    onKeysRef.current(data);
+  }
+
+  function onPaste(event: ReactClip) {
+    if (event.target instanceof HTMLTextAreaElement) return;
+    const text = event.clipboardData.getData("text");
+    if (!text) return;
+    event.preventDefault();
+    onKeysRef.current(text.replace(/\n/g, "\r"));
+  }
+
   return (
     <>
       <style>{".shell-term .xterm-helper-textarea{left:0!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;z-index:6!important;}"}</style>
       <div
         ref={host}
         tabIndex={0}
-        className="shell-term relative h-96 cursor-text overflow-hidden rounded-lg bg-[#0c0c0c] outline-none"
-        onMouseDown={() => term.current?.focus()}
+        className="shell-term relative h-96 cursor-text overflow-hidden rounded-lg bg-[#0c0c0c] outline-none focus:ring-1 focus:ring-primary"
+        onMouseDown={focusTerm}
+        onKeyDown={onKeyDown}
+        onPaste={onPaste}
       />
     </>
   );
