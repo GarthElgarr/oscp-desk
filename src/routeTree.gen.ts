@@ -18,6 +18,7 @@ import { Route as ApiNmapRouteImport } from './routes/api/nmap'
 import { Route as ApiPenelopeRouteImport } from './routes/api/penelope'
 import { Route as ApiRunRouteImport } from './routes/api/run'
 import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
+import { Route as ApiSnmpRouteImport } from './routes/api/snmp'
 import { Route as ApiSuggestRouteImport } from './routes/api/suggest'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
 import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
@@ -68,6 +69,11 @@ const ApiSearchsploitRoute = ApiSearchsploitRouteImport.update({
   path: '/api/searchsploit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSnmpRoute = ApiSnmpRouteImport.update({
+  id: '/api/snmp',
+  path: '/api/snmp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSuggestRoute = ApiSuggestRouteImport.update({
   id: '/api/suggest',
   path: '/api/suggest',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/api/penelope': typeof ApiPenelopeRoute
   '/api/run': typeof ApiRunRoute
   '/api/searchsploit': typeof ApiSearchsploitRoute
+  '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/api/penelope'
     | '/api/run'
     | '/api/searchsploit'
+    | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
     | '/api/wfuzz'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   ApiPenelopeRoute: typeof ApiPenelopeRoute
   ApiRunRoute: typeof ApiRunRoute
   ApiSearchsploitRoute: typeof ApiSearchsploitRoute
+  ApiSnmpRoute: typeof ApiSnmpRoute
   ApiSuggestRoute: typeof ApiSuggestRoute
   ApiUdpRoute: typeof ApiUdpRoute
   ApiWfuzzRoute: typeof ApiWfuzzRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchsploitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/snmp': {
+      id: '/api/snmp'
+      path: '/api/snmp'
+      fullPath: '/api/snmp'
+      preLoaderRoute: typeof ApiSnmpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/suggest': {
       id: '/api/suggest'
       path: '/api/suggest'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPenelopeRoute: ApiPenelopeRoute,
   ApiRunRoute: ApiRunRoute,
   ApiSearchsploitRoute: ApiSearchsploitRoute,
+  ApiSnmpRoute: ApiSnmpRoute,
   ApiSuggestRoute: ApiSuggestRoute,
   ApiUdpRoute: ApiUdpRoute,
   ApiWfuzzRoute: ApiWfuzzRoute,

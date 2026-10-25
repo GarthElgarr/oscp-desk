@@ -16,7 +16,7 @@ function jobState(job: LiveJob): "running" | "done" | "partial" | "failed" {
   return exits.at(-1)?.[1] === "0" ? "done" : "failed";
 }
 
-export function JobList({ tool, empty }: { tool?: string; empty?: string }) {
+export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string; onRead?: (job: LiveJob) => void }) {
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   useEffect(() => {
     void syncJobs();
@@ -47,6 +47,11 @@ export function JobList({ tool, empty }: { tool?: string; empty?: string }) {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                {onRead ? (
+                  <button type="button" onClick={() => onRead(job)} className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-bg px-3 text-sm text-fg">
+                    Read it
+                  </button>
+                ) : null}
                 {state === "done" && job.tool === "nmap" && job.name ? (
                   <a href={`/api/nmap?name=${encodeURIComponent(job.name)}&html=1`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center rounded-lg border border-alive bg-bg px-3 text-sm text-alive">
                     Open HTML report

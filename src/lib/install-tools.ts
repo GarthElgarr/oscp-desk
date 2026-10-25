@@ -18,6 +18,8 @@ export const INSTALL_PACKAGES = [
   "wfuzz",
   "seclists",
   "penelope",
+  "snmp",
+  "onesixtyone",
 ] as const;
 
 /** Names the desk actually calls, including binaries that live inside a package. */
@@ -40,6 +42,8 @@ export const INSTALL_TOOL_LABELS = [
   "wfuzz",
   "seclists",
   "penelope",
+  "snmpwalk (snmp)",
+  "onesixtyone",
 ] as const;
 
 export function manualInstallCommand(): string {
@@ -70,6 +74,8 @@ export const TOOL_CHECKS = [
   { label: "wfuzz", bin: "wfuzz" },
   { label: "seclists", file: "/usr/share/seclists" },
   { label: "penelope", bin: "penelope" },
+  { label: "snmpwalk", bin: "snmpwalk" },
+  { label: "onesixtyone", bin: "onesixtyone" },
 ] as const;
 
 export type InstallSummary = {

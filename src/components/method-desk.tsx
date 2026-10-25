@@ -31,7 +31,7 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "recon-search": [{ label: "searchsploit", section: "Recon", tool: "udp", anchor: "builder-search" }],
   "recon-udp": [{ label: "UDP scanner", section: "Recon", tool: "udp", anchor: "builder-udp" }],
   "svc-ntp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
-  "svc-snmp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
+  "svc-snmp": [{ label: "SNMP", section: "Services", tool: "snmp", anchor: "builder-snmp" }, { label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
   "svc-tftp": [{ label: "UDP scanner", section: "Services", tool: "udp", anchor: "builder-udp" }],
   "svc-ftp": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
   "svc-ssh": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }, { label: "Loot", section: "Loot", anchor: "panel-loot" }],
@@ -270,7 +270,8 @@ export function MethodDesk() {
       section === "Linux" || section === "Windows",
       /uname|systeminfo|\/proc\/version|dirty ?(?:cow|pipe)|local vuln|kernel version|sudo --version/i,
     );
-    want("udp", section === "Recon" || section === "Services", /udp|nmap|snmp|tftp/i);
+    want("udp", section === "Recon" || section === "Services", /udp|nmap|tftp/i);
+    want("snmp", section === "Recon" || section === "Services", /snmp|onesixtyone|snmpwalk|ssid/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
     want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient/i);
@@ -401,7 +402,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={9}
+            count={10}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />
