@@ -151,7 +151,8 @@ export function removeJob(id: string): boolean {
   const job = jobs.find((item) => item.id === id);
   if (killers.has(id)) dropped.add(id);
   stopJob(id);
-  if (job?.name) deleteScanFiles(job.name);
+  const nameStillUsed = jobs.some((item) => item.id !== id && item.tool === "nmap" && item.name && item.name === job?.name);
+  if (job?.tool === "nmap" && job.name && !nameStillUsed) deleteScanFiles(job.name);
   const before = jobs.length;
   const next = jobs.filter((item) => item.id !== id);
   jobs.splice(0, jobs.length, ...next);

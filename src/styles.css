@@ -32,6 +32,12 @@
     line-height: 1.5;
   }
 
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       transition: none !important;

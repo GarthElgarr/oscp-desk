@@ -52,7 +52,10 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
   const [saved, setSaved] = useState<string[]>([]);
   const [openScript, setOpenScript] = useState<string | null>(null);
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
-  const nmapRunning = jobs.filter((job) => job.tool === "nmap" && job.running).length;
+  const nmapStamp = jobs
+    .filter((job) => job.tool === "nmap")
+    .map((job) => `${job.id}:${job.running ? "1" : "0"}`)
+    .join("|");
 
   function loadList() {
     void fetch("/api/nmap")
@@ -63,7 +66,7 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
 
   useEffect(() => {
     loadList();
-  }, [nmapRunning]);
+  }, [nmapStamp]);
 
   function showXml(xml: string, title: string) {
     const parsed = parseNmapXml(xml);
