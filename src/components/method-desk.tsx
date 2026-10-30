@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronDown, Copy, Download, Search } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Copy, Download, Search } from "lucide-react";
 import { SECTIONS, TECHNIQUES, type Technique } from "@/data/methodology";
 import { LAB_SCRIPTS, type LabScript } from "@/data/lab-scripts";
 import { WHY as BASE_WHY } from "@/data/why";
@@ -24,6 +24,7 @@ import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/li
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
 const STORE = "oscp-field-notes-v1";
+const UNSURE_STORE = "oscp-field-unsure-v1";
 
 type DeskLink = { label: string; section: string; tool?: ToolId; anchor: string };
 
@@ -118,10 +119,10 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "rep-flags": [{ label: "Report", section: "Report", anchor: "panel-report" }],
 };
 
-function loadDone(): Set<string> {
+function loadIds(key: string): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(STORE);
+    const raw = localStorage.getItem(key);
     const ids = raw ? (JSON.parse(raw) as string[]) : [];
     return new Set(ids);
   } catch {
@@ -135,6 +136,7 @@ export function MethodDesk() {
   const [lootFocus, setLootFocus] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [unsure, setUnsure] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [openSource, setOpenSource] = useState<string | null>(null);
@@ -149,7 +151,8 @@ export function MethodDesk() {
   }, []);
 
   useEffect(() => {
-    setDone(loadDone());
+    setDone(loadIds(STORE));
+    setUnsure(loadIds(UNSURE_STORE));
     setReady(true);
   }, []);
 
@@ -168,6 +171,11 @@ export function MethodDesk() {
     if (!ready) return;
     localStorage.setItem(STORE, JSON.stringify([...done]));
   }, [done, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    localStorage.setItem(UNSURE_STORE, JSON.stringify([...unsure]));
+  }, [unsure, ready]);
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -206,6 +214,27 @@ export function MethodDesk() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+    setUnsure((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleUnsure(id: string) {
+    setUnsure((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setDone((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
   }
@@ -294,6 +323,7 @@ export function MethodDesk() {
 
   const total = TECHNIQUES.length + LAB_SCRIPTS.length;
   const marked = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => done.has(t.id)).length;
+  const unsureCount = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => unsure.has(t.id)).length;
 
   return (
     <div className="relative min-h-screen text-fg">
@@ -307,12 +337,12 @@ export function MethodDesk() {
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">OSCP methodology</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
-                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark only ticks it. Reset desk clears the ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
+                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark ticks it done. Unsure means you think it is done and you will check it later. Reset desk clears both ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-mono text-sm text-muted">
-                {marked}/{total} checked
+                {marked}/{total} checked{unsureCount ? ` · ${unsureCount} unsure` : ""}
               </p>
               <button
                 type="button"
@@ -322,6 +352,7 @@ export function MethodDesk() {
                     return;
                   }
                   setDone(new Set());
+                  setUnsure(new Set());
                   setQuery("");
                   setSection("Exam");
                   setOpenCard(null);
@@ -464,10 +495,12 @@ export function MethodDesk() {
               item={s}
               open={openCard === s.id}
               checked={done.has(s.id)}
+              unsure={unsure.has(s.id)}
               copied={copied === s.id}
               sourceOpen={openSource === s.id}
               onOpen={() => setOpenCard((id) => (id === s.id ? null : s.id))}
               onToggle={() => toggle(s.id)}
+              onUnsure={() => toggleUnsure(s.id)}
               onCopy={() => copy(s.id, s.source)}
               onDownload={() => download(s.file, s.source)}
               onToggleSource={() => setOpenSource((id) => (id === s.id ? null : s.id))}
@@ -480,9 +513,11 @@ export function MethodDesk() {
                 item={t}
                 open={openCard === t.id}
                 checked={done.has(t.id)}
+                unsure={unsure.has(t.id)}
                 copied={copied === t.id}
                 onOpen={() => setOpenCard((id) => (id === t.id ? null : t.id))}
                 onToggle={() => toggle(t.id)}
+                onUnsure={() => toggleUnsure(t.id)}
                 onCopy={() => copy(t.id, t.cmd)}
                 links={CARD_LINKS[t.id] ?? []}
                 onJump={jumpTo}
@@ -508,10 +543,12 @@ function ScriptCard({
   item,
   open,
   checked,
+  unsure,
   copied,
   sourceOpen,
   onOpen,
   onToggle,
+  onUnsure,
   onCopy,
   onDownload,
   onToggleSource,
@@ -519,10 +556,12 @@ function ScriptCard({
   item: LabScript;
   open: boolean;
   checked: boolean;
+  unsure: boolean;
   copied: boolean;
   sourceOpen: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  onUnsure: () => void;
   onCopy: () => void;
   onDownload: () => void;
   onToggleSource: () => void;
@@ -532,7 +571,7 @@ function ScriptCard({
     if (open) ref.current?.scrollIntoView({ block: "nearest" });
   }, [open]);
   return (
-    <article ref={ref} className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface">
+    <article ref={ref} className={"min-w-0 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
       <div className="flex items-stretch">
         <button
           type="button"
@@ -551,7 +590,7 @@ function ScriptCard({
             )}
           </span>
         </button>
-        <div className="flex shrink-0 items-center pr-3">
+        <div className="flex shrink-0 items-center gap-1 pr-3">
           <button
             type="button"
             onClick={onToggle}
@@ -565,6 +604,20 @@ function ScriptCard({
           >
             <Check className="size-4" aria-hidden="true" />
             {checked ? "Done" : "Mark"}
+          </button>
+          <button
+            type="button"
+            onClick={onUnsure}
+            aria-pressed={unsure}
+            className={
+              "inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm " +
+              (unsure
+                ? "border-[#8a5a20] bg-[#3a2a14] text-[#e0a15a]"
+                : "border-border bg-bg text-muted")
+            }
+          >
+            <CircleHelp className="size-4" aria-hidden="true" />
+            {unsure ? "Check later" : "Unsure"}
           </button>
         </div>
       </div>
@@ -662,9 +715,11 @@ function Card({
   item,
   open,
   checked,
+  unsure,
   copied,
   onOpen,
   onToggle,
+  onUnsure,
   onCopy,
   links,
   onJump,
@@ -672,9 +727,11 @@ function Card({
   item: Technique;
   open: boolean;
   checked: boolean;
+  unsure: boolean;
   copied: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  onUnsure: () => void;
   onCopy: () => void;
   links: DeskLink[];
   onJump: (link: DeskLink) => void;
@@ -684,7 +741,7 @@ function Card({
     if (open) ref.current?.scrollIntoView({ block: "nearest" });
   }, [open]);
   return (
-    <article ref={ref} className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface">
+    <article ref={ref} className={"min-w-0 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
       <div className="flex items-stretch">
         <button
           type="button"
@@ -710,20 +767,36 @@ function Card({
               {link.label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-pressed={checked}
-            className={
-              "inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm " +
-              (checked
-                ? "border-alive bg-alive-bg text-alive"
-                : "border-border bg-bg text-muted")
-            }
-          >
-            <Check className="size-4" aria-hidden="true" />
-            {checked ? "Done" : "Mark"}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-pressed={checked}
+              className={
+                "inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm " +
+                (checked
+                  ? "border-alive bg-alive-bg text-alive"
+                  : "border-border bg-bg text-muted")
+              }
+            >
+              <Check className="size-4" aria-hidden="true" />
+              {checked ? "Done" : "Mark"}
+            </button>
+            <button
+              type="button"
+              onClick={onUnsure}
+              aria-pressed={unsure}
+              className={
+                "inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm " +
+                (unsure
+                  ? "border-[#8a5a20] bg-[#3a2a14] text-[#e0a15a]"
+                  : "border-border bg-bg text-muted")
+              }
+            >
+              <CircleHelp className="size-4" aria-hidden="true" />
+              {unsure ? "Check later" : "Unsure"}
+            </button>
+          </div>
         </div>
       </div>
 
