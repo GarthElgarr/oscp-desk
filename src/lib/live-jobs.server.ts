@@ -111,7 +111,11 @@ export function spawnLiveJob(input: {
   const handle = openJob(input);
   if (!handle) return false;
   handle.push(`$ ${input.command}\n`);
-  const child = spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: input.env });
+  const child = spawn(input.bin, input.args, {
+    shell: false,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, COLUMNS: "400", LINES: "80", ...(input.env ?? {}) },
+  });
   handle.attach(child);
   const take = (buf: Buffer) => handle.push(buf.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\r(?!\n)/g, "\n"));
   child.stdout?.on("data", take);

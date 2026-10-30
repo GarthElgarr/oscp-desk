@@ -38,6 +38,12 @@
     opacity: 1;
   }
 
+  pre {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       transition: none !important;

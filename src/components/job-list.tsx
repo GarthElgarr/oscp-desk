@@ -43,7 +43,7 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
                 <span className={"size-3 shrink-0 rounded-full " + (state === "running" || state === "partial" ? "bg-[#e0a15a]" : state === "done" ? "bg-alive" : "bg-dead")} aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="font-mono text-xs">{label}</p>
-                  <p className="truncate text-sm">{job.title}</p>
+                  <p className="text-sm break-all">{job.title}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -65,7 +65,7 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
                 </button>
               </div>
             </div>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
+            <pre className="max-h-96 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
               {plain(job.output).replace(/@@STATUS .*@@\n?/g, "") || (job.running ? "Waiting for output…" : "")}
             </pre>
           </section>

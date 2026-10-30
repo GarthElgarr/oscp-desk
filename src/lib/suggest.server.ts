@@ -34,7 +34,7 @@ function run(bin: string, args: string[], handle: NonNullable<ReturnType<typeof 
       return;
     }
     handle.push(`$ ${bin} ${args.join(" ")}\n`);
-    const child = spawn(bin, args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(bin, args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, COLUMNS: "400", LINES: "80" } });
     handle.attach(child);
     const timer = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
     let settled = false;

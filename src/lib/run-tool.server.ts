@@ -69,7 +69,7 @@ export function startSteps(id: string, tool: string, title: string, steps: ToolS
         handle.push(`$ ${step.bin} ${step.args.join(" ")}\n`);
         let captured = "";
         const code = await new Promise<number | null>((resolve) => {
-          const child = spawn(step.bin, step.args, { shell: false, stdio: ["ignore", "pipe", "pipe"] });
+          const child = spawn(step.bin, step.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, COLUMNS: "400", LINES: "80" } });
           handle.attach(child);
           let settled = false;
           const done = (value: number | null) => {
