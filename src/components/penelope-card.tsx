@@ -6,12 +6,23 @@ import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
-function plain(output: string): string {
-  return output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+function screen(output: string): string {
+  const stripped = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+  let current = "";
+  let out = "";
+  for (const c of stripped) {
+    if (c === "\r") current = "";
+    else if (c === "\n") {
+      out += `${current}\n`;
+      current = "";
+    } else current += c;
+  }
+  return out + current;
 }
 
 function shellOpen(output: string): boolean {
-  const text = plain(output);
+  const text = screen(output);
+  if (/\(Penelope\).{0,80}Session \[\d+\]\)>\s*$/.test(text)) return false;
   let last = "";
   for (const match of text.matchAll(/Interacting with session|Session detached/g)) last = match[0];
   return last === "Interacting with session";
@@ -28,11 +39,11 @@ export function PenelopeCard() {
   const [copied, setCopied] = useState("");
   const [sendError, setSendError] = useState("");
   const [killNote, setKillNote] = useState("");
+  const [busy, setBusy] = useState("");
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
   const shown = running ?? jobs.find((job) => job.tool === "penelope");
-  const caught = Boolean(shown && plain(shown.output).includes("Interacting with session"));
-  const atShell = shellOpen(shown?.output ?? "");
+  const caught = Boolean(shown && screen(shown.output).includes("Interacting with session"));
   const plan = useMemo(() => penelopePlan({ mode, port, iface, host }), [mode, port, iface, host]);
   const ready = !("error" in plan);
   const chain = useRef(Promise.resolve());
@@ -97,12 +108,42 @@ export function PenelopeCard() {
     return true;
   }
 
-  function flushKeys() {
+  function dropKeys() {
     window.clearTimeout(keyTimer.current);
     keyTimer.current = 0;
-    const text = pending.current;
     pending.current = "";
-    if (text) void enqueue(text);
+  }
+
+  function outputNow(): string {
+    return getJobs().find((job) => job.id === runningId.current)?.output ?? "";
+  }
+
+  async function waitForNew(from: number, marker: RegExp, timeoutMs: number): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await syncJobs();
+      const job = getJobs().find((item) => item.id === runningId.current);
+      if (!job?.running) return false;
+      if (marker.test(job.output.slice(from))) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
+  }
+
+  async function leaveShell() {
+    if (!shellOpen(outputNow())) {
+      await write("\x15");
+      return;
+    }
+    const from = outputNow().length;
+    await write("\x15\u001b[24~");
+    await waitForNew(from, /Session detached|\(Penelope\)/, 4000);
+  }
+
+  async function enterShell(id: string) {
+    const from = outputNow().length;
+    await write(`interact ${id}\n`);
+    await waitForNew(from, /Interacting with session/, 5000);
   }
 
   function onKeys(text: string) {
@@ -118,39 +159,47 @@ export function PenelopeCard() {
   }
 
   async function write(text: string) {
-    flushKeys();
     return enqueue(text);
   }
 
   async function press(action: string) {
-    if (!running || !caught) return;
+    if (!running || !caught || hold.current) return;
     const line = penelopeLine(action, session, local, remote);
     if ("error" in line) return;
     hold.current = true;
+    const transfer = action === "upload" || action === "download";
+    setSendError("");
+    setBusy(transfer ? "The file is moving. Typing is paused until the shell comes back." : "");
+    dropKeys();
     try {
       const menu = action !== "detach" && action !== "interrupt";
-      if (menu && atShell) {
-        const left = await write("\u001b[24~");
-        if (!left) return;
-        await new Promise((resolve) => setTimeout(resolve, 400));
+      if (action === "interrupt") {
+        await write(line.text);
+        return;
       }
+      if (menu || action === "detach") await leaveShell();
+      if (action === "detach") return;
+      const from = outputNow().length;
       await write(line.text);
+      if (!transfer) return;
+      const done = await waitForNew(from, /\[\+\] Uploaded|\[\+\] Downloaded|\[!\]/, 180_000);
+      await enterShell(session.trim() || "1");
+      if (!done) setSendError("The file did not report back. Press Shell if you are still in the menu.");
     } finally {
       hold.current = false;
+      setBusy("");
     }
   }
 
   async function useSession(n: number) {
     setSession(String(n));
-    if (!running || !caught) return;
+    if (!running || !caught || hold.current) return;
     hold.current = true;
+    setBusy("");
+    dropKeys();
     try {
-      if (atShell) {
-        const left = await write("\u001b[24~");
-        if (!left) return;
-        await new Promise((resolve) => setTimeout(resolve, 400));
-      }
-      await write(`interact ${n}\n`);
+      await leaveShell();
+      await enterShell(String(n));
     } finally {
       hold.current = false;
     }
@@ -249,7 +298,8 @@ export function PenelopeCard() {
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+V pastes. Ctrl+Shift+C copies the selection again. Ctrl+C still goes to the shell. Kill listener frees the port, including a Penelope that kept listening after an earlier run, so Start can use it again. Left box is the file on Kali. Right box is the path on the target.</p>
+        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+V pastes. Ctrl+C copies a selection, and interrupts the shell when nothing is selected. Upload and Download leave the shell, move the file, then come back. Typing is paused while the file moves. Left box is the file on Kali. Right box is the path on the target.</p>
+        {busy ? <p className="text-sm text-muted">{busy}</p> : null}
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>
