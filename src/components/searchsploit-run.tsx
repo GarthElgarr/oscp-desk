@@ -5,6 +5,7 @@ import { searchsploitPlan } from "@/lib/searchsploit";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 const INTEREST = "oscp-search-interest-v1";
+const NOTES = "oscp-search-notes-v1";
 
 type Interest = { id: string; note: string };
 
@@ -45,6 +46,7 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
   const [lookNote, setLookNote] = useState("");
   const [lookError, setLookError] = useState("");
   const [interest, setInterest] = useState<Interest[]>([]);
+  const [notes, setNotes] = useState("");
   const [notesReady, setNotesReady] = useState(false);
 
   const plan = useMemo(
@@ -64,6 +66,7 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
 
   useEffect(() => {
     setInterest(loadInterest());
+    setNotes(localStorage.getItem(NOTES) ?? "");
     setNotesReady(true);
   }, []);
 
@@ -71,6 +74,11 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
     if (!notesReady) return;
     localStorage.setItem(INTEREST, JSON.stringify(interest));
   }, [interest, notesReady]);
+
+  useEffect(() => {
+    if (!notesReady) return;
+    localStorage.setItem(NOTES, notes);
+  }, [notes, notesReady]);
 
   async function showExploit(raw: string) {
     const id = exploitId(raw);
@@ -223,6 +231,16 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
           ) : null}
         </div>
         <JobList tool="search" />
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-mono text-xs tracking-wide text-muted">NOTES</span>
+          <textarea
+            className="min-h-28 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Notes on this search"
+            spellCheck={true}
+          />
+        </label>
       </div>
     </article>
   );
