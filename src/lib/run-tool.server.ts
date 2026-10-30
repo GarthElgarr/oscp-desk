@@ -77,22 +77,21 @@ export function startSteps(id: string, tool: string, title: string, steps: ToolS
             settled = true;
             resolve(value);
           };
-          const shown = createTerminalFeed((text) => {
-            if (step.kind === "exec") handle.push(text);
+          const block = { value: "" };
+          const feed = createTerminalFeed((full) => handle.paint(full, block));
+          child.stdout?.on("data", (buf: Buffer) => {
+            const text = buf.toString();
+            if (step.kind === "exec") feed.write(text);
             else captured += text;
           });
-          const errors = createTerminalFeed((text) => handle.push(text));
-          child.stdout?.on("data", (buf: Buffer) => shown.write(buf.toString()));
-          child.stderr?.on("data", (buf: Buffer) => errors.write(buf.toString()));
+          child.stderr?.on("data", (buf: Buffer) => feed.write(buf.toString()));
           child.on("error", (err: NodeJS.ErrnoException) => {
-            shown.flush();
-            errors.flush();
+            feed.flush();
             handle.push(err.code === "ENOENT" ? `${step.bin} was not found. Run the desk on Kali, where it is already installed.\n` : `${err.message}\n`);
             done(null);
           });
           child.on("close", (exitCode) => {
-            shown.flush();
-            errors.flush();
+            feed.flush();
             done(exitCode);
           });
         });

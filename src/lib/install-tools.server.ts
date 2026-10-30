@@ -68,13 +68,14 @@ async function runInstall(handle: Handle) {
       });
       handle.attach(child);
       probeTimer = quiet ? setTimeout(() => child.kill("SIGTERM"), 8_000) : undefined;
-      const feed = createTerminalFeed((line) => {
-        if (!quiet) handle.push(line);
+      const block = { value: "" };
+      const feed = createTerminalFeed((full) => {
+        if (!quiet) handle.paint(full, block);
       });
       const take = (buf: Buffer) => {
         const chunk = buf.toString();
         text += chunk;
-        feed.write(chunk);
+        if (!quiet) feed.write(chunk);
       };
       child.stdout?.on("data", take);
       child.stderr?.on("data", take);

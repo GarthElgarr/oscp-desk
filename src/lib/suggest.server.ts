@@ -44,7 +44,8 @@ function run(bin: string, args: string[], handle: NonNullable<ReturnType<typeof 
       clearTimeout(timer);
       resolve(code);
     };
-    const feed = createTerminalFeed((text) => handle.push(text));
+    const block = { value: "" };
+    const feed = createTerminalFeed((full) => handle.paint(full, block));
     const take = (buf: Buffer) => feed.write(buf.toString());
     child.stdout?.on("data", take);
     child.stderr?.on("data", take);

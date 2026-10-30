@@ -95,7 +95,7 @@ export function openJob(input: {
   timeoutMs: number;
   maxOut?: number;
   trim?: boolean;
-}): { push: (text: string) => void; finish: (line: string) => void; kill: () => void; stopped: () => boolean; attach: (child: ChildProcess) => void } | null {
+}): { push: (text: string) => void; finish: (line: string) => void; kill: () => void; paint: (full: string, block: { value: string }) => void; stopped: () => boolean; attach: (child: ChildProcess) => void } | null {
   if (!jobId(input.id)) return null;
   if (jobs.some((job) => job.running && job.id === input.id)) return null;
   if (jobs.filter((job) => job.running).length >= MAX_RUNNING) return null;
@@ -147,7 +147,19 @@ export function openJob(input: {
     job.running = false;
     remember(job);
   };
-  return { push, finish, kill, stopped: () => stopped, attach(next: ChildProcess) { child = next; } };
+  const paint = (full: string, block: { value: string }) => {
+    paintJob(job, full, block);
+    sent = job.output.length;
+    saveRuns();
+    if (sent >= maxOut) {
+      if (input.trim) {
+        job.output = job.output.slice(-Math.floor(maxOut / 2));
+        block.value = "";
+        sent = job.output.length;
+      } else kill();
+    }
+  };
+  return { push, finish, kill, paint, stopped: () => stopped, attach(next: ChildProcess) { child = next; } };
 }
 
 export function spawnLiveJob(input: {
@@ -173,7 +185,8 @@ export function spawnLiveJob(input: {
     ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
     : spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
   handle.attach(child);
-  const feed = createTerminalFeed((text) => handle.push(text));
+  const block = { value: "" };
+  const feed = createTerminalFeed((full) => handle.paint(full, block));
   const take = (buf: Buffer) => feed.write(buf.toString());
   child.stdout?.on("data", take);
   child.stderr?.on("data", take);
@@ -188,50 +201,106 @@ export function spawnLiveJob(input: {
   return true;
 }
 
-export function createTerminalFeed(push: (text: string) => void) {
-  let current = "";
-  let fromCr = false;
+export function createTerminalFeed(onText: (full: string) => void) {
+  const rows: string[] = [""];
+  let row = 0;
+  let col = 0;
+  let pending = "";
+  let touched = false;
+
+  const ensure = (index: number) => {
+    while (rows.length <= index) rows.push("");
+  };
+  const put = (ch: string) => {
+    ensure(row);
+    const line = rows[row];
+    rows[row] = col >= line.length ? line + " ".repeat(col - line.length) + ch : line.slice(0, col) + ch + line.slice(col + 1);
+    col += 1;
+  };
+  const eraseEnd = () => {
+    ensure(row);
+    rows[row] = rows[row].slice(0, col);
+  };
+  const render = () => {
+    let end = rows.length;
+    while (end > 1 && rows[end - 1] === "") end -= 1;
+    return rows
+      .slice(0, end)
+      .map((line) => line.replace(/[ \t]+$/g, ""))
+      .filter((line) => !line.includes("Pycurl is not compiled against Openssl"))
+      .join("\n");
+  };
+  const apply = (cmd: string, params: string) => {
+    const count = Number(params.split(";")[0] || "1");
+    const n = Number.isFinite(count) && count > 0 ? count : 1;
+    if (cmd === "A") row = Math.max(0, row - n);
+    else if (cmd === "B") {
+      row += n;
+      ensure(row);
+    } else if (cmd === "C") col += n;
+    else if (cmd === "D") col = Math.max(0, col - n);
+    else if (cmd === "K") eraseEnd();
+    else if (cmd === "J" && (params === "2" || params === "3")) {
+      rows.splice(0, rows.length, "");
+      row = 0;
+      col = 0;
+    }
+  };
   const write = (chunk: string) => {
-    const text = chunk
-      .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
-      .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
-      .replace(/.*Pycurl is not compiled against Openssl.*(?:\r|\n)?/g, "");
-    let committed = "";
+    touched = true;
+    const text = pending + chunk;
+    pending = "";
     for (let i = 0; i < text.length; i += 1) {
       const c = text[i];
       if (c === "\r") {
-        if (text[i + 1] === "\n") {
-          committed += `${current}\n`;
-          current = "";
-          fromCr = false;
-          i += 1;
-        } else {
-          current = "";
-          fromCr = true;
-        }
-      } else if (c === "\n") {
-        committed += `${current}\n`;
-        current = "";
-        fromCr = false;
-      } else if (c === "\b") {
-        if (current) current = current.slice(0, -1);
-      } else {
-        current += c;
+        col = 0;
+        continue;
       }
+      if (c === "\n") {
+        row += 1;
+        col = 0;
+        ensure(row);
+        continue;
+      }
+      if (c === "\b") {
+        col = Math.max(0, col - 1);
+        continue;
+      }
+      if (c === "\x1b") {
+        const next = text[i + 1];
+        if (next === "[") {
+          let j = i + 2;
+          let params = "";
+          while (j < text.length && /[0-9;?]/.test(text[j])) {
+            params += text[j];
+            j += 1;
+          }
+          if (j >= text.length) {
+            pending = text.slice(i);
+            break;
+          }
+          apply(text[j], params);
+          i = j;
+          continue;
+        }
+        if (!next) {
+          pending = text.slice(i);
+          break;
+        }
+        continue;
+      }
+      if (c < " " && c !== "\t") continue;
+      put(c);
     }
-    if (committed) push(committed);
+    onText(render());
   };
-  const flush = () => {
-    if (!current || fromCr) {
-      current = "";
-      fromCr = false;
-      return;
-    }
-    const rest = `${current}\n`;
-    current = "";
-    push(rest);
-  };
-  return { write, flush };
+  return { write, flush: () => { if (touched) onText(render()); } };
+}
+
+function paintJob(job: LiveJob, full: string, block: { value: string }) {
+  if (block.value && job.output.endsWith(block.value)) job.output = job.output.slice(0, -block.value.length) + full;
+  else if (!block.value) job.output += full;
+  block.value = full;
 }
 
 const PTY_WRAP = [
