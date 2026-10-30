@@ -2,31 +2,15 @@ import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { ShellTerm } from "@/components/shell-term";
 import { getJobs, getJobsServer, launchJob, stopJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
-import { penelopeLine, penelopePlan } from "@/lib/penelope-plan";
+import { penelopeBeats, penelopeInShell, penelopeLine, penelopePlan, type PenelopeBeat } from "@/lib/penelope-plan";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
-function screen(output: string): string {
-  const stripped = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
-  let current = "";
-  let out = "";
-  for (const c of stripped) {
-    if (c === "\r") current = "";
-    else if (c === "\n") {
-      out += `${current}\n`;
-      current = "";
-    } else current += c;
-  }
-  return out + current;
-}
-
-function shellOpen(output: string): boolean {
-  const text = screen(output);
-  if (/\(Penelope\).{0,80}Session \[\d+\]\)>\s*$/.test(text)) return false;
-  let last = "";
-  for (const match of text.matchAll(/Interacting with session|Session detached/g)) last = match[0];
-  return last === "Interacting with session";
-}
+const WAIT = {
+  detached: /Session detached/,
+  attached: /Interacting with session/,
+  transfer: /Uploaded|Downloaded|\[!\]/,
+};
 
 export function PenelopeCard() {
   const [mode, setMode] = useState<"listen" | "connect">("listen");
@@ -43,7 +27,7 @@ export function PenelopeCard() {
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const running = jobs.find((job) => job.tool === "penelope" && job.running);
   const shown = running ?? jobs.find((job) => job.tool === "penelope");
-  const caught = Boolean(shown && screen(shown.output).includes("Interacting with session"));
+  const seenSession = Boolean(shown && shown.output.includes("Interacting with session"));
   const plan = useMemo(() => penelopePlan({ mode, port, iface, host }), [mode, port, iface, host]);
   const ready = !("error" in plan);
   const chain = useRef(Promise.resolve());
@@ -103,7 +87,6 @@ export function PenelopeCard() {
         return false;
       }
     }
-    setSendError("");
     await syncJobs();
     return true;
   }
@@ -118,36 +101,58 @@ export function PenelopeCard() {
     return getJobs().find((job) => job.id === runningId.current)?.output ?? "";
   }
 
-  async function waitForNew(from: number, marker: RegExp, timeoutMs: number): Promise<boolean> {
+  function tally(text: string, what: keyof typeof WAIT): number {
+    const clean = text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+    return [...clean.matchAll(new RegExp(WAIT[what].source, "g"))].length;
+  }
+
+  async function waitForMore(what: keyof typeof WAIT, already: number, timeoutMs: number): Promise<boolean> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       await syncJobs();
       const job = getJobs().find((item) => item.id === runningId.current);
       if (!job?.running) return false;
-      if (marker.test(job.output.slice(from))) return true;
+      if (tally(job.output, what) > already) return true;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     return false;
   }
 
-  async function leaveShell() {
-    if (!shellOpen(outputNow())) {
-      await write("\x15");
-      return;
+  async function runBeats(beats: PenelopeBeat[], busyText: string) {
+    if (hold.current) return;
+    hold.current = true;
+    setSendError("");
+    setBusy(busyText);
+    dropKeys();
+    await chain.current;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    let before = outputNow();
+    try {
+      for (const beat of beats) {
+        if (beat.kind === "only" || beat.kind === "line") {
+          await syncJobs();
+          before = outputNow();
+          const wrote = await write(beat.kind === "only" ? beat.data : beat.text);
+          if (!wrote) return;
+          await new Promise((resolve) => setTimeout(resolve, beat.kind === "only" ? 250 : 80));
+        } else {
+          const ok = await waitForMore(beat.what, tally(before, beat.what), beat.ms);
+          if (!ok && beat.stop) {
+            setSendError("Penelope did not leave the shell, so the command was not sent. Press Menu, then try again.");
+            return;
+          }
+          if (!ok && beat.what === "transfer") setSendError("The file did not report back. Press Shell if the prompt is still Penelope.");
+          if (!ok && beat.what === "attached") setSendError("The menu command finished, but the shell did not come back. Press Shell.");
+        }
+      }
+    } finally {
+      hold.current = false;
+      setBusy("");
     }
-    const from = outputNow().length;
-    await write("\x15\u001b[24~");
-    await waitForNew(from, /Session detached|\(Penelope\)/, 4000);
-  }
-
-  async function enterShell(id: string) {
-    const from = outputNow().length;
-    await write(`interact ${id}\n`);
-    await waitForNew(from, /Interacting with session/, 5000);
   }
 
   function onKeys(text: string) {
-    if (hold.current || !caught || !runningId.current) return;
+    if (hold.current || !runningId.current) return;
     pending.current += text;
     if (keyTimer.current) return;
     keyTimer.current = window.setTimeout(() => {
@@ -163,46 +168,19 @@ export function PenelopeCard() {
   }
 
   async function press(action: string) {
-    if (!running || !caught || hold.current) return;
-    const line = penelopeLine(action, session, local, remote);
-    if ("error" in line) return;
-    hold.current = true;
+    if (!running || !seenSession || hold.current) return;
+    const beats = penelopeBeats(action, penelopeInShell(outputNow()), session, local, remote);
+    if ("error" in beats || beats.length === 0) return;
     const transfer = action === "upload" || action === "download";
-    setSendError("");
-    setBusy(transfer ? "The file is moving. Typing is paused until the shell comes back." : "");
-    dropKeys();
-    try {
-      const menu = action !== "detach" && action !== "interrupt";
-      if (action === "interrupt") {
-        await write(line.text);
-        return;
-      }
-      if (menu || action === "detach") await leaveShell();
-      if (action === "detach") return;
-      const from = outputNow().length;
-      await write(line.text);
-      if (!transfer) return;
-      const done = await waitForNew(from, /\[\+\] Uploaded|\[\+\] Downloaded|\[!\]/, 180_000);
-      await enterShell(session.trim() || "1");
-      if (!done) setSendError("The file did not report back. Press Shell if you are still in the menu.");
-    } finally {
-      hold.current = false;
-      setBusy("");
-    }
+    await runBeats(beats, transfer ? "The file is moving. Typing is paused until the shell comes back." : "");
   }
 
   async function useSession(n: number) {
     setSession(String(n));
-    if (!running || !caught || hold.current) return;
-    hold.current = true;
-    setBusy("");
-    dropKeys();
-    try {
-      await leaveShell();
-      await enterShell(String(n));
-    } finally {
-      hold.current = false;
-    }
+    if (!running || !seenSession || hold.current) return;
+    const beats = penelopeBeats("interact", penelopeInShell(outputNow()), String(n), local, remote, true);
+    if ("error" in beats || beats.length === 0) return;
+    await runBeats(beats, "");
   }
 
   return (
@@ -268,20 +246,20 @@ export function PenelopeCard() {
         <div className="flex flex-wrap items-center gap-1">
           <span className="px-1 font-mono text-xs text-muted">SESSION</span>
           {["1", "2", "3", "4", "5"].map((n) => (
-            <button key={n} type="button" disabled={!running || !caught} onClick={() => void useSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs disabled:opacity-40 " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
+            <button key={n} type="button" disabled={!running || !seenSession} onClick={() => void useSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs disabled:opacity-40 " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
               {n}
             </button>
           ))}
-          <button type="button" disabled={!running || !caught} onClick={() => void press("detach")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession} onClick={() => void press("detach")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Menu
           </button>
-          <button type="button" disabled={!running || !caught} onClick={() => void press("interact")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession} onClick={() => void press("interact")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Shell
           </button>
-          <button type="button" disabled={!running || !caught} onClick={() => void press("payloads")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession} onClick={() => void press("payloads")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Payloads
           </button>
-          <button type="button" disabled={!running || !caught} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
             Kill session
           </button>
           <button type="button" onClick={() => void killListener()} className="inline-flex h-9 items-center rounded-lg border border-dead px-2 text-xs text-dead">
@@ -291,10 +269,10 @@ export function PenelopeCard() {
         <div className="flex flex-wrap items-center gap-1">
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={local} onChange={(event) => setLocal(event.target.value.trim())} aria-label="Kali path" spellCheck={false} />
           <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={remote} onChange={(event) => setRemote(event.target.value.trim())} aria-label="Target path" spellCheck={false} />
-          <button type="button" disabled={!running || !caught || "error" in penelopeLine("upload", session, local, remote)} onClick={() => void press("upload")} className="inline-flex h-9 items-center rounded-lg border border-primary bg-raised px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession || "error" in penelopeLine("upload", session, local, remote)} onClick={() => void press("upload")} className="inline-flex h-9 items-center rounded-lg border border-primary bg-raised px-2 text-xs text-fg disabled:opacity-40">
             Upload
           </button>
-          <button type="button" disabled={!running || !caught || "error" in penelopeLine("download", session, local, remote)} onClick={() => void press("download")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession || "error" in penelopeLine("download", session, local, remote)} onClick={() => void press("download")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Download
           </button>
         </div>

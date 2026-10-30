@@ -51,6 +51,51 @@ export function penelopePlan(input: {
 
 const PATH = /^[A-Za-z0-9_./:@+=,~-]{1,180}$/;
 
+/** F12. Penelope detaches only when this is the entire chunk it reads. */
+export const PENELOPE_DETACH = "\u001b[24~";
+
+export function penelopeInShell(output: string): boolean {
+  const text = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+  let last = "";
+  for (const match of text.matchAll(/Interacting with session|Session detached/g)) last = match[0];
+  return last === "Interacting with session";
+}
+
+export type PenelopeBeat =
+  | { kind: "only"; data: string }
+  | { kind: "line"; text: string }
+  | { kind: "until"; what: "detached" | "attached" | "transfer"; ms: number; stop: boolean };
+
+/** Menu actions as separate writes. F12 is never in the same write as anything else. */
+export function penelopeBeats(
+  action: string,
+  inShell: boolean,
+  session: string,
+  local: string,
+  remote: string,
+  forceLeave = false,
+): PenelopeBeat[] | { error: string } {
+  const line = penelopeLine(action, session, local, remote);
+  if ("error" in line) return line;
+  const id = session.trim() || "1";
+  if (action === "interrupt") return [{ kind: "only", data: "\u0003" }];
+  if (action === "interact" && inShell && !forceLeave) return [];
+  const beats: PenelopeBeat[] = [];
+  if (inShell) {
+    beats.push({ kind: "only", data: PENELOPE_DETACH });
+    beats.push({ kind: "until", what: "detached", ms: 4000, stop: true });
+  }
+  if (action !== "detach") beats.push({ kind: "line", text: line.text });
+  if (action === "upload" || action === "download") {
+    beats.push({ kind: "until", what: "transfer", ms: 180_000, stop: false });
+    beats.push({ kind: "line", text: `interact ${id}\n` });
+    beats.push({ kind: "until", what: "attached", ms: 5000, stop: false });
+  } else if (action === "interact") {
+    beats.push({ kind: "until", what: "attached", ms: 5000, stop: false });
+  }
+  return beats;
+}
+
 export function penelopeLine(action: string, session: string, local: string, remote: string): { text: string; label: string } | { error: string } {
   const id = session.trim() || "1";
   if (!/^[1-9]\d?$/.test(id)) return { error: "The session is a number Penelope printed, usually 1." };
