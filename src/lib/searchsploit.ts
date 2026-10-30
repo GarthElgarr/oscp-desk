@@ -14,7 +14,7 @@ function terms(value: string, label: string): { ok: true; args: string[] } | { o
 }
 
 export function searchsploitPlan(input: {
-  mode: "terms" | "nmap" | "path";
+  mode: "terms" | "nmap" | "path" | "examine";
   terms: string;
   title: boolean;
   exact: boolean;
@@ -24,6 +24,12 @@ export function searchsploitPlan(input: {
   edb: string;
 }): { args: string[]; command: string } | { error: string } {
   const args: string[] = [];
+  if (input.mode === "examine") {
+    const id = input.edb.trim();
+    if (!/^\d{1,7}$/.test(id)) return { error: "The exploit id is the number from the search, such as 50383." };
+    args.push("-x", id);
+    return { args, command: `searchsploit -x ${id} | head -n 80` };
+  }
   if (input.mode === "path") {
     const id = input.edb.trim();
     if (!/^\d{1,7}$/.test(id)) return { error: "The exploit id is the number from the search, such as 50383." };
@@ -50,7 +56,7 @@ export function searchsploitPlan(input: {
 
 export function searchsploitArgsOk(args: unknown): args is string[] {
   if (!Array.isArray(args) || args.length < 1 || args.length > 16) return false;
-  const flags = new Set(["-e", "-t", "-w", "-p", "--nmap"]);
+  const flags = new Set(["-e", "-t", "-w", "-p", "-x", "--nmap"]);
   return args.every((arg) => {
     if (typeof arg !== "string" || arg.length === 0 || arg.length > 120) return false;
     if (/[;|&`$<>\\\n\r\0]/.test(arg) || arg.includes("..") || arg.startsWith("/")) return false;
