@@ -1,5 +1,4 @@
-import { spawn } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { scansDir } from "./nmap-scan.server";
 import { openJob, spawnLiveJob } from "./live-jobs.server";
@@ -56,6 +55,24 @@ export function startSearchsploit(id: string, command: string, args: string[]): 
 }
 
 const HEAD_LINES = 80;
+const EXPLOIT_ROOTS = ["/usr/share/exploitdb", "/usr/share/exploit-db", "/opt/exploitdb"];
+
+function findExploit(edb: string): string | null {
+  for (const root of EXPLOIT_ROOTS) {
+    for (const csvName of ["files_exploits.csv", "files_shellcodes.csv"]) {
+      const csv = path.join(root, csvName);
+      if (!existsSync(csv)) continue;
+      const line = readFileSync(csv, "utf8")
+        .split("\n")
+        .find((row) => row.startsWith(`${edb},`));
+      const rel = line?.split(",")[1]?.replace(/"/g, "");
+      if (!rel || rel.includes("..") || path.isAbsolute(rel)) continue;
+      const file = path.join(root, rel);
+      if (existsSync(file)) return file;
+    }
+  }
+  return null;
+}
 
 function startExamine(id: string, command: string, edb: string): boolean {
   const handle = openJob({
@@ -68,58 +85,22 @@ function startExamine(id: string, command: string, edb: string): boolean {
   });
   if (!handle) return false;
   handle.push(`$ ${command}\n`);
-  const child = spawn("searchsploit", ["-p", edb], {
-    shell: false,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PAGER: "cat" },
-  });
-  handle.attach(child);
-  let out = "";
-  let failed = false;
-  const take = (buf: Buffer) => {
-    if (out.length < 20_000) out += buf.toString();
-  };
-  child.stdout?.on("data", take);
-  child.stderr?.on("data", take);
-  child.on("error", (err: NodeJS.ErrnoException) => {
-    failed = true;
-    handle.finish(err.code === "ENOENT" ? "searchsploit was not found. On Kali, the install button includes exploitdb.\n" : `${err.message}\n`);
-  });
-  child.on("close", (code) => {
-    if (failed) return;
-    if (handle.stopped()) {
-      handle.finish("\n[stopped]\n");
-      return;
-    }
-    const file = out.match(/^\s*Path:\s+(\S+)/m)?.[1] ?? "";
-    if (!file || code !== 0) {
-      if (out.trim()) handle.push(`${out.trim()}\n`);
-      handle.finish(`\n[searchsploit exit ${code ?? "unknown"}]\n`);
-      return;
-    }
-    let resolved = "";
-    try {
-      resolved = realpathSync(file);
-    } catch {
-      handle.push(`${out.trim()}\n`);
-      handle.finish("\n[searchsploit exit 1]\n");
-      return;
-    }
-    if (!/\/exploit-?db\//.test(resolved)) {
-      handle.finish("searchsploit did not point at an exploitdb file.\n[searchsploit exit 1]\n");
-      return;
-    }
-    let text = "";
-    try {
-      text = readFileSync(resolved, "utf8");
-    } catch (err) {
-      handle.finish(`${err instanceof Error ? err.message : "Could not read that exploit."}\n[searchsploit exit 1]\n`);
-      return;
-    }
-    const lines = text.split(/\r?\n/);
-    handle.push(lines.slice(0, HEAD_LINES).join("\n") + "\n");
-    if (lines.length > HEAD_LINES) handle.push(`[first ${HEAD_LINES} lines of ${lines.length}]\n`);
-    handle.finish("\n[searchsploit exit 0]\n");
-  });
+  const file = findExploit(edb);
+  if (!file) {
+    handle.finish(`No exploit ${edb} in the local exploitdb list.\n[searchsploit exit 1]\n`);
+    return true;
+  }
+  let text = "";
+  try {
+    text = readFileSync(file, "utf8");
+  } catch (err) {
+    handle.finish(`${err instanceof Error ? err.message : "Could not read that exploit."}\n[searchsploit exit 1]\n`);
+    return true;
+  }
+  const lines = text.split(/\r?\n/);
+  handle.push(`Path: ${file}\n\n`);
+  handle.push(lines.slice(0, HEAD_LINES).join("\n") + "\n");
+  if (lines.length > HEAD_LINES) handle.push(`[first ${HEAD_LINES} lines of ${lines.length}]\n`);
+  handle.finish("\n[searchsploit exit 0]\n");
   return true;
 }
