@@ -56,7 +56,7 @@ function loadRuns() {
       loaded.push({
         id: job.id,
         tool: job.tool.slice(0, 24),
-        title: typeof job.title === "string" ? job.title.slice(0, 80) : "",
+        title: typeof job.title === "string" ? job.title.slice(0, 500) : "",
         command: typeof job.command === "string" ? job.command.slice(0, 500) : "",
         name: typeof job.name === "string" ? job.name.slice(0, 48) : "",
         output: job.running ? `${output}\n[desk restarted before this finished]\n` : output,
@@ -102,7 +102,7 @@ export function openJob(input: {
   const job: LiveJob = {
     id: input.id,
     tool: input.tool,
-    title: input.title.slice(0, 80),
+    title: input.title.slice(0, 500),
     command: input.command.slice(0, 500),
     name: (input.name ?? "").slice(0, 48),
     output: "",
@@ -173,23 +173,65 @@ export function spawnLiveJob(input: {
     ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
     : spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
   handle.attach(child);
-  const take = (buf: Buffer) =>
-    handle.push(
-      buf
-        .toString()
-        .replace(/\x1b\[[0-9;]*[A-Za-z]/g, "")
-        .replace(/\r(?!\n)/g, "\n")
-        .replace(/.*Pycurl is not compiled against Openssl.*\n?/g, ""),
-    );
+  const feed = createTerminalFeed((text) => handle.push(text));
+  const take = (buf: Buffer) => feed.write(buf.toString());
   child.stdout?.on("data", take);
   child.stderr?.on("data", take);
   child.on("error", (err: NodeJS.ErrnoException) => {
+    feed.flush();
     handle.finish(err.code === "ENOENT" ? input.missing : `${err.message}\n`);
   });
   child.on("close", (code) => {
+    feed.flush();
     handle.finish(input.doneLine(code, handle.stopped()));
   });
   return true;
+}
+
+export function createTerminalFeed(push: (text: string) => void) {
+  let current = "";
+  let fromCr = false;
+  const write = (chunk: string) => {
+    const text = chunk
+      .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
+      .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+      .replace(/.*Pycurl is not compiled against Openssl.*(?:\r|\n)?/g, "");
+    let committed = "";
+    for (let i = 0; i < text.length; i += 1) {
+      const c = text[i];
+      if (c === "\r") {
+        if (text[i + 1] === "\n") {
+          committed += `${current}\n`;
+          current = "";
+          fromCr = false;
+          i += 1;
+        } else {
+          current = "";
+          fromCr = true;
+        }
+      } else if (c === "\n") {
+        committed += `${current}\n`;
+        current = "";
+        fromCr = false;
+      } else if (c === "\b") {
+        if (current) current = current.slice(0, -1);
+      } else {
+        current += c;
+      }
+    }
+    if (committed) push(committed);
+  };
+  const flush = () => {
+    if (!current || fromCr) {
+      current = "";
+      fromCr = false;
+      return;
+    }
+    const rest = `${current}\n`;
+    current = "";
+    push(rest);
+  };
+  return { write, flush };
 }
 
 const PTY_WRAP = [

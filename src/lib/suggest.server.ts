@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { openJob } from "./live-jobs.server";
+import { createTerminalFeed, openJob } from "./live-jobs.server";
 import { scansDir } from "./nmap-scan.server";
 import { suggestPlan, type SuggestPlan } from "./suggest";
 
@@ -44,14 +44,19 @@ function run(bin: string, args: string[], handle: NonNullable<ReturnType<typeof 
       clearTimeout(timer);
       resolve(code);
     };
-    const take = (buf: Buffer) => handle.push(buf.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, ""));
+    const feed = createTerminalFeed((text) => handle.push(text));
+    const take = (buf: Buffer) => feed.write(buf.toString());
     child.stdout?.on("data", take);
     child.stderr?.on("data", take);
     child.on("error", (err: NodeJS.ErrnoException) => {
+      feed.flush();
       handle.push(err.code === "ENOENT" ? `${bin} was not found.\n` : `${err.message}\n`);
       done(null);
     });
-    child.on("close", (code) => done(code));
+    child.on("close", (code) => {
+      feed.flush();
+      done(code);
+    });
   });
 }
 
@@ -66,7 +71,7 @@ export function startSuggest(id: string, plan: SuggestPlan): boolean {
   const handle = openJob({
     id,
     tool: "suggest",
-    title: plan.command.split("\n")[0]?.slice(0, 80) || "exploit suggester",
+    title: plan.command.split("\n")[0] || "exploit suggester",
     command: plan.command,
     timeoutMs: 3 * 60 * 1000,
     maxOut: 400_000,

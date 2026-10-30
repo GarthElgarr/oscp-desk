@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { openJob } from "./live-jobs.server";
+import { createTerminalFeed, openJob } from "./live-jobs.server";
 import { INSTALL_PACKAGES, INSTALL_TOOL_LABELS, TOOL_CHECKS, manualInstallCommand, type InstallSummary } from "./install-tools";
 
 const MAX_OUT = 500_000;
@@ -68,19 +68,26 @@ async function runInstall(handle: Handle) {
       });
       handle.attach(child);
       probeTimer = quiet ? setTimeout(() => child.kill("SIGTERM"), 8_000) : undefined;
+      const feed = createTerminalFeed((line) => {
+        if (!quiet) handle.push(line);
+      });
       const take = (buf: Buffer) => {
         const chunk = buf.toString();
         text += chunk;
-        if (!quiet) handle.push(chunk);
+        feed.write(chunk);
       };
       child.stdout?.on("data", take);
       child.stderr?.on("data", take);
       child.on("error", (err: NodeJS.ErrnoException) => {
         missing = err.code === "ENOENT";
+        feed.flush();
         if (!missing && !quiet) handle.push(`${err.message}\n`);
         finish(null);
       });
-      child.on("close", (code) => finish(code));
+      child.on("close", (code) => {
+        feed.flush();
+        finish(code);
+      });
     });
 
   let reported = false;

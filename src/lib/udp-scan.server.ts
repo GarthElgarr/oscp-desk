@@ -21,7 +21,7 @@ export function startUdpScan(id: string, command: string, args: string[]): boole
   return spawnLiveJob({
     id,
     tool: "udp",
-    title: command.slice(0, 80),
+    title: command,
     command,
     bin: "perl",
     args: [scriptPath(), ...args],

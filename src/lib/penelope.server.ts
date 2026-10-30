@@ -64,7 +64,7 @@ export function startPenelope(id: string, command: string, args: string[]): bool
   const handle = openJob({
     id,
     tool: "penelope",
-    title: command.slice(0, 80),
+    title: command,
     command,
     timeoutMs: 6 * 60 * 60 * 1000,
     maxOut: 2_000_000,

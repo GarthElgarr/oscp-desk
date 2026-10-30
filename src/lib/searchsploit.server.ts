@@ -43,7 +43,7 @@ export function startSearchsploit(id: string, command: string, args: string[]): 
   return spawnLiveJob({
     id,
     tool: "search",
-    title: command.slice(0, 80),
+    title: command,
     command,
     bin: "searchsploit",
     args,
@@ -78,7 +78,7 @@ function startExamine(id: string, command: string, edb: string): boolean {
   const handle = openJob({
     id,
     tool: "search",
-    title: command.slice(0, 80),
+    title: command,
     command,
     timeoutMs: 20_000,
     maxOut: 80_000,

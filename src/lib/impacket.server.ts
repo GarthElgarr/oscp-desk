@@ -52,7 +52,7 @@ export function startImpacket(id: string, bin: string, args: string[], command: 
   return spawnLiveJob({
     id,
     tool: "impacket",
-    title: command.slice(0, 80),
+    title: command,
     command,
     bin,
     args,

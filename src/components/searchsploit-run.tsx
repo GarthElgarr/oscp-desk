@@ -60,7 +60,7 @@ export function SearchsploitRun({ initialFile = "" }: { initialFile?: string }) 
     await launchJob(
       "/api/searchsploit",
       { mode, terms, title, exact, web, exclude, nmapFile, edb },
-      { tool: "search", title: plan.command.slice(0, 80), command: plan.command },
+      { tool: "search", title: plan.command, command: plan.command },
     );
   }
 

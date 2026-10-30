@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/wfuzz")({
         const started = spawnLiveJob({
           id,
           tool: "wfuzz",
-          title: command.slice(0, 80),
+          title: command,
           command,
           bin: "wfuzz",
           args,

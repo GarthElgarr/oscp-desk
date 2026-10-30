@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/hydra")({
         const started = spawnLiveJob({
           id,
           tool: "hydra",
-          title: command.slice(0, 80),
+          title: command,
           command,
           bin: "hydra",
           args,

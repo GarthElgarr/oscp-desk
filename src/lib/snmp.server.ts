@@ -40,7 +40,7 @@ export function startSnmp(id: string, job: { command: string; args: string[]; co
   return spawnLiveJob({
     id,
     tool: "snmp",
-    title: job.command.slice(0, 80),
+    title: job.command,
     command,
     bin: job.bin,
     args,

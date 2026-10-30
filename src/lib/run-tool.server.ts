@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { openJob } from "./live-jobs.server";
+import { createTerminalFeed, openJob } from "./live-jobs.server";
 
 const BINS = new Set([
   "hashcat",
@@ -55,7 +55,7 @@ export function stepsOk(value: unknown): value is ToolStep[] {
 }
 
 export function startSteps(id: string, tool: string, title: string, steps: ToolStep[]): boolean {
-  const handle = openJob({ id, tool, title: title.slice(0, 80), command: title, timeoutMs: TIMEOUT_MS, maxOut: MAX_OUT });
+  const handle = openJob({ id, tool, title, command: title, timeoutMs: TIMEOUT_MS, maxOut: MAX_OUT });
   if (!handle) return false;
   void (async () => {
     try {
@@ -77,17 +77,24 @@ export function startSteps(id: string, tool: string, title: string, steps: ToolS
             settled = true;
             resolve(value);
           };
-          child.stdout?.on("data", (buf: Buffer) => {
-            const text = buf.toString();
+          const shown = createTerminalFeed((text) => {
             if (step.kind === "exec") handle.push(text);
             else captured += text;
           });
-          child.stderr?.on("data", (buf: Buffer) => handle.push(buf.toString()));
+          const errors = createTerminalFeed((text) => handle.push(text));
+          child.stdout?.on("data", (buf: Buffer) => shown.write(buf.toString()));
+          child.stderr?.on("data", (buf: Buffer) => errors.write(buf.toString()));
           child.on("error", (err: NodeJS.ErrnoException) => {
+            shown.flush();
+            errors.flush();
             handle.push(err.code === "ENOENT" ? `${step.bin} was not found. Run the desk on Kali, where it is already installed.\n` : `${err.message}\n`);
             done(null);
           });
-          child.on("close", (exitCode) => done(exitCode));
+          child.on("close", (exitCode) => {
+            shown.flush();
+            errors.flush();
+            done(exitCode);
+          });
         });
         if (step.kind === "exec-to-file") {
           await writeFile(path.join(process.cwd(), step.name), captured);
