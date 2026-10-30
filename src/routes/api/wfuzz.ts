@@ -26,6 +26,8 @@ export const Route = createFileRoute("/api/wfuzz")({
           args,
           timeoutMs: 5 * 60 * 1000,
           maxOut: 300_000,
+          tty: true,
+          env: { ...process.env, PYTHONWARNINGS: "ignore:Pycurl is not compiled:UserWarning" },
           missing: "wfuzz was not found. On Kali, the install button includes wfuzz.\n",
           doneLine: (code, stopped) => (stopped ? "\n[stopped]\n" : `\n[exit ${code ?? "unknown"}]\n`),
         });

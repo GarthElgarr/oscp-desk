@@ -140,7 +140,10 @@ export function openJob(input: {
     killers.delete(job.id);
     writers.delete(job.id);
     if (dropped.delete(job.id)) return;
-    push(line);
+    if (line) {
+      if (sent >= maxOut) job.output += line.slice(0, 400);
+      else push(line);
+    }
     job.running = false;
     remember(job);
   };
@@ -158,19 +161,26 @@ export function spawnLiveJob(input: {
   timeoutMs: number;
   maxOut?: number;
   env?: NodeJS.ProcessEnv;
+  tty?: boolean;
   missing: string;
   doneLine: (code: number | null, stopped: boolean) => string;
 }): boolean {
   const handle = openJob(input);
   if (!handle) return false;
   handle.push(`$ ${input.command}\n`);
-  const child = spawn(input.bin, input.args, {
-    shell: false,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, COLUMNS: "400", LINES: "80", ...(input.env ?? {}) },
-  });
+  const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(input.env ?? {}) };
+  const child = input.tty
+    ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
+    : spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
   handle.attach(child);
-  const take = (buf: Buffer) => handle.push(buf.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").replace(/\r(?!\n)/g, "\n"));
+  const take = (buf: Buffer) =>
+    handle.push(
+      buf
+        .toString()
+        .replace(/\x1b\[[0-9;]*[A-Za-z]/g, "")
+        .replace(/\r(?!\n)/g, "\n")
+        .replace(/.*Pycurl is not compiled against Openssl.*\n?/g, ""),
+    );
   child.stdout?.on("data", take);
   child.stderr?.on("data", take);
   child.on("error", (err: NodeJS.ErrnoException) => {
@@ -181,6 +191,33 @@ export function spawnLiveJob(input: {
   });
   return true;
 }
+
+const PTY_WRAP = [
+  "import fcntl, os, struct, sys, termios",
+  "pid, fd = __import__('pty').fork()",
+  "if pid == 0:",
+  "    try:",
+  "        os.execvp(sys.argv[1], sys.argv[1:])",
+  "    except OSError as err:",
+  "        sys.stderr.write((err.strerror or 'exec failed') + '\\n')",
+  "        os._exit(127)",
+  "try:",
+  "    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack('HHHH', 50, 200, 0, 0))",
+  "except OSError:",
+  "    pass",
+  "while True:",
+  "    try:",
+  "        data = os.read(fd, 4096)",
+  "    except OSError:",
+  "        break",
+  "    if not data:",
+  "        break",
+  "    sys.stdout.buffer.write(data)",
+  "    sys.stdout.buffer.flush()",
+  "_, status = os.waitpid(pid, 0)",
+  "code = os.waitstatus_to_exitcode(status)",
+  "sys.exit(code if 0 <= code <= 255 else 1)",
+].join("\n");
 
 export function writeJob(id: string, text: string, silent = false): boolean {
   const write = writers.get(id);

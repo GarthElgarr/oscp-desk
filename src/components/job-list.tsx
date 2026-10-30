@@ -13,7 +13,11 @@ function jobState(job: LiveJob): "running" | "done" | "partial" | "failed" {
   if (job.output.includes("[stopped]") || job.output.includes('"verdict":"fail"')) return "failed";
   if (job.output.includes('"verdict":"pass"')) return "done";
   const exits = [...job.output.matchAll(/\[[^\]]*exit (\d+|unknown)\]/g)];
-  return exits.at(-1)?.[1] === "0" ? "done" : "failed";
+  const code = exits.at(-1)?.[1];
+  if (code === "0") return "done";
+  const wfuzzWorked = job.tool === "wfuzz" && job.output.includes("Total requests:") && !job.output.includes("Traceback");
+  if (wfuzzWorked && (code === "1" || code === undefined)) return "done";
+  return "failed";
 }
 
 export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string; onRead?: (job: LiveJob) => void }) {

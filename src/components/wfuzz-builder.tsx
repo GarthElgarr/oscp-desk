@@ -356,6 +356,9 @@ export function WfuzzBuilder() {
           onFlags={setExtraArgs}
           buildBody={(extra) => ({ args: [...plan.args, ...extra] })}
         />
+        <p className="text-sm text-muted">
+          Kali prints a Pycurl OpenSSL warning before wfuzz. That is how the package was built. It is not a failed scan, and HTTP fuzzing still runs. The desk hides that line.
+        </p>
         <div>
           <p className="font-mono text-xs tracking-wide text-primary">WHAT IT DOES</p>
           <p className="mt-1 text-sm text-fg">{plan.why}</p>
