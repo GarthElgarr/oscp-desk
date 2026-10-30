@@ -1,26 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { TermBox } from "@/components/term-box";
 import { getJobs, getJobsServer, removeJob, stopJob, subscribeJobs, syncJobs, type LiveJob } from "@/lib/live-jobs";
+import { renderTerminal } from "@/lib/terminal-feed";
 
-function plain(text: string) {
-  const stripped = text
-    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
-    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "");
-  let current = "";
-  let out = "";
-  for (let i = 0; i < stripped.length; i += 1) {
-    const c = stripped[i];
-    if (c === "\r") {
-      if (stripped[i + 1] === "\n") {
-        out += `${current}\n`;
-        current = "";
-        i += 1;
-      } else current = "";
-    } else if (c === "\n") {
-      out += `${current}\n`;
-      current = "";
-    } else current += c;
-  }
-  return out + current;
+function shownOutput(text: string) {
+  return renderTerminal(text).replace(/@@STATUS .*@@\n?/g, "");
 }
 function jobState(job: LiveJob): "running" | "done" | "partial" | "failed" {
   if (job.running) return "running";
@@ -84,9 +68,11 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
                 </button>
               </div>
             </div>
-            <pre className="max-h-96 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all bg-black p-3 font-mono text-xs leading-relaxed text-[#d6f5d6]">
-              {plain(job.output).replace(/@@STATUS .*@@\n?/g, "") || (job.running ? "Waiting for output…" : "")}
-            </pre>
+            <TermBox className="bg-black">
+              <pre className="min-h-full min-w-full whitespace-pre bg-black p-3 pr-5 font-mono text-xs leading-relaxed text-[#d6f5d6]">
+                {shownOutput(job.output) || (job.running ? "Waiting for output…" : "")}
+              </pre>
+            </TermBox>
           </section>
         );
       })}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ClipboardEvent as ReactClip, type KeyboardEvent as ReactKey } from "react";
+import { TermBox } from "@/components/term-box";
 import { syncJobs } from "@/lib/live-jobs";
 
 type View = {
@@ -40,6 +41,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
   const seen = useRef("");
   const idRef = useRef(jobId);
   const onKeysRef = useRef(onKeys);
+  const fitRef = useRef<(() => void) | null>(null);
   const [tick, setTick] = useState(0);
   idRef.current = jobId;
   onKeysRef.current = onKeys;
@@ -76,6 +78,13 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       addon = fitted;
       view = next;
       term.current = next;
+      fitRef.current = () => {
+        try {
+          fitted.fit();
+        } catch {
+          /* the box has no size yet */
+        }
+      };
       host.current.focus();
       next.writeln("Click this black box and type. Drag across text to copy it. Ctrl+V pastes. Ctrl+Shift+C copies again.");
       if (!disposed) setTick((n) => n + 1);
@@ -88,6 +97,7 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
       addon?.dispose();
       view?.dispose();
       term.current = null;
+      fitRef.current = null;
     };
   }, [jobId]);
 
@@ -173,15 +183,17 @@ export function ShellTerm({ jobId, output, active, onKeys }: { jobId: string; ou
   return (
     <>
       <style>{".shell-term .xterm-helper-textarea{pointer-events:none!important;}"}</style>
-      <div
-        ref={host}
-        tabIndex={0}
-        className="shell-term relative h-96 cursor-text overflow-hidden rounded-lg bg-[#0c0c0c] outline-none focus:ring-1 focus:ring-primary"
-        onMouseDown={focusTerm}
-        onMouseUp={() => void copySelection()}
-        onKeyDown={onKeyDown}
-        onPaste={onPaste}
-      />
+      <TermBox className="rounded-lg bg-[#0c0c0c]" onResize={() => fitRef.current?.()}>
+        <div
+          ref={host}
+          tabIndex={0}
+          className="shell-term relative h-full min-h-full w-full cursor-text overflow-hidden bg-[#0c0c0c] outline-none focus:ring-1 focus:ring-primary"
+          onMouseDown={focusTerm}
+          onMouseUp={() => void copySelection()}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+        />
+      </TermBox>
     </>
   );
 }
