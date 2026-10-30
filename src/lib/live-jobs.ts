@@ -44,7 +44,7 @@ export async function syncJobs(): Promise<void> {
     const ids = new Set(server.map((job) => job.id));
     const pending = jobs.filter((job) => job.running && job.output === "" && !ids.has(job.id));
     const local = jobs.filter((job) => job.local && !ids.has(job.id));
-    publish([...pending, ...local, ...server].slice(0, 24));
+    publish([...pending, ...local, ...server]);
     if (jobs.some((job) => job.running)) {
       if (!timer) timer = setInterval(() => void syncJobs(), 700);
     } else if (timer) {
@@ -62,7 +62,7 @@ export async function launchJob(
   pending: { tool: string; title: string; command: string; name?: string },
 ): Promise<void> {
   const id = `${pending.tool}-${Date.now().toString(36)}-${++seq}`;
-  publish([{ id, tool: pending.tool, title: pending.title, command: pending.command, name: pending.name ?? "", output: "", running: true }, ...jobs].slice(0, 24));
+  publish([{ id, tool: pending.tool, title: pending.title, command: pending.command, name: pending.name ?? "", output: "", running: true }, ...jobs]);
   if (!timer) timer = setInterval(() => void syncJobs(), 700);
   const response = await fetch(endpoint, {
     method: "POST",

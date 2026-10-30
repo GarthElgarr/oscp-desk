@@ -467,12 +467,12 @@ export function MethodDesk() {
                 <p className="font-mono text-xs text-primary">Runs</p>
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one.
-                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk clears every run. It does not touch notes or the report.
+                  Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one, and a finished run stays after you restart the desk.
+                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk is the only way to clear every run. It does not touch notes, loot, or the report.
                 </p>
               </div>
               <div className="px-4 py-4">
-                <JobList empty="Nothing running or finished in this session yet." />
+                <JobList empty="Nothing here yet. A finished run stays until you remove that one, or press Reset desk." />
               </div>
             </article>
           ) : null}

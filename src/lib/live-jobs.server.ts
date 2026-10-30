@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export type LiveJob = {
@@ -13,10 +13,61 @@ export type LiveJob = {
 };
 
 const MAX_RUNNING = 6;
+const KEEP = 200;
+const RUNS_FILE = path.resolve(process.cwd(), "scans", "runs.json");
 const jobs: LiveJob[] = [];
 const killers = new Map<string, () => void>();
 const writers = new Map<string, (text: string) => void>();
 const dropped = new Set<string>();
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function saveRuns() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    writeRunsNow();
+  }, 500);
+}
+
+function writeRunsNow() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  try {
+    mkdirSync(path.dirname(RUNS_FILE), { recursive: true });
+    const body = jobs.map((job) => ({ ...job, output: job.output.slice(-120_000) }));
+    writeFileSync(RUNS_FILE, JSON.stringify(body));
+  } catch {
+    /* the next change tries again */
+  }
+}
+
+function loadRuns() {
+  try {
+    const raw = JSON.parse(readFileSync(RUNS_FILE, "utf8")) as unknown;
+    if (!Array.isArray(raw)) return;
+    const loaded: LiveJob[] = [];
+    for (const row of raw) {
+      if (!row || typeof row !== "object") continue;
+      const job = row as Partial<LiveJob>;
+      if (typeof job.id !== "string" || !jobId(job.id) || typeof job.tool !== "string") continue;
+      const output = typeof job.output === "string" ? job.output.slice(-120_000) : "";
+      loaded.push({
+        id: job.id,
+        tool: job.tool.slice(0, 24),
+        title: typeof job.title === "string" ? job.title.slice(0, 80) : "",
+        command: typeof job.command === "string" ? job.command.slice(0, 500) : "",
+        name: typeof job.name === "string" ? job.name.slice(0, 48) : "",
+        output: job.running ? `${output}\n[desk restarted before this finished]\n` : output,
+        running: false,
+      });
+    }
+    jobs.splice(0, jobs.length, ...loaded.slice(0, KEEP));
+  } catch {
+    /* no saved runs yet */
+  }
+}
 
 export function jobId(value: unknown): string | null {
   if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,40}$/.test(value)) return null;
@@ -31,7 +82,8 @@ function remember(job: LiveJob) {
   const rest = jobs.filter((item) => item.id !== job.id);
   const running = rest.filter((item) => item.running);
   const done = rest.filter((item) => !item.running);
-  jobs.splice(0, jobs.length, job, ...running, ...done.slice(0, 19));
+  jobs.splice(0, jobs.length, job, ...running, ...done.slice(0, KEEP - 1));
+  saveRuns();
 }
 
 export function openJob(input: {
@@ -73,6 +125,7 @@ export function openJob(input: {
     const slice = text.slice(0, maxOut - sent);
     sent += slice.length;
     job.output += slice;
+    saveRuns();
     if (sent >= maxOut) {
       if (input.trim) {
         job.output = job.output.slice(-Math.floor(maxOut / 2));
@@ -160,6 +213,7 @@ export function removeJob(id: string): boolean {
   const before = jobs.length;
   const next = jobs.filter((item) => item.id !== id);
   jobs.splice(0, jobs.length, ...next);
+  saveRuns();
   return next.length !== before;
 }
 
@@ -179,14 +233,17 @@ export function clearJobs(): void {
   killers.clear();
   writers.clear();
   jobs.splice(0, jobs.length);
+  writeRunsNow();
 }
 
 export function clearScanFiles(): void {
   const dir = path.resolve(process.cwd(), "scans");
   if (!existsSync(dir)) return;
   for (const file of readdirSync(dir)) {
-    if (file === "README.txt") continue;
+    if (file === "README.txt" || file === "runs.json") continue;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/.test(file)) continue;
     unlinkSync(path.join(dir, file));
   }
 }
+
+loadRuns();
