@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { JobList } from "@/components/job-list";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getJobs, getJobsServer, launchJob, subscribeJobs } from "@/lib/live-jobs";
-import { nmapExtra, nmapName, nmapPlan, nmapPorts, nmapTarget, type NmapProfile } from "@/lib/nmap-scan";
+import { nmapEditedCommand, nmapExtra, nmapName, nmapPlan, nmapPorts, nmapTarget, type NmapProfile } from "@/lib/nmap-scan";
 import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -23,6 +23,8 @@ export function NmapScan() {
   const [nameTouched, setNameTouched] = useState(false);
   const [ports, setPorts] = useState("");
   const [extra, setExtra] = useState("");
+  const [command, setCommand] = useState("");
+  const commandEdited = useRef(false);
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
   const starting = useRef(false);
 
@@ -34,6 +36,12 @@ export function NmapScan() {
     const next = nmapPlan({ profile, target: host, name: safeName, ports, extra: parsedExtra.args });
     return "error" in next ? null : next;
   }, [host, safeName, parsedExtra, profile, ports]);
+
+  if (!commandEdited.current && plan && command !== plan.command) setCommand(plan.command);
+
+  const edited = safeName && command.trim() ? nmapEditedCommand(command, safeName) : null;
+  const commandError = plan && !command.trim() ? "The command is empty." : edited && "error" in edited ? edited.error : "";
+  const runTarget = edited && !("error" in edited) ? edited.target : host;
 
   const runningCount = jobs.filter((job) => job.running && job.tool === "nmap").length;
   const nameBusy = Boolean(safeName && jobs.some((job) => job.running && job.tool === "nmap" && job.name === safeName));
@@ -51,14 +59,18 @@ export function NmapScan() {
               ? "Custom needs at least one flag, such as -F or -p 80,443."
               : nameBusy
                 ? "That output name is already running. Pick another name, or wait until it finishes."
-                : "";
+                : commandError;
 
   async function run() {
-    if (starting.current || !plan || !host || !safeName || runningCount >= 4 || nameBusy) return;
+    if (starting.current || !plan || !edited || "error" in edited || !runTarget || !safeName || runningCount >= 4 || nameBusy) return;
     starting.current = true;
-    const title = `${PROFILES.find((item) => item.id === profile)?.label.split("—")[0]?.trim() ?? profile} ${host}`;
+    const title = `${PROFILES.find((item) => item.id === profile)?.label.split("—")[0]?.trim() ?? profile} ${runTarget}`;
     try {
-      await launchJob("/api/nmap", { profile, target: host, name: safeName, ports, extra }, { tool: "nmap", title, command: plan.command, name: safeName });
+      await launchJob(
+        "/api/nmap",
+        { profile, target: runTarget, name: safeName, ports, extra, command },
+        { tool: "nmap", title, command: edited.command, name: safeName },
+      );
     } finally {
       starting.current = false;
     }
@@ -122,22 +134,46 @@ export function NmapScan() {
         </label>
       </div>
       <div className="flex flex-col gap-3 px-4 pb-4">
-        <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">
-          {plan?.command || "Type the IP. The command appears here."}
-        </pre>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-mono text-xs tracking-wide text-muted">COMMAND</span>
+          <textarea
+            className={`${control} min-h-20 py-2 font-mono text-xs leading-relaxed`}
+            value={plan ? command : ""}
+            onChange={(event) => {
+              commandEdited.current = true;
+              setCommand(event.target.value);
+            }}
+            readOnly={!plan}
+            placeholder="Type the IP. The command appears here."
+            spellCheck={false}
+            rows={3}
+          />
+        </label>
+        {plan && command.trim() !== plan.command ? (
+          <button
+            type="button"
+            onClick={() => {
+              commandEdited.current = false;
+              setCommand(plan.command);
+            }}
+            className="self-start text-sm text-muted underline"
+          >
+            Use the generated command
+          </button>
+        ) : null}
         {problem ? <p className="text-sm text-dead">{problem}</p> : null}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => void run()}
-            disabled={!plan || runningCount >= 4 || nameBusy}
+            disabled={!plan || !edited || "error" in edited || runningCount >= 4 || nameBusy}
             className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg disabled:opacity-40"
           >
             {runningCount >= 4 ? "Four scans running" : "Run scan"}
           </button>
         </div>
         <p className="text-sm text-muted">
-          Up to four scans run at once. Leaving this page does not stop them. Come back here, or open the Nmap tab, and the same terminal is still there. Start the desk as root and a UDP or SYN scan runs nmap directly. The same output name replaces the previous files.
+          Up to four scans run at once. Leaving this page does not stop them. Come back here, or open the Nmap tab, and the same terminal is still there. The command box is what runs. Leave it, or change it first. The output name still saves the files. Start the desk as root and a UDP or SYN scan runs nmap directly. The same output name replaces the previous files.
         </p>
         {profile === "quick" ? <p className="text-sm text-fg">-sC is the default scripts. -sV asks the service for its version. Read this while the all-TCP scan is still going.</p> : null}
         {profile === "alltcp" ? <p className="text-sm text-fg">-p- is every TCP port. --min-rate 2000 keeps it moving. Ports that were not in the quick scan are the ones the deep pass is for.</p> : null}

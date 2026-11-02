@@ -1,4 +1,4 @@
-import { quoteHydraArg } from "./hydra-args";
+import { quoteHydraArg } from "./hydra-args.ts";
 
 const SHELL = /[;|&`$<>\\\n\r\0]/;
 const BANNED = new Set(["-oA", "-oN", "-oX", "-oG", "-oS", "-iL", "-iR", "--append-output"]);
@@ -108,8 +108,80 @@ export function nmapPlan(input: {
   if (input.profile === "custom") args.push(...input.extra);
   else if (input.extra.length) args.push(...input.extra);
   args.push("-oA", `scans/${input.name}`, input.target);
-  const rootFlags = new Set(["-sS", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-O", "--privileged"]);
-  const sudo = input.profile === "udp" || input.extra.some((arg) => rootFlags.has(arg.split("=")[0]));
+  const sudo = wantsRoot(input.profile === "udp", input.extra);
   const command = [sudo ? "sudo -n nmap" : "nmap", ...args.map(quoteHydraArg)].join(" ");
   return { args, command, sudo };
+}
+
+const ROOT_FLAGS = new Set(["-sS", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-O", "--privileged"]);
+
+function wantsRoot(udp: boolean, args: string[]): boolean {
+  return udp || args.some((arg) => ROOT_FLAGS.has(arg.split("=")[0]));
+}
+
+/** The command box. Leave it and it matches the profile. Edit it and this is what runs. The saved files still use the output name. */
+export function nmapEditedCommand(line: string, name: string): { args: string[]; command: string; sudo: boolean; target: string } | { error: string } {
+  const trimmed = line.trim();
+  if (!trimmed) return { error: "The command is empty." };
+  if (SHELL.test(trimmed)) return { error: "The command is nmap only. No pipes, semicolons, or redirects." };
+  const tokens = tokenize(trimmed);
+  if ("error" in tokens) return tokens;
+  let index = 0;
+  let askedSudo = false;
+  if (tokens.args[0] === "sudo") {
+    askedSudo = true;
+    index += 1;
+    if (tokens.args[index] === "-n") index += 1;
+  }
+  if (tokens.args[index] !== "nmap") return { error: "The command has to start with nmap." };
+  const body = tokens.args.slice(index + 1);
+  if (body.length === 0) return { error: "The command needs the target IP at the end." };
+  if (body.length > 40) return { error: "That command has too many arguments." };
+  const target = body[body.length - 1] ?? "";
+  const host = nmapTarget(target);
+  if (!host) return { error: "The target IP stays at the end of the command." };
+  const args: string[] = [];
+  for (let i = 0; i < body.length - 1; i++) {
+    const arg = body[i] ?? "";
+    const flag = arg.split("=")[0];
+    if (flag === "-oA" || flag === "-oN" || flag === "-oX" || flag === "-oG" || flag === "-oS" || flag === "--append-output") {
+      if (!arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
+      continue;
+    }
+    if (BANNED.has(flag)) return { error: "The output name sets where the scan is saved. Leave -iL out of the command." };
+    if (arg.length > 200 || arg.includes("..") || arg.startsWith("/")) {
+      return { error: "One argument is not an nmap option this desk will run." };
+    }
+    args.push(arg);
+  }
+  args.push("-oA", `scans/${name}`, host);
+  const sudo = askedSudo || wantsRoot(false, args);
+  const command = [sudo ? "sudo -n nmap" : "nmap", ...args.map(quoteHydraArg)].join(" ");
+  return { args, command, sudo, target: host };
+}
+
+function tokenize(input: string): { args: string[] } | { error: string } {
+  const args: string[] = [];
+  let cur = "";
+  let quote: "'" | '"' | null = null;
+  for (const ch of input) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === " " || ch === "\t") {
+      if (cur) args.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  if (quote) return { error: "A quote in the command is not closed." };
+  if (cur) args.push(cur);
+  return { args };
 }
