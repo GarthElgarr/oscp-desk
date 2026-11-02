@@ -609,6 +609,31 @@ type C:\\Users\\<you>\\AppData\\Roaming\\Microsoft\\Windows\\PowerShell\\PSReadL
     next: "Try that password for every local user and for the domain.",
   },
   {
+    id: "win-transcript",
+    section: "Windows",
+    title: "PowerShell transcripts",
+    look: "A transcript is a copy of a whole session, not the short history file. Admins leave them in Documents, on a share, or in a folder named Transcripts. The password in the file is the next login.",
+    cmd: `dir /s /b C:\\Users\\*Transcript* C:\\Transcripts C:\\Users\\Public\\*.txt 2>nul
+findstr /s /i /c:"password" /c:"ConvertTo-SecureString" /c:"net use" C:\\Transcripts\\*.txt C:\\Users\\Public\\Documents\\*.txt 2>nul`,
+    alive: "A line with a username and a password that is not the account you already are.",
+    dead: "No transcript files, or they are only whoami and hostname. The history card is the other file. Do not search the whole disk twice.",
+    next: "The password card. On a domain, that user is tried on the DC before any exploit.",
+  },
+  {
+    id: "pw-keepass",
+    section: "Passwords",
+    title: "KeePass",
+    look: "A .kdbx on a share, a home directory, or a mailbox you can already read. The file is not the password. The master password is a note beside it, or a password you already hold. Rockyou is the second try.",
+    cmd: `keepass2john loot.kdbx > keepass.hash
+# passwords you already have, once
+john --wordlist=candidates.txt keepass.hash
+john --wordlist=/usr/share/wordlists/rockyou.txt keepass.hash
+john --show keepass.hash`,
+    alive: "john prints the master password, and the database lists a user you did not have.",
+    dead: "No password hashes loaded means the file is not a database. Exhausted means the master password is not in the list. Do not download a second cracker.",
+    next: "Each entry is the password card again. A domain admin entry is the DC, then DCSync.",
+  },
+  {
     id: "ad-nocreds",
     section: "Active Directory",
     title: "Before you have creds",

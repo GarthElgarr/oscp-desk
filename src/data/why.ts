@@ -2,6 +2,10 @@ export const WHY: Record<string, string> = {
   "exam-order": `mkdir -p creates the host folder and does not complain if it already exists. {scans,loot,shells} makes three folders in one command. <ip> is a placeholder. Type the real address. Do not type the brackets.
 The four nmap lines are the required map of the host. -Pn skips ping, because lab hosts often ignore it. -sC runs the default scripts and -sV asks for the version. -oA saves the scan in that folder. -p- is every TCP port. --min-rate 2000 keeps that pass from taking an hour. -sU is UDP, and sudo is there because UDP needs root. --top-ports 20 is the UDP pass you always run. It is not optional, and it is not all 65535 ports. The last nmap repeats scripts only on TCP ports the full scan added.`,
 
+  "exam-set": `Every line starts with #, so the block is a checklist, not a script.
+A set has more than one host. Finish the port list on each of them before you live inside the first website. A second web port is a second application. A page that only says IIS Windows Server often wants the hostname from the certificate or from a file you already downloaded. Put that name in /etc/hosts and request it again.
+The shell is where you stop hunting that site. Read history, transcripts, configs, a mailbox you can already open, a KeePass file, and keys. The password you find is tried on the other hosts you can already reach. ipconfig or ip a shows a second subnet. That is the tunnel. DCSync is the last step, and only after a domain admin or replication rights. A web user who gets access denied was never the domain admin.`,
+
   "exam-stuck": `Every line starts with #, so nothing here executes. It is a checklist you read when you feel busy but have no new fact.
 The point of writing it as comments is that you can paste the block into notes without the shell trying to run a sentence.`,
 
@@ -401,6 +405,12 @@ A hit is a suggestion. You confirm it with sc qc or icacls. Access is denied on 
 
   "win-history": `type prints the file. %APPDATA% is the roaming profile of the current user, so the first command works without you spelling the username. The second path is the same file written out, for when the variable is not what you expect.
 You are looking for a password in a command the user already ran. A missing file, or a file of only dir and cd, is dead. Check unattend and web.config next.`,
+
+  "win-transcript": `dir /s /b searches under those folders and prints each full path. /s walks down. /b is the path only. 2>nul hides the folders you cannot read. *Transcript* matches the names admins give a Start-Transcript file.
+findstr /s /i searches the text. /c: takes the phrase, including the space. ConvertTo-SecureString and net use are how a password shows up in a recorded session. A hit is a new login. An empty search is not a reason to walk the whole C: drive.`,
+
+  "pw-keepass": `keepass2john turns a .kdbx into a hash john understands. The database stays encrypted until that hash cracks. candidates.txt is passwords you already found, one per line. The rockyou line is the second attempt, not the first.
+john --show prints the master password when it has one. You then open the database and read the entries. Each entry is a normal password. A domain admin entry is tried on the DC. Exhausted means the master password is not in the wordlist.`,
 
   "ad-nocreds": `nxc smb with empty user and password and --shares tries anonymous SMB. ldapsearch -x -H ldap://host -s base namingContexts asks the directory for its suffix without credentials. -x is simple auth, -s base is the root entry only.
 lookupsid.py domain/ip -no-pass cycles RIDs over an anonymous IPC session and prints names when the host allows it. | head caps the output.

@@ -60,6 +60,22 @@ nmap -Pn -sC -sV -p <new-ports> -oA scans/deep <ip>
     next: "Open Services for one open port. nmap top 20 is the UDP port pass. The Recon page runs these four scans, and the Nmap tab reads the XML. The UDP protocol scanner on that page is Cisco's tool: it sends a real DNS, NTP, TFTP, or SNMP packet and shows the reply in the terminal.",
   },
   {
+    id: "exam-set",
+    section: "Exam",
+    title: "A set, not one host",
+    look: "A challenge set is several hosts and often two networks. The shape is external web, then a password that moves, then a network Kali cannot see, then the domain. The first shell is a foothold. It is not the set.",
+    cmd: `# 1. TCP and UDP on every host you were given. One folder each.
+# 2. A second HTTP port (8000, 8080, 443) is a second site. A default IIS page means try the hostname from the certificate or from a note.
+# 3. A CMS: default creds for that product, then upload or the one version bug. Then leave that site.
+# 4. On the shell, before privesc: history, transcripts, configs, mail you can already log into, a .kdbx, a key.
+# 5. That password, once, on the other hosts you can already reach. The password card. Not a new exploit.
+# 6. ipconfig /all or ip a. A second subnet is the tunnel card, then the same list on the new hosts.
+# 7. Domain admin or replication rights: DCSync. Not from the web user.`,
+    alive: "You can name the external host, the password that moved you, and the network you still cannot scan from Kali.",
+    dead: "You are still on the first CMS after it gave you a shell, or DCSync from that web user returned access denied.",
+    next: "The password card, then the tunnel card if a second NIC exists. The AD page starts when whoami shows a domain.",
+  },
+  {
     id: "exam-stuck",
     section: "Exam",
     title: "When you are stuck",
