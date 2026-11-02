@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createTerminalFeed, openJob } from "./live-jobs.server";
 import { INSTALL_PACKAGES, INSTALL_TOOL_LABELS, TOOL_CHECKS, manualInstallCommand, type InstallSummary } from "./install-tools";
+import { ensureStandardUploads } from "./peas.server";
 
 const MAX_OUT = 500_000;
 const TIMEOUT_MS = 20 * 60 * 1000;
@@ -143,6 +144,11 @@ async function runInstall(handle: Handle) {
         const ok = "file" in check ? existsSync(check.file) : !(await run({ bin: check.bin, args: ["--version"] }, true)).missing;
         handle.push(`${check.label}: ${ok ? "present" : "missing"}\n`);
         (ok ? present : missing).push(check.label);
+      }
+      if (!handle.stopped()) {
+        handle.push("\nStandard transfer files, saved in the uploads folder:\n");
+        const peas = await ensureStandardUploads(false);
+        for (const line of peas.lines) handle.push(`${line}\n`);
       }
       if (!handle.stopped() && missing.length === 0) report({ verdict: "pass", title: "All requirements are satisfied.", outstanding: [] });
       else if (!handle.stopped() && present.length === 0) report({ verdict: "fail", title: "None of the requirements are installed.", outstanding: missing });
