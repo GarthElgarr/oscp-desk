@@ -21,6 +21,7 @@ import { Route as ApiSearchsploitRouteImport } from './routes/api/searchsploit'
 import { Route as ApiSnmpRouteImport } from './routes/api/snmp'
 import { Route as ApiSuggestRouteImport } from './routes/api/suggest'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
+import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
 import { Route as RevshellsRawSplatRouteImport } from './routes/revshells/raw/$'
@@ -85,6 +86,11 @@ const ApiUdpRoute = ApiUdpRouteImport.update({
   path: '/api/udp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWfuzzRoute = ApiWfuzzRouteImport.update({
   id: '/api/wfuzz',
   path: '/api/wfuzz',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/upload': typeof ApiUploadRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
   '/revshells/raw/$': typeof RevshellsRawSplatRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/upload': typeof ApiUploadRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
   '/revshells/raw/$': typeof RevshellsRawSplatRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/api/snmp': typeof ApiSnmpRoute
   '/api/suggest': typeof ApiSuggestRoute
   '/api/udp': typeof ApiUdpRoute
+  '/api/upload': typeof ApiUploadRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
   '/revshells/raw/$': typeof RevshellsRawSplatRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
+    | '/api/upload'
     | '/api/wfuzz'
     | '/files/$'
     | '/revshells/raw/$'
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
+    | '/api/upload'
     | '/api/wfuzz'
     | '/files/$'
     | '/revshells/raw/$'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/api/snmp'
     | '/api/suggest'
     | '/api/udp'
+    | '/api/upload'
     | '/api/wfuzz'
     | '/files/$'
     | '/revshells/raw/$'
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   ApiSnmpRoute: typeof ApiSnmpRoute
   ApiSuggestRoute: typeof ApiSuggestRoute
   ApiUdpRoute: typeof ApiUdpRoute
+  ApiUploadRoute: typeof ApiUploadRoute
   ApiWfuzzRoute: typeof ApiWfuzzRoute
   FilesSplatRoute: typeof FilesSplatRoute
   RevshellsRawSplatRoute: typeof RevshellsRawSplatRoute
@@ -311,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUdpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/wfuzz': {
       id: '/api/wfuzz'
       path: '/api/wfuzz'
@@ -348,6 +368,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSnmpRoute: ApiSnmpRoute,
   ApiSuggestRoute: ApiSuggestRoute,
   ApiUdpRoute: ApiUdpRoute,
+  ApiUploadRoute: ApiUploadRoute,
   ApiWfuzzRoute: ApiWfuzzRoute,
   FilesSplatRoute: FilesSplatRoute,
   RevshellsRawSplatRoute: RevshellsRawSplatRoute,

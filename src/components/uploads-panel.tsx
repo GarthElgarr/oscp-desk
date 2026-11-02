@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy, RefreshCw } from "lucide-react";
 import { listUploadFiles, updateStandardPeas, type UploadsListing } from "@/lib/uploads";
 import { transferPlan, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
@@ -18,12 +18,13 @@ export function UploadsPanel() {
   const [listing, setListing] = useState<UploadsListing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useGlobalField(globals.localIp);
-  const [port, setPort] = useState("81");
+  const [port, setPort] = useState("80");
   const [file, setFile] = useState("");
   const [os, setOs] = useState<TransferOs>("windows");
   const [client, setClient] = useState<TransferClient>("certutil");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState("");
+  const picker = useRef<HTMLInputElement>(null);
 
   async function load(update = false) {
     setError(null);
@@ -54,6 +55,28 @@ export function UploadsPanel() {
   const plan = useMemo(() => transferPlan({ host, port, file, os, client }), [host, port, file, os, client]);
   const ready = !("error" in plan);
 
+  async function uploadChosen(list: FileList | null) {
+    if (!list?.length) return;
+    setError(null);
+    setBusy("Uploading.");
+    const body = new FormData();
+    for (const item of list) body.append("file", item);
+    try {
+      const response = await fetch("/api/upload", { method: "POST", body });
+      const text = await response.text();
+      if (!response.ok) {
+        setError(text.trim() || "The upload failed.");
+        return;
+      }
+      await load(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The upload failed.");
+    } finally {
+      setBusy("");
+      if (picker.current) picker.current.value = "";
+    }
+  }
+
   function pickOs(next: TransferOs) {
     setOs(next);
     setClient(next === "windows" ? "certutil" : "curl");
@@ -76,13 +99,17 @@ export function UploadsPanel() {
         <p className="font-mono text-xs text-primary">Transfer</p>
         <h2 className="text-lg font-semibold">Pull a file onto the target</h2>
         <p className="mt-1 text-sm text-muted">
-          Put the file in the uploads folder, then paste this on the target. The address is your tun0 address. 127.0.0.1 is this desk, and the target cannot reach it. linpeas, winpeas, chisel, and the Ligolo agent are fetched into this folder when it is opened. The tunnel builder uses the names chisel, chisel.exe, agent, and agent.exe. Nothing here is executed.
+          Put the file in the uploads folder, or use Upload for file transfer. Port 80 serves that folder, so anyone who can reach this machine on port 80 can download the files. Paste the command on the target. The address is your tun0 address. 127.0.0.1 is this desk, and the target cannot reach it. linpeas, winpeas, chisel, and the Ligolo agent are fetched into this folder when it is opened. The tunnel builder uses the names chisel, chisel.exe, agent, and agent.exe. Nothing here is executed.
         </p>
       </div>
       <div className="flex flex-col gap-4 px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="min-w-0 break-all font-mono text-xs text-muted">{listing ? listing.root : busy || "Reading the folder. Standard files are added if they are missing."}</p>
           <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => picker.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-primary bg-raised px-3 text-sm text-fg">
+              Upload for file transfer
+            </button>
+            <input ref={picker} type="file" multiple className="hidden" onChange={(event) => void uploadChosen(event.target.files)} />
             <button type="button" onClick={() => void load(false)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-bg px-3 text-sm text-muted">
               <RefreshCw className="size-4" aria-hidden="true" />
               Refresh
@@ -92,6 +119,13 @@ export function UploadsPanel() {
             </button>
           </div>
         </div>
+        {listing ? (
+          <p className={listing.hostOk ? "text-sm text-alive" : "text-sm text-dead"}>
+            {listing.hostOk
+              ? "Port 80 is serving this folder. Anyone who can reach this machine on port 80 can download these files."
+              : `Port 80 is not serving the folder. Start the desk as root, and make sure nothing else is using port 80. ${listing.hostError}`}
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-dead">{error}</p> : null}
         {busy ? <p className="text-sm text-muted">{busy}</p> : null}
         {listing?.note ? <p className="text-sm text-muted">{listing.note}</p> : null}

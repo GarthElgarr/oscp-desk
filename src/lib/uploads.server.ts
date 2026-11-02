@@ -1,4 +1,4 @@
-import { lstat, mkdir, readdir, readFile, realpath } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type UploadFile = {
@@ -70,4 +70,25 @@ export async function readUpload(rel: string): Promise<{ name: string; bytes: Bu
   const stillInside = path.relative(realRoot, real);
   if (stillInside.startsWith("..") || path.isAbsolute(stillInside)) return null;
   return { name: path.basename(real), bytes: await readFile(real) };
+}
+
+/** The name that will be saved. Folders and odd characters are refused. */
+export function uploadName(name: string): string | null {
+  const base = name.split(/[/\\]/).pop()?.trim() ?? "";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/.test(base)) return null;
+  return base;
+}
+
+export async function saveUpload(name: string, bytes: Buffer): Promise<{ name: string } | { error: string }> {
+  const safe = uploadName(name);
+  if (!safe) return { error: `${name || "That file"} needs a plain name, such as linpeas.sh or chisel.exe.` };
+  if (bytes.byteLength > MAX_BYTES) return { error: `${safe} is over 200 MB.` };
+  const root = uploadsRoot();
+  await mkdir(root, { recursive: true });
+  const realRoot = await realpath(root);
+  const full = path.resolve(realRoot, safe);
+  const inside = path.relative(realRoot, full);
+  if (inside.startsWith("..") || path.isAbsolute(inside)) return { error: `${safe} is not inside the uploads folder.` };
+  await writeFile(full, bytes);
+  return { name: safe };
 }
