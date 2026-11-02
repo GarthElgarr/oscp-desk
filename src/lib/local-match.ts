@@ -159,33 +159,62 @@ function kernelHits(k: Kernel): LocalHit[] {
   return hits;
 }
 
+function sudoTuple(version: string): [number, number, number, number] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:p(\d+))?$/.exec(version);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] ? Number(match[4]) : 0];
+}
+
+function sudoCmp(left: [number, number, number, number], right: [number, number, number, number]) {
+  for (let i = 0; i < 4; i += 1) if (left[i] !== right[i]) return left[i] - right[i];
+  return 0;
+}
+
+function sudoIn(version: [number, number, number, number], low: [number, number, number, number], high: [number, number, number, number]) {
+  return sudoCmp(version, low) >= 0 && sudoCmp(version, high) <= 0;
+}
+
 function sudoHits(text: string): LocalHit[] | null {
   const match = text.match(/sudo version\s+([0-9]+(?:\.[0-9]+){1,3}(?:p[0-9]+)?)/i);
   if (!match) return null;
   const version = match[1];
-  const vulnerable =
-    (/^1\.8\.(?:[2-9]|[12][0-9]|30|31)(?:p1)?$/.test(version) && version !== "1.8.31p2") ||
-    /^1\.9\.[0-4](?:\.|$|p)/.test(version) ||
-    /^1\.9\.5(?:p1)?$/.test(version);
-  const patched = version === "1.8.31p2" || /^1\.9\.5p([2-9]|\d\d)/.test(version) || /^1\.9\.([6-9]|\d\d)/.test(version);
-  if (vulnerable && !patched) {
-    return [
-      {
-        title: "Baron Samedit, version only",
-        state: "lead",
-        why: `${version} is inside 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. A backport can keep an old number and still be patched.`,
-        next: "The Baron cards. sudoedit -s / is the test. A usage: line means stop. Do not fetch a PoC yet.",
-      },
-    ];
-  }
-  return [
-    {
-      title: "Not Baron Samedit",
-      state: "dead",
-      why: `${version} is 1.8.31p2, 1.9.5p2, or newer, or it is outside both windows.`,
-      next: "Do not run a Baron PoC. Go back to the Linux list.",
-    },
-  ];
+  const parts = sudoTuple(version);
+  if (!parts) return null;
+  const baron =
+    sudoIn(parts, [1, 8, 2, 0], [1, 8, 31, 1]) || sudoIn(parts, [1, 9, 0, 0], [1, 9, 5, 1]);
+  const sudoedit = sudoIn(parts, [1, 8, 0, 0], [1, 9, 12, 1]);
+  const hits: LocalHit[] = [];
+  hits.push(
+    baron
+      ? {
+          title: "Baron Samedit, version only",
+          state: "lead",
+          why: `${version} is inside 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. A backport can keep an old number and still be patched.`,
+          next: "The Baron cards. sudoedit -s / is the test. A usage: line means stop. Do not fetch a PoC yet.",
+        }
+      : {
+          title: "Not Baron Samedit",
+          state: "dead",
+          why: `${version} is outside 1.8.2–1.8.31p1 and 1.9.0–1.9.5p1. 1.8.31p2 and 1.9.5p2 are the fixes.`,
+          next: "Do not run a Baron PoC.",
+        },
+  );
+  hits.push(
+    sudoedit
+      ? {
+          title: "sudoedit extra arguments, version only",
+          state: "lead",
+          why: `${version} is inside 1.8.0–1.9.12p1 (CVE-2023-22809). The fix is 1.9.12p2. The version is not enough. sudo -l has to allow sudoedit or sudo -e as root.`,
+          next: "sudo -l. If that list has no sudoedit and no sudo -e, this is dead. If it does, the check is EDITOR='vim -- /etc/sudoers' in front of that allowed command. A distro can patch the number and still be safe.",
+        }
+      : {
+          title: "Not sudoedit CVE-2023-22809",
+          state: "dead",
+          why: `${version} is older than 1.8.0 or it is 1.9.12p2 or newer.`,
+          next: "Do not run the sudoedit editor argument trick.",
+        },
+  );
+  return hits;
 }
 
 function windowsHits(text: string): LocalMatch | null {

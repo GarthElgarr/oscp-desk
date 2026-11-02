@@ -30,8 +30,7 @@ export function LocalMatch() {
           Linux, sudo, and Windows. Paste <span className="font-mono">uname -a</span>,{" "}
           <span className="font-mono">sudo --version</span>, or <span className="font-mono">systeminfo</span>. The
           short list reads the kernel and the sudo version on the same paste. A lead is passed to linux-exploit-suggester,
-          searchsploit, or wes. A dead row is not. Baron is sudo 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. 1.8.31p2 and 1.9.5p2
-          are patched.
+          searchsploit, or wes. A dead row is not. Baron is sudo 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. sudoedit (CVE-2023-22809) is 1.8.0–1.9.12p1, and only if sudo -l allows sudoedit or sudo -e. 1.9.12p2 is patched.
         </p>
       </div>
       <div className="px-4 py-4">

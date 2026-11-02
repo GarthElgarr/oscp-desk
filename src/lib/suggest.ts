@@ -6,6 +6,7 @@ const LEADS: Record<string, string[]> = {
   "eBPF verifier, only with the sysctl": ["2017-16995"],
   "Ubuntu OverlayFS, only if the string is Ubuntu": ["2021-3493"],
   "Baron Samedit, version only": ["2021-3156"],
+  "sudoedit extra arguments, version only": ["2023-22809"],
 };
 
 export type SuggestPlan = {
