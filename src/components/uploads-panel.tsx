@@ -24,7 +24,7 @@ export function UploadsPanel() {
 
   async function load(update = false) {
     setError(null);
-    setBusy(update ? "Updating linpeas and winpeas." : "");
+    setBusy(update ? "Updating the standard files." : "");
     try {
       setListing(update ? await updateStandardPeas() : await listUploadFiles());
     } catch (err) {
@@ -73,26 +73,26 @@ export function UploadsPanel() {
         <p className="font-mono text-xs text-primary">Transfer</p>
         <h2 className="text-lg font-semibold">Pull a file onto the target</h2>
         <p className="mt-1 text-sm text-muted">
-          Put the file in the uploads folder, then paste this on the target. The address is your tun0 address. 127.0.0.1 is this desk, and the target cannot reach it. linpeas.sh and winPEASx64.exe are fetched into this folder when it is opened. Nothing here is executed.
+          Put the file in the uploads folder, then paste this on the target. The address is your tun0 address. 127.0.0.1 is this desk, and the target cannot reach it. linpeas, winpeas, chisel, and the Ligolo agent are fetched into this folder when it is opened. The tunnel builder uses the names chisel, chisel.exe, agent, and agent.exe. Nothing here is executed.
         </p>
       </div>
       <div className="flex flex-col gap-4 px-4 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="min-w-0 break-all font-mono text-xs text-muted">{listing ? listing.root : busy || "Reading the folder. linpeas and winpeas are added if they are missing."}</p>
+          <p className="min-w-0 break-all font-mono text-xs text-muted">{listing ? listing.root : busy || "Reading the folder. Standard files are added if they are missing."}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void load(false)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-bg px-3 text-sm text-muted">
               <RefreshCw className="size-4" aria-hidden="true" />
               Refresh
             </button>
             <button type="button" onClick={() => void load(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-bg px-3 text-sm text-fg">
-              Update linpeas and winpeas
+              Update standard files
             </button>
           </div>
         </div>
         {error ? <p className="text-sm text-dead">{error}</p> : null}
         {busy ? <p className="text-sm text-muted">{busy}</p> : null}
         {listing?.note ? <p className="text-sm text-muted">{listing.note}</p> : null}
-        {listing && listing.files.length === 0 ? <p className="text-sm text-muted">The folder is empty. The standard scripts did not download. Press Update linpeas and winpeas, or copy a file in and refresh.</p> : null}
+        {listing && listing.files.length === 0 ? <p className="text-sm text-muted">The folder is empty. The standard files did not download. Press Update standard files, or copy a file in and refresh.</p> : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-mono text-xs tracking-wide text-muted">FILE</span>
