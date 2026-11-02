@@ -142,13 +142,14 @@ function authPopupPlugin(): Plugin {
   };
 }
 
-// `0.0.0.0:8080` is the live-preview contract — don't change host/port.
+// Default listen port is 81 so Kali can keep Burp on 8080.
+// This sandbox's startup.sh sets DESK_PORT=8080 for the live preview.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",
-    port: 8080,
+    port: 81,
     strictPort: true,
   },
   preview: {

@@ -18,7 +18,7 @@ export function UploadsPanel() {
   const [listing, setListing] = useState<UploadsListing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useGlobalField(globals.localIp);
-  const [port, setPort] = useState("8080");
+  const [port, setPort] = useState("81");
   const [file, setFile] = useState("");
   const [os, setOs] = useState<TransferOs>("windows");
   const [client, setClient] = useState<TransferClient>("certutil");

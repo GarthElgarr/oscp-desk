@@ -32,7 +32,7 @@ export function transferPlan(input: {
   }
   if (!hostOk(host)) return { error: "The address is one IP or one host name." };
   if (!/^\d{1,5}$/.test(input.port) || Number(input.port) < 1 || Number(input.port) > 65535) {
-    return { error: "The port is the one the desk is listening on, usually 8080." };
+    return { error: "The port is the one the desk is listening on, usually 81." };
   }
   const base = baseName(file);
   if (!base) return { error: "Pick a file in the uploads folder. The name is letters, numbers, dots, and hyphens." };
