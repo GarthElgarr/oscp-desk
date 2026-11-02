@@ -71,7 +71,7 @@ export const TOOL_CHECKS = [
   { label: "smbclient", bin: "smbclient" },
   { label: "impacket", bin: "impacket-secretsdump" },
   { label: "bloodhound-python", bin: "bloodhound-python" },
-  { label: "certipy", bin: "certipy" },
+  { label: "certipy", bin: "certipy-ad" },
   { label: "kerbrute", bin: "kerbrute" },
   { label: "socat", bin: "socat" },
   { label: "proxychains4", bin: "proxychains4" },

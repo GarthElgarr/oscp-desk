@@ -28,7 +28,7 @@ test("BloodHound All writes a zip with the password", () => {
 test("Certipy find uses user@domain and the NT hash", () => {
   const plan = adPlan({ ...base, mode: "cert-find", password: "", hash: "a".repeat(32) });
   assert.ok(!("error" in plan));
-  assert.match(plan.command, /^certipy find -u alice@corp\.local -hashes :a{32} -dc-ip 10\.10\.10\.10 -vulnerable -stdout$/);
+  assert.match(plan.command, /^certipy-ad find -u alice@corp\.local -hashes :a{32} -dc-ip 10\.10\.10\.10 -vulnerable -stdout$/);
 });
 
 test("Kerbrute spray is one password against a name list", () => {

