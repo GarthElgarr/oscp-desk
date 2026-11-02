@@ -75,18 +75,18 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "win-kernel": [{ label: "Kernel / sudo", section: "Windows", tool: "local", anchor: "builder-local" }],
   "win-creds": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
   "win-sam": [{ label: "impacket", section: "Windows", tool: "impacket", anchor: "builder-impacket" }, { label: "Identify", section: "Passwords", tool: "identify", anchor: "builder-identify" }],
-  "ad-enum": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-enum": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "BloodHound", section: "Builders", tool: "ad", anchor: "builder-ad" }],
   "ad-roast": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }, { label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "ad-pth": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
   "ad-dcsync": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
-  "ad-nocreds": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
-  "ad-bh": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-nocreds": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "Kerbrute", section: "Builders", tool: "ad", anchor: "builder-ad" }],
+  "ad-bh": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "BloodHound", section: "Builders", tool: "ad", anchor: "builder-ad" }],
   "ad-deleg": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
   "ad-laps": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "ad-gpp": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "ad-shares": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "ad-ptt": [{ label: "impacket", section: "Active Directory", tool: "impacket", anchor: "builder-impacket" }],
-  "ad-adcs": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
+  "ad-adcs": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }, { label: "Certipy", section: "Builders", tool: "ad", anchor: "builder-ad" }],
   "ad-zerologon": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "pw-id": [{ label: "Identify", section: "Passwords", tool: "identify", anchor: "builder-identify" }],
   "pw-john": [{ label: "john", section: "Passwords", tool: "john", anchor: "builder-john" }],
@@ -178,6 +178,7 @@ const PLACES: SearchHit[] = [
   { key: "tunnel", label: "Tunnel builder", section: "Builders", anchor: "builder-tunnel", tool: "tunnel", blob: "chisel ligolo tunnel pivot socks" },
   { key: "wfuzz", label: "wfuzz builder", section: "Builders", anchor: "builder-wfuzz", tool: "wfuzz", blob: "wfuzz fuzz vhost" },
   { key: "impacket", label: "Impacket builder", section: "Builders", anchor: "builder-impacket", tool: "impacket", blob: "impacket secretsdump psexec smb wmiexec" },
+  { key: "ad", label: "BloodHound, Certipy, Kerbrute", section: "Builders", anchor: "builder-ad", tool: "ad", blob: "bloodhound certipy kerbrute adcs shadow spray userenum" },
 ];
 
 function hitScore(label: string, value: string): number {
@@ -367,6 +368,7 @@ export function MethodDesk() {
     want("tunnel", section === "Tunneling");
     want("wfuzz", section === "Web");
     want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords");
+    want("ad", section === "Active Directory");
     return tools;
   }, [section]);
 
@@ -571,7 +573,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={12}
+            count={13}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />

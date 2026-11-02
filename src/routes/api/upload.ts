@@ -25,6 +25,19 @@ export const Route = createFileRoute("/api/upload")({
         }
         return Response.json({ ok: true, saved, errors });
       },
+      DELETE: async ({ request }) => {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return new Response("The request was not JSON.\n", { status: 400 });
+        }
+        const name = body && typeof body === "object" && "name" in body && typeof body.name === "string" ? body.name : "";
+        const { removeUpload } = await import("@/lib/uploads.server");
+        const result = await removeUpload(name);
+        if ("error" in result) return new Response(`${result.error}\n`, { status: 400 });
+        return Response.json({ ok: true, name: result.name });
+      },
     },
   },
 });

@@ -9,6 +9,7 @@ import { NmapScan } from "@/components/nmap-scan";
 import { SearchsploitRun } from "@/components/searchsploit-run";
 import { TunnelBuilder } from "@/components/tunnel-builder";
 import { ImpacketBuilder } from "@/components/impacket-builder";
+import { AdBuilder } from "@/components/ad-builder";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { SnmpBuilder } from "@/components/snmp-builder";
 import { LootPick } from "@/components/loot-card";
@@ -17,7 +18,7 @@ import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globa
 import { useGlobalField } from "@/lib/use-global-field";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket" | "ad";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -34,6 +35,7 @@ const LABELS: Record<ToolId, string> = {
   tunnel: "tunnel",
   wfuzz: "wfuzz",
   impacket: "impacket",
+  ad: "AD",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -2026,6 +2028,11 @@ export function Builders({ tools, tab, onTab }: { tools: ToolId[]; tab: ToolId |
       {current === "impacket" ? (
         <div id="builder-impacket" className="scroll-mt-4">
           <ImpacketBuilder />
+        </div>
+      ) : null}
+      {current === "ad" ? (
+        <div id="builder-ad" className="scroll-mt-4">
+          <AdBuilder />
         </div>
       ) : null}
     </div>

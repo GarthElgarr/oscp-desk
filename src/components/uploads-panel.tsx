@@ -77,6 +77,31 @@ export function UploadsPanel() {
     }
   }
 
+  async function removeChosen() {
+    if (!file) return;
+    if (!confirm(`Delete ${file} from the uploads folder? Port 80 will stop serving it. A standard file can be fetched again with Update standard files.`)) return;
+    setError(null);
+    setBusy("Deleting.");
+    try {
+      const response = await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: file }),
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        setError(text.trim() || "The file was not deleted.");
+        return;
+      }
+      setFile("");
+      await load(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The file was not deleted.");
+    } finally {
+      setBusy("");
+    }
+  }
+
   function pickOs(next: TransferOs) {
     setOs(next);
     setClient(next === "windows" ? "certutil" : "curl");
@@ -142,6 +167,11 @@ export function UploadsPanel() {
               ))}
             </select>
           </label>
+          <div className="sm:col-span-2">
+            <button type="button" onClick={() => void removeChosen()} disabled={!file} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40">
+              Delete this file
+            </button>
+          </div>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-mono text-xs tracking-wide text-muted">TUN0 ADDRESS</span>
             <input className={control} value={host} onChange={(event) => setHost(event.target.value.trim())} placeholder="10.10.14.5" spellCheck={false} />

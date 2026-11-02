@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { saveUpload, uploadName } from "./uploads.server.ts";
+import { saveUpload, removeUpload, uploadName } from "./uploads.server.ts";
 import { transferPlan } from "./transfer-plan.ts";
 
 test("an upload name is the file, not a path", () => {
@@ -20,6 +20,9 @@ test("a saved upload lands in the uploads folder", async () => {
     const saved = await saveUpload("note.txt", Buffer.from("hello"));
     assert.ok(!("error" in saved));
     assert.equal(await readFile(path.join(dir, "note.txt"), "utf8"), "hello");
+    const removed = await removeUpload("note.txt");
+    assert.ok(!("error" in removed));
+    await assert.rejects(readFile(path.join(dir, "note.txt"), "utf8"));
   } finally {
     delete process.env.OSCP_UPLOADS;
     await rm(dir, { recursive: true, force: true });

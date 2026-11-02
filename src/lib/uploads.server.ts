@@ -1,4 +1,4 @@
-import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type UploadFile = {
@@ -91,4 +91,22 @@ export async function saveUpload(name: string, bytes: Buffer): Promise<{ name: s
   if (inside.startsWith("..") || path.isAbsolute(inside)) return { error: `${safe} is not inside the uploads folder.` };
   await writeFile(full, bytes);
   return { name: safe };
+}
+
+export async function removeUpload(rel: string): Promise<{ name: string } | { error: string }> {
+  const parts = safeParts(rel);
+  if (!parts) return { error: "That file is not in the uploads folder." };
+  const root = uploadsRoot();
+  const realRoot = await realpath(root).catch(() => null);
+  if (!realRoot) return { error: "The uploads folder is not there." };
+  const full = path.resolve(realRoot, ...parts);
+  const inside = path.relative(realRoot, full);
+  if (inside.startsWith("..") || path.isAbsolute(inside)) return { error: "That file is not in the uploads folder." };
+  const st = await lstat(full).catch(() => null);
+  if (!st?.isFile()) return { error: "That file is not in the uploads folder." };
+  const real = await realpath(full);
+  const stillInside = path.relative(realRoot, real);
+  if (stillInside.startsWith("..") || path.isAbsolute(stillInside)) return { error: "That file is not in the uploads folder." };
+  await unlink(real);
+  return { name: parts.join("/") };
 }
