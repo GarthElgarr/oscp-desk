@@ -337,7 +337,7 @@ export function MethodDesk() {
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">OSCP methodology</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
-                Look for, the command, and what alive versus dead output means. Click a title to open that card, and click it again to close it. Mark ticks it done. Unsure means you think it is done and you will check it later. Reset desk clears both ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
+                Each check is a description, then an example of a result that means pursue, and an example that means stop and move on. Click a title to open that card, and click it again to close it. Mark ticks it done. Unsure means you think it is done and you will check it later. Reset desk clears both ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -623,7 +623,7 @@ function ScriptCard({
       </div>
       {open ? (
       <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
-        <Block label="Look for" body={item.look} />
+        <Block label="What this check is" body={item.look} />
         <div>
           <p className="font-mono text-xs tracking-wide text-muted">RUN</p>
           <pre className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">
@@ -633,13 +633,15 @@ function ScriptCard({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="min-w-0 rounded-lg bg-alive-bg p-3">
-            <p className="font-mono text-xs text-alive">ALIVE</p>
+            <p className="font-mono text-xs text-alive">PURSUE</p>
+            <p className="mt-1 text-sm text-muted">You saw something like this. Stay on it.</p>
             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-fg">
               {item.alive}
             </pre>
           </div>
           <div className="min-w-0 rounded-lg bg-dead-bg p-3">
-            <p className="font-mono text-xs text-dead">DEAD — SKIP</p>
+            <p className="font-mono text-xs text-dead">STOP</p>
+            <p className="mt-1 text-sm text-muted">You saw something like this. Tick it and move on.</p>
             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-fg">
               {item.dead}
             </pre>
@@ -802,7 +804,7 @@ function Card({
 
       {open ? (
       <div className="flex flex-col gap-4 border-t border-border px-4 py-4">
-        <Block label="Look for" body={item.look} />
+        <Block label="What this check is" body={item.look} />
         <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="font-mono text-xs tracking-wide text-muted">COMMAND</p>
@@ -822,13 +824,15 @@ function Card({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="min-w-0 rounded-lg bg-alive-bg p-3">
-            <p className="font-mono text-xs text-alive">ALIVE</p>
+            <p className="font-mono text-xs text-alive">PURSUE</p>
+            <p className="mt-1 text-sm text-muted">You saw something like this. Stay on it.</p>
             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-fg">
               {item.alive}
             </pre>
           </div>
           <div className="min-w-0 rounded-lg bg-dead-bg p-3">
-            <p className="font-mono text-xs text-dead">DEAD — SKIP</p>
+            <p className="font-mono text-xs text-dead">STOP</p>
+            <p className="mt-1 text-sm text-muted">You saw something like this. Tick it and move on.</p>
             <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-fg">
               {item.dead}
             </pre>

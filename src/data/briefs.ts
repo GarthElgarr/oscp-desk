@@ -5,7 +5,7 @@ export const BRIEFS: Technique[] = [
     id: "brief-exam",
     section: "Exam",
     title: "How a section works",
-    look: "Each card is one question. Alive means you stay on that fact and use it. Dead means you tick it and move to Next. You do not rerun a dead card because the output felt close.",
+    look: "Each card is one check. The description says what you are testing. Pursue means the example on the left happened, so stay on that fact. Stop means the example on the right happened, so tick the card and use Next. You do not rerun a stopped card because the output felt close.",
     cmd: `# One host folder before any scan
 mkdir -p ~/exam/<ip>/{scans,loot,shells}
 # The loop, and the only loop
