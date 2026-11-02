@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { listUploads, readUpload } from "./uploads.server";
+import { listUploads, readUpload } from "./uploads.server.ts";
 
 export const FILE_HOST_PORT = 80;
 const HEADER = "x-oscp-files";
@@ -21,7 +21,7 @@ export function startFileHost(): void {
     void handle(req, res);
   });
   server.on("error", (err: NodeJS.ErrnoException) => {
-    listenError = err.code === "EADDRINUSE" ? "Something else is already listening on port 80." : err.code === "EACCES" ? "Port 80 needs the desk to be started as root." : err.message;
+    listenError = err.code === "EADDRINUSE" ? "Something else is already listening on port 80. On Kali that is often Apache. Run: systemctl stop apache2" : err.code === "EACCES" ? "Port 80 needs the desk to be started as root." : err.message;
     console.error("[file-host]", listenError);
   });
   server.listen(FILE_HOST_PORT, "0.0.0.0");

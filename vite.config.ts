@@ -11,7 +11,7 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
-import { startFileHost } from "./src/lib/file-host.server";
+import { startFileHost } from "./src/lib/file-host.server.ts";
 
 /** Serves the uploads folder on port 80 for the victim to download. */
 function fileHostPlugin(): Plugin {
