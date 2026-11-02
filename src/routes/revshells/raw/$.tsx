@@ -5,9 +5,16 @@ export const Route = createFileRoute("/revshells/raw/$")({
     handlers: {
       GET: async ({ request, params }) => {
         const url = new URL(request.url);
+        const rawName = params._splat ?? "";
+        let name = rawName;
+        try {
+          name = decodeURIComponent(rawName);
+        } catch {
+          name = rawName;
+        }
         const { rawShellFromQuery } = await import("@/lib/revshell-raw.server");
         const text = rawShellFromQuery({
-          name: decodeURIComponent(params._splat ?? ""),
+          name,
           ip: url.searchParams.get("ip") ?? "",
           port: url.searchParams.get("port") ?? "",
           shell: url.searchParams.get("shell") ?? "",
