@@ -132,6 +132,18 @@ function loadIds(key: string): Set<string> {
   }
 }
 
+function queryWords(value: string): string[] {
+  return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/** Any word may match. "smb" finds the SMB cards. "smb uploads" finds both. */
+function matchesQuery(blob: string, value: string): boolean {
+  const words = queryWords(value);
+  if (words.length === 0) return true;
+  const hay = blob.toLowerCase();
+  return words.some((word) => hay.includes(word));
+}
+
 export function MethodDesk() {
   const [query, setQuery] = useState("");
   const [section, setSection] = useState<string>("Exam");
@@ -192,8 +204,7 @@ export function MethodDesk() {
       if (openOnly && done.has(s.id)) return false;
       if (!q) return section === "Scripts";
       const blob = `${s.title} ${s.file} ${s.look} ${s.run} ${s.alive} ${s.dead} ${s.next} ${WHY[s.id] ?? ""}`.toLowerCase();
-      if (!blob.includes(q)) return false;
-      return true;
+      return matchesQuery(blob, q);
     });
   }, [query, section, openOnly, done]);
 
@@ -207,7 +218,7 @@ export function MethodDesk() {
       if (openOnly && done.has(t.id)) return false;
       if (!q) return true;
       const blob = `${t.section} ${t.title} ${t.look} ${t.cmd} ${t.alive} ${t.dead} ${t.next} ${WHY[t.id] ?? ""}`.toLowerCase();
-      return blob.includes(q);
+      return matchesQuery(blob, q);
     });
   }, [query, section, openOnly, done]);
 
@@ -307,7 +318,7 @@ export function MethodDesk() {
     want("hashcat", section === "Passwords", /hashcat/i);
     want("john", section === "Passwords", /john|ssh2john|zip2john|unshadow/i);
     want("hydra", section === "Passwords", /hydra/i);
-    want("nxc", section === "Active Directory", /\bnxc\b|netexec/i);
+    want("nxc", section === "Active Directory", /\bnxc\b|netexec|\bsmb\b/i);
     want(
       "local",
       section === "Linux" || section === "Windows",
@@ -319,9 +330,26 @@ export function MethodDesk() {
     want("search", false, /searchsploit|exploit-db|exploitdb/i);
     want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
     want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
-    want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient/i);
+    want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient|\bsmb\b/i);
     return tools;
   }, [section, query]);
+
+  const matchCount =
+    visible.length +
+    visibleScripts.length +
+    builderTools.length +
+    (query.trim() && showTransfer ? 1 : 0) +
+    (query.trim() && showLoot ? 1 : 0) +
+    (query.trim() && showPenelope ? 1 : 0) +
+    (query.trim() && showWinrm ? 1 : 0);
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("desk-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   const total = TECHNIQUES.length + LAB_SCRIPTS.length;
   const marked = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => done.has(t.id)).length;
@@ -375,9 +403,14 @@ export function MethodDesk() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search: jwt, api, hydra, nxc"
+                placeholder="Search: smb, uploads, hydra, nxc"
                 className="w-full min-w-0 bg-transparent text-sm text-fg outline-none placeholder:text-muted"
               />
+              {query.trim() ? (
+                <span className="shrink-0 font-mono text-xs text-primary">
+                  {matchCount} {matchCount === 1 ? "match" : "matches"}
+                </span>
+              ) : null}
             </label>
             <button
               type="button"
@@ -459,7 +492,7 @@ export function MethodDesk() {
           />
         </nav>
 
-        <main className="flex min-w-0 flex-col gap-4">
+        <main id="desk-results" className="flex min-w-0 scroll-mt-4 flex-col gap-4">
           {showTransfer ? <UploadsPanel /> : null}
           {showLoot ? <LootCard focusId={lootFocus} /> : null}
           {showPenelope ? <PenelopeCard /> : null}
@@ -527,11 +560,7 @@ export function MethodDesk() {
                 onJump={jumpTo}
               />
             ))}
-          {section !== "Uploads" &&
-          section !== "Notes" &&
-          visibleScripts.length === 0 &&
-          builderTools.length === 0 &&
-          (query.trim() || section !== "Scripts" ? visible.length === 0 : true) ? (
+          {query.trim() && matchCount === 0 ? (
             <p className="rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-muted">
               Nothing matches. Try a port, a tool, or a privilege name.
             </p>
