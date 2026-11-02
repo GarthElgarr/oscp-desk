@@ -1,9 +1,16 @@
 import { useSyncExternalStore } from "react";
 import { getGlobals, getGlobalsServer, setGlobals, subscribeGlobals } from "@/lib/desk-globals";
+import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
-export function GlobalConfig({ onShells }: { onShells: () => void }) {
+function revshellHref(ip: string): string {
+  const prefix = typeof window === "undefined" ? "" : (previewPathPrefix(window.location.hostname, window.location.pathname) ?? "");
+  const query = ip ? `?ip=${encodeURIComponent(ip)}` : "";
+  return `${prefix}/revshells/index.html${query}`;
+}
+
+export function GlobalConfig() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   return (
     <div className="mt-3">
@@ -21,13 +28,13 @@ export function GlobalConfig({ onShells }: { onShells: () => void }) {
           <input className={control} value={globals.target} onChange={(event) => setGlobals({ target: event.target.value })} placeholder="10.10.10.10" inputMode="decimal" spellCheck={false} />
         </label>
         <div className="flex items-end">
-          <button type="button" onClick={onShells} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg">
+          <a href={revshellHref(globals.localIp)} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg">
             Reverse shells
-          </button>
+          </a>
         </div>
       </div>
       <p className="mt-2 text-sm text-muted">
-        These fill nmap, UDP, hydra, nxc, impacket, wfuzz, SNMP, WinRM, msfvenom, the tunnel, uploads, and Penelope until you edit that box. Editing a box does not change these.
+        These fill nmap, UDP, hydra, nxc, impacket, wfuzz, SNMP, WinRM, msfvenom, the tunnel, uploads, and Penelope until you edit that box. Editing a box does not change these. Reverse shells opens the local copy of revshells, with your local IP filled in.
       </p>
     </div>
   );

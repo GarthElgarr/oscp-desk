@@ -23,6 +23,7 @@ import { Route as ApiSuggestRouteImport } from './routes/api/suggest'
 import { Route as ApiUdpRouteImport } from './routes/api/udp'
 import { Route as ApiWfuzzRouteImport } from './routes/api/wfuzz'
 import { Route as FilesSplatRouteImport } from './routes/files/$'
+import { Route as RevshellsRawSplatRouteImport } from './routes/revshells/raw/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +95,11 @@ const FilesSplatRoute = FilesSplatRouteImport.update({
   path: '/files/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RevshellsRawSplatRoute = RevshellsRawSplatRouteImport.update({
+  id: '/revshells/raw/$',
+  path: '/revshells/raw/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
+  '/revshells/raw/$': typeof RevshellsRawSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
+  '/revshells/raw/$': typeof RevshellsRawSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/api/udp': typeof ApiUdpRoute
   '/api/wfuzz': typeof ApiWfuzzRoute
   '/files/$': typeof FilesSplatRoute
+  '/revshells/raw/$': typeof RevshellsRawSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
+    | '/revshells/raw/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
+    | '/revshells/raw/$'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/api/udp'
     | '/api/wfuzz'
     | '/files/$'
+    | '/revshells/raw/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +222,7 @@ export interface RootRouteChildren {
   ApiUdpRoute: typeof ApiUdpRoute
   ApiWfuzzRoute: typeof ApiWfuzzRoute
   FilesSplatRoute: typeof FilesSplatRoute
+  RevshellsRawSplatRoute: typeof RevshellsRawSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FilesSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/revshells/raw/$': {
+      id: '/revshells/raw/$'
+      path: '/revshells/raw/$'
+      fullPath: '/revshells/raw/$'
+      preLoaderRoute: typeof RevshellsRawSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiUdpRoute: ApiUdpRoute,
   ApiWfuzzRoute: ApiWfuzzRoute,
   FilesSplatRoute: FilesSplatRoute,
+  RevshellsRawSplatRoute: RevshellsRawSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
