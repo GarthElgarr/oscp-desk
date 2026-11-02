@@ -116,7 +116,7 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div id="panel-nmap" className="flex min-w-0 scroll-mt-4 flex-col gap-4">
       <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
         <div className="border-b border-border px-4 py-3">
           <p className="font-mono text-xs text-primary">Reports</p>

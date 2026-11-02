@@ -16,7 +16,7 @@ export function NotesPanel({ onOpenLoot }: { onOpenLoot?: (id: string) => void }
   }, []);
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+    <article id="panel-notes" className="min-w-0 scroll-mt-4 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <p className="font-mono text-xs text-primary">Notes</p>

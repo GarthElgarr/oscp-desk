@@ -136,16 +136,65 @@ function queryWords(value: string): string[] {
   return value.trim().toLowerCase().split(/\s+/).filter(Boolean);
 }
 
-/** Any word may match. "smb" finds the SMB cards. "smb uploads" finds both. */
-function matchesQuery(blob: string, value: string): boolean {
+/** Every word must match. Another word narrows the list. */
+function matchesAll(blob: string, value: string): boolean {
   const words = queryWords(value);
-  if (words.length === 0) return true;
+  if (words.length === 0) return false;
   const hay = blob.toLowerCase();
-  return words.some((word) => hay.includes(word));
+  return words.every((word) => hay.includes(word));
+}
+
+type SearchHit = {
+  key: string;
+  label: string;
+  section: string;
+  anchor: string;
+  blob: string;
+  tool?: ToolId;
+  cardId?: string;
+};
+
+const PLACES: SearchHit[] = [
+  { key: "uploads", label: "Uploads — file transfer", section: "Uploads", anchor: "panel-uploads", blob: "uploads transfer certutil wget tun0 file" },
+  { key: "loot", label: "Loot", section: "Loot", anchor: "panel-loot", blob: "loot hash password nthash netntlm ssh key" },
+  { key: "notes", label: "Notes", section: "Notes", anchor: "panel-notes", blob: "notes box write" },
+  { key: "penelope", label: "Penelope listener", section: "Shells", anchor: "panel-penelope", blob: "penelope listener shell nc" },
+  { key: "winrm", label: "Evil-WinRM", section: "Shells", anchor: "panel-winrm", blob: "evil-winrm winrm" },
+  { key: "jwt", label: "JWT reader", section: "API", anchor: "panel-jwt", blob: "jwt bearer token api openapi swagger" },
+  { key: "report", label: "Report", section: "Report", anchor: "panel-report", blob: "report write findings" },
+  { key: "nmap-page", label: "Nmap reports", section: "Nmap", anchor: "panel-nmap", blob: "nmap scan report xml" },
+  { key: "runs", label: "Runs", section: "Runs", anchor: "panel-runs", blob: "runs jobs terminal scan output" },
+  { key: "msfvenom", label: "msfvenom builder", section: "Builders", anchor: "builder-msfvenom", tool: "msfvenom", blob: "msfvenom venom payload" },
+  { key: "identify", label: "Hash identify", section: "Builders", anchor: "builder-identify", tool: "identify", blob: "hashid identify ntlm" },
+  { key: "hashcat", label: "hashcat builder", section: "Builders", anchor: "builder-hashcat", tool: "hashcat", blob: "hashcat crack" },
+  { key: "john", label: "john builder", section: "Builders", anchor: "builder-john", tool: "john", blob: "john ssh2john zip2john unshadow" },
+  { key: "hydra", label: "hydra builder", section: "Builders", anchor: "builder-hydra", tool: "hydra", blob: "hydra password spray" },
+  { key: "nxc", label: "NetExec builder", section: "Builders", anchor: "builder-nxc", tool: "nxc", blob: "nxc netexec smb" },
+  { key: "local", label: "Kernel and sudo suggester", section: "Builders", anchor: "builder-local", tool: "local", blob: "kernel sudo suggester linpeas privesc" },
+  { key: "udp", label: "UDP protocol scanner", section: "Builders", anchor: "builder-udp", tool: "udp", blob: "udp tftp snmp proto scanner" },
+  { key: "nmap", label: "nmap builder", section: "Builders", anchor: "builder-nmap", tool: "nmap", blob: "nmap scan" },
+  { key: "search", label: "searchsploit builder", section: "Builders", anchor: "builder-search", tool: "search", blob: "searchsploit exploit-db exploitdb" },
+  { key: "snmp", label: "SNMP builder", section: "Builders", anchor: "builder-snmp", tool: "snmp", blob: "snmp onesixtyone snmpwalk" },
+  { key: "tunnel", label: "Tunnel builder", section: "Builders", anchor: "builder-tunnel", tool: "tunnel", blob: "chisel ligolo tunnel pivot socks" },
+  { key: "wfuzz", label: "wfuzz builder", section: "Builders", anchor: "builder-wfuzz", tool: "wfuzz", blob: "wfuzz fuzz vhost" },
+  { key: "impacket", label: "Impacket builder", section: "Builders", anchor: "builder-impacket", tool: "impacket", blob: "impacket secretsdump psexec smb wmiexec" },
+];
+
+function hitScore(label: string, value: string): number {
+  const words = queryWords(value);
+  const title = label.toLowerCase();
+  let score = 0;
+  for (const word of words) {
+    if (title.startsWith(word)) score += 5;
+    else if (title.includes(word)) score += 3;
+    else score += 1;
+  }
+  return score;
 }
 
 export function MethodDesk() {
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [section, setSection] = useState<string>("Exam");
   const [lootFocus, setLootFocus] = useState("");
   const [openOnly, setOpenOnly] = useState(false);
@@ -199,28 +248,20 @@ export function MethodDesk() {
   }, []);
 
   const visibleScripts = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return LAB_SCRIPTS.filter((s) => {
       if (openOnly && done.has(s.id)) return false;
-      if (!q) return section === "Scripts";
-      const blob = `${s.title} ${s.file} ${s.look} ${s.run} ${s.alive} ${s.dead} ${s.next} ${WHY[s.id] ?? ""}`.toLowerCase();
-      return matchesQuery(blob, q);
+      return section === "Scripts";
     });
-  }, [query, section, openOnly, done]);
+  }, [section, openOnly, done]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return TECHNIQUES.filter((t) => {
-      if (!q) {
-        if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes" || section === "Nmap" || section === "Runs") return false;
-        if (section !== "All" && t.section !== section) return false;
-      }
+      if (section === "Scripts" || section === "Builders" || section === "Uploads" || section === "Notes" || section === "Nmap" || section === "Runs") return false;
+      if (section !== "All" && t.section !== section) return false;
       if (openOnly && done.has(t.id)) return false;
-      if (!q) return true;
-      const blob = `${t.section} ${t.title} ${t.look} ${t.cmd} ${t.alive} ${t.dead} ${t.next} ${WHY[t.id] ?? ""}`.toLowerCase();
-      return matchesQuery(blob, q);
+      return true;
     });
-  }, [query, section, openOnly, done]);
+  }, [section, openOnly, done]);
 
   function toggle(id: string) {
     setDone((prev) => {
@@ -276,7 +317,7 @@ export function MethodDesk() {
     let timer = 0;
     const go = () => {
       const node = document.getElementById(jump.anchor);
-      if (!node && tries < 8) {
+      if (!node && tries < 20) {
         tries += 1;
         timer = window.setTimeout(go, 40);
         return;
@@ -302,55 +343,63 @@ export function MethodDesk() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  const showTransfer = (!query.trim() && (section === "Uploads" || section === "Shells")) || /certutil|wget|\biwr\b|transfer|tun0|uploads/i.test(query);
-  const showWinrm = (!query.trim() && (section === "Windows" || section === "Shells")) || /evil-winrm|winrm/i.test(query);
-  const showPenelope = (!query.trim() && section === "Shells") || /penelope|listener|\bnc\b/i.test(query);
-  const showLoot = section === "Loot" || /\bloot\b|nthash|netntlm/i.test(query);
+  const showTransfer = section === "Uploads" || section === "Shells";
+  const showWinrm = section === "Windows" || section === "Shells";
+  const showPenelope = section === "Shells";
+  const showLoot = section === "Loot";
   const lootCount = useSyncExternalStore(subscribeLoot, getLoot, getLootServer).length;
   const builderTools = useMemo(() => {
-    const q = query.trim();
     const tools: ToolId[] = [];
-    const want = (id: ToolId, onSection: boolean, pattern: RegExp) => {
-      if ((section === "Builders" && !q) || (onSection && !q) || (q && pattern.test(q))) tools.push(id);
+    const want = (id: ToolId, onSection: boolean) => {
+      if (section === "Builders" || onSection) tools.push(id);
     };
-    want("msfvenom", section === "Shells", /msfvenom|venom|payload/i);
-    want("identify", section === "Passwords", /hashid|identify|secretsdump|separator unmatched|token length|\bntlm\b|krb5/i);
-    want("hashcat", section === "Passwords", /hashcat/i);
-    want("john", section === "Passwords", /john|ssh2john|zip2john|unshadow/i);
-    want("hydra", section === "Passwords", /hydra/i);
-    want("nxc", section === "Active Directory", /\bnxc\b|netexec|\bsmb\b/i);
-    want(
-      "local",
-      section === "Linux" || section === "Windows",
-      /uname|systeminfo|\/proc\/version|dirty ?(?:cow|pipe)|local vuln|kernel version|sudo --version/i,
-    );
-    want("udp", false, /udp|tftp|proto-scanner/i);
-    want("nmap", section === "Nmap", /\bnmap\b/i);
-    want("snmp", false, /snmp|onesixtyone|snmpwalk|ssid/i);
-    want("search", false, /searchsploit|exploit-db|exploitdb/i);
-    want("tunnel", section === "Tunneling", /chisel|ligolo|tunnel|pivot|socks/i);
-    want("wfuzz", section === "Web", /wfuzz|fuzz|vhost|seclist|parameter/i);
-    want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords", /impacket|secretsdump|psexec|wmiexec|smbexec|atexec|kerberoast|asrep|ticketer|ntlmrelay|mssqlclient|\bsmb\b/i);
+    want("msfvenom", section === "Shells");
+    want("identify", section === "Passwords");
+    want("hashcat", section === "Passwords");
+    want("john", section === "Passwords");
+    want("hydra", section === "Passwords");
+    want("nxc", section === "Active Directory");
+    want("local", section === "Linux" || section === "Windows");
+    want("udp", false);
+    want("nmap", section === "Nmap");
+    want("snmp", false);
+    want("search", false);
+    want("tunnel", section === "Tunneling");
+    want("wfuzz", section === "Web");
+    want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords");
     return tools;
-  }, [section, query]);
+  }, [section]);
 
-  const matchCount =
-    visible.length +
-    visibleScripts.length +
-    builderTools.length +
-    (query.trim() && showTransfer ? 1 : 0) +
-    (query.trim() && showLoot ? 1 : 0) +
-    (query.trim() && showPenelope ? 1 : 0) +
-    (query.trim() && showWinrm ? 1 : 0);
-
-  useEffect(() => {
-    if (!query.trim()) return;
-    const timer = window.setTimeout(() => {
-      document.getElementById("desk-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 200);
-    return () => window.clearTimeout(timer);
+  const hits = useMemo(() => {
+    const q = query.trim();
+    if (!q) return [];
+    const found: SearchHit[] = [];
+    for (const place of PLACES) {
+      if (matchesAll(`${place.label} ${place.blob}`, q)) found.push(place);
+    }
+    for (const item of TECHNIQUES) {
+      const blob = `${item.section} ${item.title} ${item.look} ${item.cmd}`;
+      if (!matchesAll(blob, q)) continue;
+      found.push({ key: `card-${item.id}`, label: item.title, section: item.section, anchor: `card-${item.id}`, blob, cardId: item.id });
+    }
+    for (const item of LAB_SCRIPTS) {
+      const blob = `${item.title} ${item.file} ${item.look}`;
+      if (!matchesAll(blob, q)) continue;
+      found.push({ key: `script-${item.id}`, label: item.title, section: "Scripts", anchor: `script-${item.id}`, blob, cardId: item.id });
+    }
+    found.sort((a, b) => hitScore(b.label, q) - hitScore(a.label, q));
+    return found;
   }, [query]);
 
+  function openSearch(hit: SearchHit) {
+    setQuery("");
+    setSearchOpen(false);
+    setOpenOnly(false);
+    setSection(hit.section);
+    if (hit.tool) setBuilderTab(hit.tool);
+    if (hit.cardId) setOpenCard(hit.cardId);
+    setJump({ anchor: hit.anchor, n: Date.now() });
+  }
   const total = TECHNIQUES.length + LAB_SCRIPTS.length;
   const marked = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => done.has(t.id)).length;
   const unsureCount = [...TECHNIQUES, ...LAB_SCRIPTS].filter((t) => unsure.has(t.id)).length;
@@ -397,21 +446,57 @@ export function MethodDesk() {
               </button>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2">
-              <Search className="size-4 shrink-0 text-muted" aria-hidden="true" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search: smb, uploads, hydra, nxc"
-                className="w-full min-w-0 bg-transparent text-sm text-fg outline-none placeholder:text-muted"
-              />
-              {query.trim() ? (
-                <span className="shrink-0 font-mono text-xs text-primary">
-                  {matchCount} {matchCount === 1 ? "match" : "matches"}
-                </span>
+          <div className="relative flex flex-col gap-2 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <label className="flex items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2">
+                <Search className="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <input
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setSearchOpen(false);
+                  }}
+                  placeholder="Search: smb, uploads, hydra, nxc"
+                  className="w-full min-w-0 bg-transparent text-sm text-fg outline-none placeholder:text-muted"
+                  role="combobox"
+                  aria-expanded={searchOpen && hits.length > 0}
+                  aria-autocomplete="list"
+                />
+                {query.trim() ? <span className="shrink-0 font-mono text-xs text-primary">{hits.length}</span> : null}
+              </label>
+              {searchOpen && query.trim() ? (
+                <div
+                  className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg"
+                  onMouseDown={(event) => event.preventDefault()}
+                >
+                  {hits.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-muted">Nothing matches. Add a different word.</p>
+                  ) : (
+                    <>
+                      <p className="border-b border-border px-3 py-2 font-mono text-xs text-muted">
+                        {hits.length} {hits.length === 1 ? "match" : "matches"}. Keep typing to narrow, then click.
+                      </p>
+                      {hits.slice(0, 12).map((hit) => (
+                        <button
+                          key={hit.key}
+                          type="button"
+                          onClick={() => openSearch(hit)}
+                          className="flex w-full min-w-0 items-baseline gap-3 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-raised"
+                        >
+                          <span className="min-w-0 flex-1 text-sm text-fg">{hit.label}</span>
+                          <span className="shrink-0 font-mono text-xs text-primary">{hit.section}</span>
+                        </button>
+                      ))}
+                      {hits.length > 12 ? <p className="px-3 py-2 text-xs text-muted">Add another word. {hits.length - 12} more are hidden.</p> : null}
+                    </>
+                  )}
+                </div>
               ) : null}
-            </label>
+            </div>
             <button
               type="button"
               aria-pressed={openOnly}
@@ -499,7 +584,7 @@ export function MethodDesk() {
           {showWinrm ? <WinrmCard /> : null}
           {section === "Notes" ? <NotesPanel onOpenLoot={(id) => { setLootFocus(id); setSection("Loot"); }} /> : null}
           {section === "Runs" ? (
-            <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
+            <article id="panel-runs" className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
               <div className="border-b border-border px-4 py-3">
                 <p className="font-mono text-xs text-primary">Runs</p>
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
@@ -524,7 +609,7 @@ export function MethodDesk() {
               }}
             />
           ) : null}
-          {section === "API" || /jwt|bearer|openapi|swagger/i.test(query) ? <JwtCheck /> : null}
+          {section === "API" ? <JwtCheck /> : null}
           {section === "Report" ? <ReportWriter /> : null}
           {visibleScripts.map((s) => (
             <ScriptCard
@@ -543,7 +628,7 @@ export function MethodDesk() {
               onToggleSource={() => setOpenSource((id) => (id === s.id ? null : s.id))}
             />
           ))}
-          {(query.trim() || section !== "Scripts") &&
+          {section !== "Scripts" &&
             visible.map((t) => (
               <Card
                 key={t.id}
@@ -560,11 +645,6 @@ export function MethodDesk() {
                 onJump={jumpTo}
               />
             ))}
-          {query.trim() && matchCount === 0 ? (
-            <p className="rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-muted">
-              Nothing matches. Try a port, a tool, or a privilege name.
-            </p>
-          ) : null}
         </main>
       </div>
       </div>
@@ -604,7 +684,7 @@ function ScriptCard({
     if (open) ref.current?.scrollIntoView({ block: "nearest" });
   }, [open]);
   return (
-    <article ref={ref} className={"min-w-0 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
+    <article id={`script-${item.id}`} ref={ref} className={"min-w-0 scroll-mt-4 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
       <div className="flex items-stretch">
         <button
           type="button"
@@ -776,7 +856,7 @@ function Card({
     if (open) ref.current?.scrollIntoView({ block: "nearest" });
   }, [open]);
   return (
-    <article ref={ref} className={"min-w-0 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
+    <article id={`card-${item.id}`} ref={ref} className={"min-w-0 scroll-mt-4 overflow-hidden rounded-lg border bg-surface " + (unsure ? "border-[#8a5a20]" : "border-border")}>
       <div className="flex items-stretch">
         <button
           type="button"
