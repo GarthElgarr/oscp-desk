@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { ShellTerm } from "@/components/shell-term";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getJobs, getJobsServer, launchJob, stopJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 import { penelopeBeats, penelopeInShell, penelopeLine, penelopePlan, type PenelopeBeat } from "@/lib/penelope-plan";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -13,10 +15,11 @@ const WAIT = {
 };
 
 export function PenelopeCard() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [mode, setMode] = useState<"listen" | "connect">("listen");
   const [port, setPort] = useState("443");
-  const [iface, setIface] = useState("0.0.0.0");
-  const [host, setHost] = useState("");
+  const [iface, setIface] = useGlobalField(globals.iface, "0.0.0.0");
+  const [host, setHost] = useGlobalField(globals.target);
   const [session, setSession] = useState("1");
   const [local, setLocal] = useState("/home/kali/linpeas.sh");
   const [remote, setRemote] = useState("/tmp/linpeas.sh");

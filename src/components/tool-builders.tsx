@@ -13,6 +13,8 @@ import { WfuzzBuilder } from "@/components/wfuzz-builder";
 import { SnmpBuilder } from "@/components/snmp-builder";
 import { LootPick } from "@/components/loot-card";
 import { getLoot, getLootServer, lootLines, LOOT_HASHCAT, subscribeLoot, type LootKind } from "@/lib/loot";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { useGlobalField } from "@/lib/use-global-field";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
 export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket";
@@ -1273,8 +1275,9 @@ const HYDRA_SERVICES: {
 ];
 
 function HydraBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [serviceId, setServiceId] = useState("ssh");
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useGlobalField(globals.target);
   const [port, setPort] = useState("");
   const [userMode, setUserMode] = useState<"one" | "file" | "loot">("one");
   const [user, setUser] = useState("admin");
@@ -1640,9 +1643,10 @@ const NXC_ACTIONS: NxcAction[] = [
 ];
 
 function NxcBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [proto, setProto] = useState("smb");
   const [action, setAction] = useState("auth");
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useGlobalField(globals.target);
   const [auth, setAuth] = useState<"pass" | "hash" | "anon" | "cache" | "key">("pass");
   const [user, setUser] = useState("");
   const [secret, setSecret] = useState("");

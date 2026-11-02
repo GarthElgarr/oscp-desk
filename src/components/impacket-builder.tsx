@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
 import { impacketPlan, type ImpacketInput, type ImpacketMode } from "@/lib/impacket-plan";
 import { quoteHydraArg } from "@/lib/hydra-args";
 import { LootPick } from "@/components/loot-card";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -75,10 +76,18 @@ const blank: ImpacketInput = {
 };
 
 export function ImpacketBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const hostEdited = useRef(false);
   const [form, setForm] = useState<ImpacketInput>(blank);
   const [extra, setExtra] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
-  const set = (patch: Partial<ImpacketInput>) => setForm((prev) => ({ ...prev, ...patch }));
+  useEffect(() => {
+    if (!hostEdited.current && globals.target) setForm((prev) => ({ ...prev, host: globals.target }));
+  }, [globals.target]);
+  const set = (patch: Partial<ImpacketInput>) => {
+    if ("host" in patch) hostEdited.current = true;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
   const plan = useMemo(() => impacketPlan(form), [form]);
   const ready = !("error" in plan);
   const shown = ready ? [plan.command, ...extra.map(quoteHydraArg)].join(" ") : "";

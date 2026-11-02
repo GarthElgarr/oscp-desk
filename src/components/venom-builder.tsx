@@ -1,5 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { useGlobalField } from "@/lib/use-global-field";
 
 type Kind = "reverse" | "bind" | "meter-staged" | "meter-stageless" | "exec";
 
@@ -330,10 +332,11 @@ const control =
   "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
 export function VenomBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [platform, setPlatform] = useState("win64");
   const [kind, setKind] = useState<Kind>("reverse");
   const [format, setFormat] = useState("exe");
-  const [lhost, setLhost] = useState("");
+  const [lhost, setLhost] = useGlobalField(globals.localIp);
   const [lport, setLport] = useState("443");
   const [user, setUser] = useState("ops");
   const [password, setPassword] = useState("");

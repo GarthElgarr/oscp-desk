@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { launchJob } from "@/lib/live-jobs";
 import type { LiveJob } from "@/lib/live-jobs";
+import { useGlobalField } from "@/lib/use-global-field";
 import {
   CISCO_SSID_OID,
   QUICK_COMMUNITIES,
@@ -101,7 +103,8 @@ function Readout({ view }: { view: SnmpView }) {
 }
 
 export function SnmpBuilder() {
-  const [target, setTarget] = useState("");
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const [target, setTarget] = useGlobalField(globals.target);
   const [version, setVersion] = useState<"1" | "2c">("2c");
   const [community, setCommunity] = useState("public");
   const [oid, setOid] = useState("");

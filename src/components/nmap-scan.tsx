@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { JobList } from "@/components/job-list";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getJobs, getJobsServer, launchJob, subscribeJobs } from "@/lib/live-jobs";
 import { nmapExtra, nmapName, nmapPlan, nmapPorts, nmapTarget, type NmapProfile } from "@/lib/nmap-scan";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -14,7 +16,8 @@ const PROFILES: { id: NmapProfile; label: string }[] = [
 ];
 
 export function NmapScan() {
-  const [target, setTarget] = useState("");
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const [target, setTarget] = useGlobalField(globals.target);
   const [profile, setProfile] = useState<NmapProfile>("quick");
   const [name, setName] = useState("quick");
   const [nameTouched, setNameTouched] = useState(false);

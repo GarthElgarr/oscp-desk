@@ -1,8 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { WFUZZ_LISTS, wfuzzArgsOk, wfuzzPlan, type WfuzzList, type WfuzzMode } from "@/lib/wfuzz-args";
 import { quoteHydraArg } from "@/lib/hydra-args";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -29,8 +31,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function WfuzzBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [mode, setMode] = useState<WfuzzMode>("dir");
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useGlobalField(globals.target ? `http://${globals.target}/` : "");
   const [listId, setListId] = useState<WfuzzList>("dirb");
   const [customList, setCustomList] = useState("found.txt");
   const [listTwo, setListTwo] = useState("found.txt");

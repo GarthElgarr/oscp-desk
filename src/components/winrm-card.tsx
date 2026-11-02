@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { winrmPlan } from "@/lib/winrm-plan";
 import { LootPick } from "@/components/loot-card";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
 export function WinrmCard() {
-  const [host, setHost] = useState("");
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const [host, setHost] = useGlobalField(globals.target);
   const [user, setUser] = useState("");
   const [secret, setSecret] = useState("");
   const [mode, setMode] = useState<"pass" | "hash">("pass");

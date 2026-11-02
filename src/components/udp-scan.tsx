@@ -1,13 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { launchJob } from "@/lib/live-jobs";
 import { UDP_PROBES, udpCommand, udpTarget, type UdpProbe } from "@/lib/udp-scan";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none";
 
 export function UdpScan() {
-  const [target, setTarget] = useState("");
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const [target, setTarget] = useGlobalField(globals.target);
   const [probe, setProbe] = useState<UdpProbe>("all");
   const [copied, setCopied] = useState(false);
   const host = udpTarget(target);

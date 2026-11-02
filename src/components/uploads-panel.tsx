@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Copy, RefreshCw } from "lucide-react";
 import { listUploadFiles, updateStandardPeas, type UploadsListing } from "@/lib/uploads";
 import { transferPlan, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -12,9 +14,10 @@ function formatSize(size: number): string {
 }
 
 export function UploadsPanel() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [listing, setListing] = useState<UploadsListing | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [host, setHost] = useState("");
+  const [host, setHost] = useGlobalField(globals.localIp);
   const [port, setPort] = useState("8080");
   const [file, setFile] = useState("");
   const [os, setOs] = useState<TransferOs>("windows");

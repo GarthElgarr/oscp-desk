@@ -15,6 +15,8 @@ import { getLoot, getLootServer, subscribeLoot } from "@/lib/loot";
 import { LootCard } from "@/components/loot-card";
 import { NotesPanel } from "@/components/notes-panel";
 import { InstallTools } from "@/components/install-tools";
+import { GlobalConfig } from "@/components/global-config";
+import { RevShells } from "@/components/revshells";
 import { CoverImage } from "@/components/cover-image";
 import { MatrixRain } from "@/components/matrix-rain";
 import { NmapReports } from "@/components/nmap-reports";
@@ -142,6 +144,7 @@ export function MethodDesk() {
   const [openSource, setOpenSource] = useState<string | null>(null);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [shellJump, setShellJump] = useState(false);
   const [builderTab, setBuilderTab] = useState<ToolId | null>(null);
   const [jump, setJump] = useState<{ anchor: string; n: number } | null>(null);
   const runs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
@@ -149,6 +152,12 @@ export function MethodDesk() {
   useEffect(() => {
     void syncJobs();
   }, []);
+
+  useEffect(() => {
+    if (!shellJump || section !== "Shells") return;
+    document.getElementById("panel-revshells")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setShellJump(false);
+  }, [shellJump, section]);
 
   useEffect(() => {
     setDone(loadIds(STORE));
@@ -292,6 +301,7 @@ export function MethodDesk() {
   const showTransfer = (!query.trim() && (section === "Uploads" || section === "Shells")) || /certutil|wget|\biwr\b|transfer|tun0|uploads/i.test(query);
   const showWinrm = (!query.trim() && (section === "Windows" || section === "Shells")) || /evil-winrm|winrm/i.test(query);
   const showPenelope = (!query.trim() && section === "Shells") || /penelope|listener|\bnc\b/i.test(query);
+  const showRev = (!query.trim() && section === "Shells") || /revshell|reverse shell|payload/i.test(query);
   const showLoot = section === "Loot" || /\bloot\b|nthash|netntlm/i.test(query);
   const lootCount = useSyncExternalStore(subscribeLoot, getLoot, getLootServer).length;
   const builderTools = useMemo(() => {
@@ -391,6 +401,13 @@ export function MethodDesk() {
             </button>
           </div>
           <InstallTools />
+          <GlobalConfig
+            onShells={() => {
+              setQuery("");
+              setSection("Shells");
+              setShellJump(true);
+            }}
+          />
         </div>
       </header>
 
@@ -458,6 +475,7 @@ export function MethodDesk() {
         <main className="flex min-w-0 flex-col gap-4">
           {showTransfer ? <UploadsPanel /> : null}
           {showLoot ? <LootCard focusId={lootFocus} /> : null}
+          {showRev ? <RevShells /> : null}
           {showPenelope ? <PenelopeCard /> : null}
           {showWinrm ? <WinrmCard /> : null}
           {section === "Notes" ? <NotesPanel onOpenLoot={(id) => { setLootFocus(id); setSection("Loot"); }} /> : null}

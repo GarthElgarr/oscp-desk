@@ -1,6 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { tunnelPlan, type ChiselMode, type PivotOs, type TunnelGraph, type TunnelTool } from "@/lib/tunnel-plan";
+import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -137,10 +139,11 @@ function PathGraph({ graph }: { graph: TunnelGraph }) {
 }
 
 export function TunnelBuilder() {
+  const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
   const [tool, setTool] = useState<TunnelTool>("chisel");
   const [os, setOs] = useState<PivotOs>("linux");
-  const [kali, setKali] = useState("");
-  const [pivot, setPivot] = useState("");
+  const [kali, setKali] = useGlobalField(globals.localIp);
+  const [pivot, setPivot] = useGlobalField(globals.target);
   const [filePort, setFilePort] = useState("80");
   const [chiselMode, setChiselMode] = useState<ChiselMode>("socks");
   const [chiselPort, setChiselPort] = useState("8000");
