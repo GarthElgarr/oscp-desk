@@ -18,6 +18,7 @@ import { InstallTools } from "@/components/install-tools";
 import { GlobalConfig } from "@/components/global-config";
 import { CoverImage } from "@/components/cover-image";
 import { MatrixRain } from "@/components/matrix-rain";
+import { RainColor } from "@/components/rain-color";
 import { NmapReports } from "@/components/nmap-reports";
 import { JobList } from "@/components/job-list";
 import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
@@ -345,6 +346,7 @@ export function MethodDesk() {
               <p className="font-mono text-sm text-muted">
                 {marked}/{total} checked{unsureCount ? ` · ${unsureCount} unsure` : ""}
               </p>
+              <RainColor />
               <button
                 type="button"
                 onClick={() => {

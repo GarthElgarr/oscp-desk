@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { DESK_RAIN, getMatrixColor, getMatrixColorServer, rainPalette, subscribeMatrixColor } from "@/lib/matrix-color";
 
 const GLYPHS = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓ0123456789";
 const FONT = 16;
@@ -6,6 +7,9 @@ const COLUMN = 72 * 16;
 
 /** Falling glyphs in the empty margins. The centre column is left clear. */
 export function MatrixRain() {
+  const chosen = useSyncExternalStore(subscribeMatrixColor, getMatrixColor, getMatrixColorServer);
+  const color = useRef(chosen || DESK_RAIN);
+  color.current = chosen || DESK_RAIN;
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -35,10 +39,11 @@ export function MatrixRain() {
 
     function draw() {
       if (!alive) return;
+      const paint = rainPalette(color.current);
       const band = Math.min(width, COLUMN);
       const left = (width - band) / 2;
       const right = left + band;
-      ctx!.fillStyle = "rgba(16, 20, 16, 0.14)";
+      ctx!.fillStyle = paint.fade;
       ctx!.fillRect(0, 0, left, height);
       ctx!.fillRect(right, 0, width - right, height);
       ctx!.font = `${FONT}px "IBM Plex Mono", ui-monospace, monospace`;
@@ -47,7 +52,7 @@ export function MatrixRain() {
         if (x + FONT > left && x < right) continue;
         const y = drops[i] * FONT;
         const glyph = GLYPHS[Math.floor(Math.random() * GLYPHS.length)] ?? "0";
-        ctx!.fillStyle = Math.random() > 0.92 ? "rgba(214, 245, 214, 0.95)" : "rgba(90, 168, 120, 0.7)";
+        ctx!.fillStyle = Math.random() > 0.92 ? paint.head : paint.body;
         ctx!.fillText(glyph, x, y);
         drops[i] += 1;
         if (y > height && Math.random() > 0.975) drops[i] = 0;

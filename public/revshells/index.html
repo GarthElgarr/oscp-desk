@@ -15,15 +15,14 @@
     <link rel="stylesheet" href="css/light-mode.css">
     <link rel="stylesheet" href="css/meme-mode.css">
     <style>
-      html { background-color: #040a1c; }
-      body.bg-black { background-color: #040a1c !important; }
+      html { background-color: var(--rain-page, #040a1c); }
+      body.bg-black { background-color: var(--rain-page, #040a1c) !important; }
       #matrix-rain { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; }
       .github-corner, body > .container { position: relative; z-index: 1; }
-      #desk-back {
+      #desk-back, #rain-pick {
         position: fixed;
         z-index: 3;
         top: 12px;
-        left: 12px;
         color: #d7e8ff;
         background: rgba(6, 16, 36, 0.82);
         border: 1px solid #3d7dff;
@@ -33,6 +32,9 @@
         font-family: ui-monospace, monospace;
         font-size: 14px;
       }
+      #desk-back { left: 12px; }
+      #rain-pick { left: 132px; display: inline-flex; align-items: center; gap: 8px; }
+      #rain-pick input { width: 36px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }
     </style>
     <meta name="description" content="Online Reverse Shell generator with Local Storage functionality, URI & Base64 Encoding, MSFVenom Generator, and Raw Mode. Great for CTFs." />
     <meta name="title" content="Online - Reverse Shell Generator">
@@ -83,6 +85,7 @@
 <body class="bg-black">
     <canvas id="matrix-rain" aria-hidden="true"></canvas>
     <a id="desk-back" href="/">Back to desk</a>
+    <label id="rain-pick">Rain <input id="rain-color" type="color" value="#4696ff" aria-label="Rain colour"></label>
     <div class="container d-flex flex-column vh-100">
         <div class="custom-control float-right" style="margin-left: -25px;">
             <label for="theme-selector" class="card-title col-auto col-form-label float-left"
