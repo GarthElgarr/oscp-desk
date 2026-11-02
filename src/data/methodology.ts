@@ -63,14 +63,18 @@ nmap -Pn -sC -sV -p <new-ports> -oA scans/deep <ip>
     id: "exam-set",
     section: "Exam",
     title: "A set, not one host",
-    look: "A challenge set is several hosts and often two networks. The shape is external web, then a password that moves, then a network Kali cannot see, then the domain. The first shell is a foothold. It is not the set.",
-    cmd: `# 1. TCP and UDP on every host you were given. One folder each.
-# 2. A second HTTP port (8000, 8080, 443) is a second site. A default IIS page means try the hostname from the certificate or from a note.
-# 3. A CMS: default creds for that product, then upload or the one version bug. Then leave that site.
-# 4. On the shell, before privesc: history, transcripts, configs, mail you can already log into, a .kdbx, a key.
-# 5. That password, once, on the other hosts you can already reach. The password card. Not a new exploit.
-# 6. ipconfig /all or ip a. A second subnet is the tunnel card, then the same list on the new hosts.
-# 7. Domain admin or replication rights: DCSync. Not from the web user.`,
+    look: "A challenge set is several hosts and often two networks. These are the checks, in order. Each line is a method. Mark it dead and move on. It is not a walkthrough of one lab.",
+    cmd: `# 1. Every host: TCP and UDP. A second web port is a second site.
+# 2. Web: name the product. Then that product's default login. Then upload, or the bug that needs the login.
+#    The IP shows the IIS default page: add the FQDN from the certificate or a note, and request that name.
+# 3. LFI: prove it with a real file, then the same parameter for a user's SSH key. The SSH port may not be 22.
+# 4. FTP: anonymous, then read the files. A note that names a user is the next login.
+# 5. On a Linux shell: sudo -l, then sudo -V (Baron), then the kernel card. Not the kernel first.
+# 6. On a Windows shell: history, then transcripts, then a .kdbx, then whoami /groups.
+# 7. A password you already have, and port 110 or 143 is open: read that mailbox. Do not send mail.
+# 8. That same password, once: SMB, WinRM, RDP, SSH, on the other hosts you can already reach.
+# 9. A second subnet on the shell: the tunnel card, then this list again on the new hosts.
+# 10. Domain admin or replication rights: DCSync. Not from the first web user.`,
     alive: "You can name the external host, the password that moved you, and the network you still cannot scan from Kali.",
     dead: "You are still on the first CMS after it gave you a shell, or DCSync from that web user returned access denied.",
     next: "The password card, then the tunnel card if a second NIC exists. The AD page starts when whoami shows a domain.",
@@ -530,7 +534,11 @@ curl -s 'http://<ip>/index.php?page=../../../../etc/passwd'
 # Windows
 curl -s 'http://<ip>/index.php?page=../../../../windows/win.ini'
 # PHP wrappers, only if you already proved file read
-curl -s 'http://<ip>/index.php?page=php://filter/convert.base64-encode/resource=index.php'`,
+curl -s 'http://<ip>/index.php?page=php://filter/convert.base64-encode/resource=index.php'
+# once that file is real, the same parameter, one key
+# ../../../../home/<user>/.ssh/id_rsa
+# ../../../../home/<user>/.ssh/id_ecdsa
+# SSH may be on 2222. A passphrase is ssh2john, not a guess.`,
     alive: "root:x:0:0: or a [fonts] section from win.ini, or a base64 blob that decodes to PHP.",
     dead: "The same HTML every time, or a generic 404. One encoding trick is enough. Do not spend an hour on filters you have not confirmed.",
     next: "Read source, configs, and SSH keys. A key still needs the passphrase check (SSH card).",
@@ -657,6 +665,7 @@ admin' AND '1'='2'-- -
     look: "An authenticated upload that lands in a web-accessible folder. The extension and the Content-Type are the checks. The path of the uploaded file is the shell.",
     cmd: `# after a normal login to the product
 # upload a tiny php or aspx that prints the user
+# if the form rejects that extension, one bypass: a double extension, or the content-type the form accepts
 # then request the URL the app returns
 curl -s http://<ip>/uploads/test.php`,
     alive: "The response body is the command output, or whoami, not the source code of your file.",
@@ -693,14 +702,16 @@ ping 127.0.0.1; id
     id: "web-cms",
     section: "Web",
     title: "CMS",
-    look: "WordPress, Joomla, Drupal, Umbraco, DNN, RiteCMS. Version in readme, meta generator, or the admin footer.",
-    cmd: `wpscan --url http://<ip> --enumerate u,p
-# joomla
+    look: "WordPress, Joomla, Drupal, Umbraco, DNN, RiteCMS. Name it before you hunt a CVE. The check is that product's default login, then the one action that product allows once you are in.",
+    cmd: `# Name it. Footer, generator, readme, or the admin page title.
+wpscan --url http://<ip> --enumerate u,p
 droopescan scan joomla -u http://<ip>
-# then the admin path the scanner prints`,
+# RiteCMS: find the admin path, often /cms/admin.php. One default pair. Then the upload bypass for that version.
+# DNN: admin login, then an aspx upload into a folder the site executes.
+# Umbraco: the authenticated bug only after a password. If the IP is the IIS default page, add the FQDN and request that name.`,
     alive: "A version plus an admin login, or a plugin with a known issue you can reach without auth.",
     dead: "Scanner noise about headers and no users, no version, no login. Treat it as a normal site.",
-    next: "Default creds, then upload or template edit. That is the usual OSCP CMS path.",
+    next: "You are in: the upload card. A parameter names a file: the LFI card. Do not searchsploit the web server.",
   },
   {
     id: "web-xss",

@@ -1060,6 +1060,7 @@ searchsploit <product> <version>`,
     title: "Defaults, not a wordlist",
     look: "One or two product defaults, typed by hand, after you know the product. This is not rockyou and not hydra. SprayGen is how you build a tiny company list (name, season, year) when you already know the org. One pattern, then stop.",
     cmd: `# anonymous FTP: anonymous / empty
+# RiteCMS, DNN, Umbraco: admin / admin, then admin / password, once
 # Tomcat: tomcat / tomcat    admin / admin
 # Jenkins: admin / admin, or no login at all
 # MySQL: root / empty

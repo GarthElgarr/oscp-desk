@@ -2,9 +2,9 @@ export const WHY: Record<string, string> = {
   "exam-order": `mkdir -p creates the host folder and does not complain if it already exists. {scans,loot,shells} makes three folders in one command. <ip> is a placeholder. Type the real address. Do not type the brackets.
 The four nmap lines are the required map of the host. -Pn skips ping, because lab hosts often ignore it. -sC runs the default scripts and -sV asks for the version. -oA saves the scan in that folder. -p- is every TCP port. --min-rate 2000 keeps that pass from taking an hour. -sU is UDP, and sudo is there because UDP needs root. --top-ports 20 is the UDP pass you always run. It is not optional, and it is not all 65535 ports. The last nmap repeats scripts only on TCP ports the full scan added.`,
 
-  "exam-set": `Every line starts with #, so the block is a checklist, not a script.
-A set has more than one host. Finish the port list on each of them before you live inside the first website. A second web port is a second application. A page that only says IIS Windows Server often wants the hostname from the certificate or from a file you already downloaded. Put that name in /etc/hosts and request it again.
-The shell is where you stop hunting that site. Read history, transcripts, configs, a mailbox you can already open, a KeePass file, and keys. The password you find is tried on the other hosts you can already reach. ipconfig or ip a shows a second subnet. That is the tunnel. DCSync is the last step, and only after a domain admin or replication rights. A web user who gets access denied was never the domain admin.`,
+  "exam-set": `Every line starts with #, so the block is a checklist of methods, not a script and not one lab's answers.
+You run a line only when its condition is true. A second web port means a second site. A named CMS means that product's default login, then upload or the bug that needs the session. An IIS default page means the name from the certificate or a downloaded note goes into the hosts file.
+LFI is proved with a real file before you ask it for a key. Anonymous FTP is a download, then you read the file. On Linux, sudo -l and the sudo version come before a kernel exploit. On Windows, history and transcripts come before mimikatz. A mailbox is read only when you already have that password. The same password is then one login on SMB, WinRM, RDP, and SSH. A second subnet is a tunnel. DCSync is last, and only with domain admin or replication rights.`,
 
   "exam-stuck": `Every line starts with #, so nothing here executes. It is a checklist you read when you feel busy but have no new fact.
 The point of writing it as comments is that you can paste the block into notes without the shell trying to run a sentence.`,
@@ -67,7 +67,7 @@ SYSTEM_USER prints who you are. IS_SRVROLEMEMBER('sysadmin') returns 1 when you 
   "web-id": `curl -s fetches the page with no progress meter. | head keeps the first 10 lines so you see the title, a generator tag, or a comment without dumping the whole site.
 The login lines are comments. # means do not run them. admin/admin is something you type into the form only after the page has told you which product it is.`,
 
-  "web-lfi": `Each curl requests one URL. -s is silent. The single quotes stop bash from eating ? and &. page= is the parameter you are testing. ../ means parent directory. Enough of them walk from the web folder to the filesystem root, then etc/passwd or windows/win.ini.
+  "web-lfi": `Each curl requests one URL. -s is silent. The single quotes stop bash from eating ? and &. page= is the parameter you are testing. ../ means parent directory. Enough ../ walks from the web folder to the filesystem root. Once passwd or win.ini is real, the same parameter is asked for one SSH key under that user's home. id_rsa and id_ecdsa are the two names to try. A key with a passphrase is ssh2john. The SSH port in the nmap file may be 2222.
 The php://filter URL is only for a parameter you have already shown can read files. convert.base64-encode makes PHP print the source in base64 instead of executing it. resource= is the file to encode.
 A URL in single quotes is sent literally. Change the parameter name to match the application.`,
 
@@ -93,7 +93,7 @@ A stacked query is a second statement after a semicolon. MSSQL and Postgres ofte
 -- - comments out the rest of the query, including the password check. A single quote on its own is not this test.`,
 
   "web-upload": `This card has no scanner command. You use the application's own upload after a normal login. curl -s then requests the URL the application gave you for the stored file.
-If the body is the command output, the server executed the file. If the body is your source code, it only stored it.`,
+If the body is the command output, the server executed the file. If the body is your source code, it only stored it. A form that rejects php or aspx gets one bypass, a double extension or the content-type it accepts, and then the same request.`,
 
   "web-cmdi": `These are payloads, not shell commands you run on Kali. You put them in the field that the application passes to a system command, often a ping box.
 ; starts a second command after the first. | pipes the first command into the next, and on some shells the second command still runs even if ping rejects the input. id and whoami are the proof because their output is obvious and they do not change the target.`,
@@ -102,7 +102,7 @@ If the body is the command output, the server executed the file. If the body is 
 Send one at a time. The one that returns 49 tells you the engine.`,
 
   "web-cms": `wpscan is for WordPress. --url is the site. --enumerate u,p asks for users and plugins.
-droopescan scan joomla -u runs the Joomla scan against that URL. -u is the target. Read the admin path it prints. Do not run both tools until you know which CMS you have.`,
+droopescan scan joomla -u runs the Joomla scan against that URL. The comments under it are the checks for the other three products. RiteCMS is an admin path, one default pair, then the upload bypass for that version. DNN is an admin login, then an aspx file in a folder the site executes. Umbraco's bug needs the password first. If the IP only shows the IIS page, the FQDN from the certificate or a note is what you request.`,
 
   "web-xss": `These are strings you submit in a reflected field, not commands. <script> runs if the page inserts your input as HTML. The img line uses a broken image and onerror so the browser runs alert(1) when the image fails.
 alert(1) only proves the browser executed your HTML. It is not a shell.`,
