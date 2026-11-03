@@ -36,3 +36,17 @@ test("the same word can be both the username and the password", () => {
   if ("error" in list) return;
   assert.deepEqual(list.lines, ["Basic YWRtaW46YWRtaW4=", "Basic cm9vdDpyb290"]);
 });
+
+test("rockyou sized text is refused before any encoding", () => {
+  const list = basicList({ users: "admin", passwords: "p\n".repeat(3000), pairing: "each", delimiter: ":", prefix: "" });
+  assert.ok("error" in list);
+  if (!("error" in list)) return;
+  assert.match(list.error, /Hydra/);
+});
+
+test("every username with a long password list is refused before it is built", () => {
+  const users = Array.from({ length: 100 }, (_, i) => `u${i}`).join("\n");
+  const passwords = Array.from({ length: 100 }, (_, i) => `p${i}`).join("\n");
+  const list = basicList({ users, passwords, pairing: "each", delimiter: ":", prefix: "" });
+  assert.ok("error" in list);
+});

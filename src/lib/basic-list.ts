@@ -1,11 +1,18 @@
 export type BasicPairing = "each" | "line" | "same";
 
-const MAX_LINES = 20000;
+/** A short basic-auth list. Rockyou is a Hydra job, not a page of base64. */
+export const BASIC_MAX_OUT = 5000;
+const MAX_CHARS = 200_000;
+const MAX_INPUT_LINES = 2_000;
 
-export function splitList(text: string): string[] {
+export function splitList(text: string): string[] | { error: string } {
+  if (text.length > MAX_CHARS) return { error: "That list is too big for this page. Rockyou will freeze the browser. Use a short list here. Hydra is the tool for rockyou." };
   const seen = new Set<string>();
   const out: string[] = [];
+  let rows = 0;
   for (const raw of text.split(/\r?\n/)) {
+    rows += 1;
+    if (rows > MAX_INPUT_LINES) return { error: "That list is over 2,000 lines. This page builds a short basic-auth list, not a wordlist attack. Use Hydra for rockyou." };
     const line = raw.trim();
     if (!line || seen.has(line)) continue;
     seen.add(line);
@@ -21,25 +28,26 @@ function encode(value: string): string {
   return btoa(binary);
 }
 
-export function basicList(input: { users: string; passwords: string; pairing: BasicPairing; delimiter: string; prefix: string }): { lines: string[]; total: number; cut: boolean } | { error: string } {
+export function basicList(input: { users: string; passwords: string; pairing: BasicPairing; delimiter: string; prefix: string }): { lines: string[]; total: number } | { error: string } {
   if (input.delimiter.length > 8 || /[\r\n\0]/.test(input.delimiter)) return { error: "The delimiter is a short mark, such as : or nothing." };
   if (input.prefix.length > 20 || /[\r\n\0]/.test(input.prefix)) return { error: "The prefix is a short label, such as Basic." };
   const users = splitList(input.users);
+  if ("error" in users) return users;
   if (users.length === 0) return { error: "Add at least one username, one per line." };
   const passwords = input.pairing === "same" ? users : splitList(input.passwords);
+  if ("error" in passwords) return passwords;
   if (passwords.length === 0) return { error: "Add at least one password, one per line. Or set the password to the username." };
-  const pairs: { user: string; pass: string }[] = [];
+  const total = input.pairing === "line" ? Math.min(users.length, passwords.length) : input.pairing === "same" ? users.length : users.length * passwords.length;
+  if (total === 0) return { error: "Those lists do not make a pair." };
+  if (total > BASIC_MAX_OUT) return { error: `${total.toLocaleString()} lines is too many. Every username with every password multiplies. Cut a list, or pair line by line. Hydra is the tool for rockyou.` };
+  const lines: string[] = [];
+  const push = (user: string, pass: string) => lines.push(input.prefix + encode(user + input.delimiter + pass));
   if (input.pairing === "line") {
-    const count = Math.min(users.length, passwords.length);
-    for (let i = 0; i < count; i += 1) pairs.push({ user: users[i] ?? "", pass: passwords[i] ?? "" });
+    for (let i = 0; i < total; i += 1) push(users[i] ?? "", passwords[i] ?? "");
   } else if (input.pairing === "same") {
-    for (const user of users) pairs.push({ user, pass: user });
+    for (const user of users) push(user, user);
   } else {
-    for (const user of users) for (const pass of passwords) pairs.push({ user, pass });
+    for (const user of users) for (const pass of passwords) push(user, pass);
   }
-  if (pairs.length === 0) return { error: "Those lists do not make a pair. Line by line needs the same number of rows, or the shorter list wins and this one is empty." };
-  const total = pairs.length;
-  const cut = total > MAX_LINES;
-  const lines = pairs.slice(0, MAX_LINES).map((pair) => input.prefix + encode(pair.user + input.delimiter + pair.pass));
-  return { lines, total, cut };
+  return { lines, total };
 }
