@@ -5,6 +5,7 @@ import { impacketPlan, type ImpacketInput, type ImpacketMode } from "@/lib/impac
 import { quoteHydraArg } from "@/lib/hydra-args";
 import { LootPick } from "@/components/loot-card";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { getExam, getExamServer, relayBlock, subscribeExam } from "@/lib/exam-lock";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
 
@@ -77,6 +78,7 @@ const blank: ImpacketInput = {
 
 export function ImpacketBuilder() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   const hostEdited = useRef(false);
   const [form, setForm] = useState<ImpacketInput>(blank);
   const [extra, setExtra] = useState<string[]>([]);
@@ -89,7 +91,8 @@ export function ImpacketBuilder() {
     setForm((prev) => ({ ...prev, ...patch }));
   };
   const plan = useMemo(() => impacketPlan(form), [form]);
-  const ready = !("error" in plan);
+  const stopped = form.mode === "relay" ? relayBlock(exam.on) : null;
+  const ready = !stopped && !("error" in plan);
   const shown = ready ? [plan.command, ...extra.map(quoteHydraArg)].join(" ") : "";
   const show = (modes: ImpacketMode[]) => modes.includes(form.mode);
   const auth = show(["secrets-remote", "psexec", "smbexec", "wmiexec", "atexec", "mssql", "smbclient", "kerberoast", "gettgt", "getst", "lookupsid", "rpcdump", "samrdump", "adusers", "delegation", "services", "reg", "passwd", "addcomputer", "rbcd"]);
@@ -291,7 +294,7 @@ export function ImpacketBuilder() {
           </button>
         </div>
         <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">
-          {ready ? shown : "error" in plan ? plan.error : ""}
+          {stopped ? stopped : ready ? shown : "error" in plan ? plan.error : ""}
         </pre>
         {ready ? <p className="text-sm text-fg">{plan.why}</p> : null}
         {ready && plan.run ? (

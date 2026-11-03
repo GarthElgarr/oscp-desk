@@ -1,6 +1,7 @@
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { claimMeterpreter, getExam, getExamServer, meterpreterBlock, subscribeExam } from "@/lib/exam-lock";
 import { useGlobalField } from "@/lib/use-global-field";
 
 type Kind = "reverse" | "bind" | "meter-staged" | "meter-stageless" | "exec";
@@ -333,6 +334,7 @@ const control =
 
 export function VenomBuilder() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   const [platform, setPlatform] = useState("win64");
   const [kind, setKind] = useState<Kind>("reverse");
   const [format, setFormat] = useState("exe");
@@ -406,6 +408,7 @@ export function VenomBuilder() {
         : spec.kind.startsWith("meter")
           ? `msfconsole -q -x "use exploit/multi/handler; set payload ${spec.payload}; set LHOST ${host}; set LPORT ${port}; run"`
           : `penelope -O -p ${port}`;
+  const meterBlock = spec.kind.startsWith("meter") ? meterpreterBlock(exam.on, exam.host, globals.target) : null;
 
   function pickPlatform(next: string) {
     setPlatform(next);
@@ -423,7 +426,8 @@ export function VenomBuilder() {
   }
 
   async function copyCmd() {
-    if (!cmd) return;
+    if (!cmd || meterBlock) return;
+    if (spec.kind.startsWith("meter")) claimMeterpreter(globals.target);
     try {
       await navigator.clipboard.writeText(cmd);
       setCopied(true);
@@ -521,7 +525,7 @@ export function VenomBuilder() {
             <button
               type="button"
               onClick={copyCmd}
-              disabled={!cmd}
+              disabled={!cmd || Boolean(meterBlock)}
               className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs text-muted hover:text-fg disabled:opacity-40"
             >
               <Copy className="size-3.5" aria-hidden="true" />
@@ -529,8 +533,11 @@ export function VenomBuilder() {
             </button>
           </div>
           <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">
-            {cmd || "Fill in the address and port. The command appears here."}
+            {meterBlock || cmd || "Fill in the address and port. The command appears here."}
           </pre>
+          {meterBlock ? null : spec.kind.startsWith("meter") && exam.on ? (
+            <p className="mt-2 text-sm text-muted">Copying this claims {globals.target || "Target IP"} as your one Meterpreter machine.</p>
+          ) : null}
         </div>
         <div>
           <p className="font-mono text-xs tracking-wide text-primary">WHAT IT DOES</p>
@@ -542,7 +549,7 @@ export function VenomBuilder() {
           </p>
           <p className="mt-2 text-sm text-muted">{spec.note}</p>
         </div>
-        {follow ? (
+        {follow && !meterBlock ? (
           <div>
             <p className="font-mono text-xs tracking-wide text-muted">THEN</p>
             <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-bg p-3 font-mono text-xs text-fg">

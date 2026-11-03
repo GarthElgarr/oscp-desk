@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { getGlobals, getGlobalsServer, setGlobals, subscribeGlobals } from "@/lib/desk-globals";
+import { getExam, getExamServer, setExam, subscribeExam } from "@/lib/exam-lock";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -12,6 +13,7 @@ function revshellHref(ip: string): string {
 
 export function GlobalConfig() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   return (
     <div className="mt-3">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -36,6 +38,33 @@ export function GlobalConfig() {
       <p className="mt-2 text-sm text-muted">
         These fill nmap, UDP, hydra, nxc, impacket, wfuzz, SNMP, WinRM, msfvenom, the tunnel, uploads, and Penelope until you edit that box. Editing a box does not change these. Reverse shells opens the local copy of revshells, with your local IP filled in.
       </p>
+      <div className="mt-3 rounded-lg border border-border bg-bg px-3 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-mono text-xs tracking-wide text-primary">EXAM LOCK</p>
+          <button
+            type="button"
+            onClick={() => setExam({ on: !exam.on })}
+            className={"inline-flex min-h-11 items-center rounded-lg border px-3 text-sm " + (exam.on ? "border-primary bg-raised text-fg" : "border-border text-muted")}
+          >
+            {exam.on ? "On" : "Off, lab only"}
+          </button>
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          {exam.on
+            ? "On for the OSCP+ exam. No spoofing, no sqlmap, no mass scanner, no Burp Pro, and no chatbot. Meterpreter and Metasploit modules are one machine, and not for pivoting. A normal msfvenom shell and multi/handler are allowed on every machine. This desk is your notes. It does not answer a question about the exam."
+            : "Off. The desk will build lab commands the exam does not allow, including a relay and Meterpreter on more than one machine. Turn it back on before the exam."}
+        </p>
+        {exam.on ? (
+          <p className="mt-2 text-sm text-fg">
+            {exam.host ? `Meterpreter is locked to ${exam.host}.` : "Meterpreter is not locked yet. The first one you copy claims Target IP."}
+            {exam.host ? (
+              <button type="button" onClick={() => setExam({ host: "" })} className="ml-2 underline">
+                Clear, only if you have not used it
+              </button>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
