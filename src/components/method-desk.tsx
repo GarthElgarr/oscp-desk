@@ -94,7 +94,7 @@ const CARD_LINKS: Record<string, DeskLink[]> = {
   "pw-landed": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
   "pw-linuxhash": [{ label: "john", section: "Passwords", tool: "john", anchor: "builder-john" }],
   "pw-sshkey": [{ label: "Loot", section: "Loot", anchor: "panel-loot" }],
-  "pw-hydra": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
+  "pw-hydra": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }, { label: "base64", section: "Passwords", tool: "basic", anchor: "builder-basic" }],
   "pw-hydra-form": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
   "pw-spray": [{ label: "nxc", section: "Active Directory", tool: "nxc", anchor: "builder-nxc" }],
   "pw-reuse": [{ label: "hydra", section: "Passwords", tool: "hydra", anchor: "builder-hydra" }],
@@ -179,6 +179,7 @@ const PLACES: SearchHit[] = [
   { key: "wfuzz", label: "wfuzz builder", section: "Builders", anchor: "builder-wfuzz", tool: "wfuzz", blob: "wfuzz fuzz vhost" },
   { key: "impacket", label: "Impacket builder", section: "Builders", anchor: "builder-impacket", tool: "impacket", blob: "impacket secretsdump psexec smb wmiexec" },
   { key: "ad", label: "BloodHound, Certipy, Kerbrute", section: "Builders", anchor: "builder-ad", tool: "ad", blob: "bloodhound certipy kerbrute adcs shadow spray userenum" },
+  { key: "basic", label: "Base64 user and password", section: "Passwords", anchor: "builder-basic", tool: "basic", blob: "base64 basic auth delimiter burp username password" },
 ];
 
 function hitScore(label: string, value: string): number {
@@ -359,6 +360,7 @@ export function MethodDesk() {
     want("hashcat", section === "Passwords");
     want("john", section === "Passwords");
     want("hydra", section === "Passwords");
+    want("basic", section === "Passwords");
     want("nxc", section === "Active Directory");
     want("local", section === "Linux" || section === "Windows");
     want("udp", false);
@@ -573,7 +575,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={13}
+            count={14}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />
