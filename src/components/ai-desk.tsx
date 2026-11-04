@@ -106,7 +106,7 @@ export function AiDesk() {
                 <p className="font-mono text-xs tracking-widest text-primary">PEN-300</p>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Kerberos AI Desk</h1>
                 <p className="mt-1 max-w-2xl text-sm text-muted">
-                  The lab method. On an AI target, passive recon comes before a chat message. Then name the control, make one change, and write the hop. This page does not build the payload. The other desk has the builders.
+                  The lab method. On an AI target, passive recon comes before a chat message. Then name the control, make one change, and write the hop. Reset clears the ticks on this desk only. The Security desk is left alone. This page does not build the payload. The other desk has the builders.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -280,7 +280,7 @@ function AiCard({
             {open ? null : <span className="mt-1 line-clamp-2 block text-sm text-muted">{item.look}</span>}
           </span>
         </button>
-        <div className="flex shrink-0 items-center gap-1 py-2 pr-3">
+        <div className="flex shrink-0 flex-col items-end justify-center gap-2 py-2 pr-3">
           <button type="button" onClick={onToggle} className={"inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm " + (checked ? "border-alive bg-alive-bg text-alive" : "border-border bg-bg text-muted")}>
             <Check className="size-4" aria-hidden="true" />
             {checked ? "Done" : "Mark"}
