@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, ChevronDown, CircleHelp, Copy, Search } from "lucide-react";
 import { AI_SECTIONS, AI_TECHNIQUES } from "@/data/pen300";
 import { AI_WHY } from "@/data/pen300-why";
@@ -9,6 +9,7 @@ import { CoverImage } from "@/components/cover-image";
 import { AiStack } from "@/components/ai-stack";
 import { AiRecon } from "@/components/ai-recon";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
+import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
 
 const STORE = "kerberos-ai-done-v1";
 const UNSURE_STORE = "kerberos-ai-unsure-v1";
@@ -40,6 +41,7 @@ export function AiDesk() {
   const [ready, setReady] = useState(false);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
 
   useEffect(() => {
     const previous = document.title;
@@ -92,6 +94,23 @@ export function AiDesk() {
     setOpenOnly(false);
     setSection(item.section);
     setOpenCard(item.id);
+  }
+
+  if (exam.on) {
+    return (
+      <div className="relative min-h-screen text-fg">
+        <div className="mx-auto max-w-2xl px-4 py-16">
+          <p className="font-mono text-xs tracking-widest text-primary">EXAM LOCK</p>
+          <h1 className="mt-2 text-2xl font-semibold">The AI desk is off</h1>
+          <p className="mt-3 text-sm text-muted">
+            Exam lock is on. The exam guide does not allow an AI chatbot, and this page is the method for attacking AI apps. It stays closed until you turn exam lock off on the Security desk. That switch is for a lab, not the exam.
+          </p>
+          <a href={homeHref()} className="mt-6 inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg">
+            Kerberos Security Desk
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (

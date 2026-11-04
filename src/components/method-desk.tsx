@@ -21,6 +21,7 @@ import { MatrixRain } from "@/components/matrix-rain";
 import { RainColor } from "@/components/rain-color";
 import { NmapReports } from "@/components/nmap-reports";
 import { JobList } from "@/components/job-list";
+import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 
@@ -212,6 +213,7 @@ export function MethodDesk() {
   const [copied, setCopied] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [openSource, setOpenSource] = useState<string | null>(null);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [builderTab, setBuilderTab] = useState<ToolId | null>(null);
@@ -435,12 +437,16 @@ export function MethodDesk() {
                 {marked}/{total} checked{unsureCount ? ` · ${unsureCount} unsure` : ""}
               </p>
               <RainColor />
-              <a
-                href={aiHref()}
-                className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg"
-              >
-                Kerberos AI Desk
-              </a>
+              {exam.on ? (
+                <span className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted">AI desk off for the exam</span>
+              ) : (
+                <a
+                  href={aiHref()}
+                  className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg"
+                >
+                  Kerberos AI Desk
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => {

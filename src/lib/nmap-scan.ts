@@ -1,7 +1,13 @@
 import { quoteHydraArg } from "./hydra-args.ts";
 
 const SHELL = /[;|&`$<>\\\n\r\0]/;
-const BANNED = new Set(["-oA", "-oN", "-oX", "-oG", "-oS", "-iL", "-iR", "--append-output"]);
+const OUTPUT_FLAGS = ["-oA", "-oN", "-oX", "-oG", "-oS"];
+
+function isOutputFlag(arg: string): boolean {
+  const flag = arg.split("=")[0] ?? "";
+  if (flag === "--append-output") return true;
+  return OUTPUT_FLAGS.some((item) => flag === item || flag.startsWith(item));
+}
 
 export const NMAP_PROFILES = ["quick", "alltcp", "udp", "deep", "custom"] as const;
 export type NmapProfile = (typeof NMAP_PROFILES)[number];
@@ -19,6 +25,7 @@ export function nmapTarget(value: unknown): string | null {
   if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(target)) return null;
   const parts = target.split(".").map((part) => Number(part));
   if (parts.some((part) => part > 255)) return null;
+  if (target.split(".").some((part) => part.length > 1 && part.startsWith("0"))) return null;
   if (target === "0.0.0.0" || target === "255.255.255.255" || target === "169.254.169.254") return null;
   if (parts[0] >= 224 || parts[0] === 127) return null;
   return target;
@@ -77,7 +84,7 @@ export function nmapExtra(input: string): { ok: true; args: string[] } | { ok: f
     if (arg.length > 200 || SHELL.test(arg) || arg.includes("..") || arg.startsWith("/")) {
       return { ok: false, error: "One custom flag is not an nmap option this desk will run." };
     }
-    if (BANNED.has(arg) || BANNED.has(arg.split("=")[0])) {
+    if (isOutputFlag(arg) || arg === "-iL" || arg === "-iR" || arg.split("=")[0] === "-iL") {
       return { ok: false, error: "The output name sets where the scan is saved. Leave -oA and -iL out of the custom flags." };
     }
     if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(arg)) {
@@ -143,12 +150,12 @@ export function nmapEditedCommand(line: string, name: string): { args: string[];
   const args: string[] = [];
   for (let i = 0; i < body.length - 1; i++) {
     const arg = body[i] ?? "";
-    const flag = arg.split("=")[0];
-    if (flag === "-oA" || flag === "-oN" || flag === "-oX" || flag === "-oG" || flag === "-oS" || flag === "--append-output") {
-      if (!arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
+    if (isOutputFlag(arg)) {
+      const exact = OUTPUT_FLAGS.includes(arg);
+      if (exact && !arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
       continue;
     }
-    if (BANNED.has(flag)) return { error: "The output name sets where the scan is saved. Leave -iL out of the command." };
+    if (arg === "-iL" || arg === "-iR") return { error: "The output name sets where the scan is saved. Leave -iL out of the command." };
     if (arg.length > 200 || arg.includes("..") || arg.startsWith("/")) {
       return { error: "One argument is not an nmap option this desk will run." };
     }

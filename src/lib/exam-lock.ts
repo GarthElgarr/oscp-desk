@@ -3,9 +3,10 @@ const KEY = "oscp-desk-exam-v1";
 export type ExamLock = {
   on: boolean;
   host: string;
+  startedAt: number;
 };
 
-const EMPTY: ExamLock = { on: true, host: "" };
+const EMPTY: ExamLock = { on: true, host: "", startedAt: 0 };
 
 let current: ExamLock = EMPTY;
 let loaded = false;
@@ -27,6 +28,7 @@ function ensure() {
     current = {
       on: parsed.on !== false,
       host: cleanHost(typeof parsed.host === "string" ? parsed.host : ""),
+      startedAt: typeof parsed.startedAt === "number" && parsed.startedAt > 0 ? parsed.startedAt : 0,
     };
   } catch {
     current = EMPTY;
@@ -58,6 +60,7 @@ export function setExam(patch: Partial<ExamLock>) {
   save({
     on: patch.on ?? current.on,
     host: patch.host === undefined ? current.host : cleanHost(patch.host),
+    startedAt: patch.startedAt === undefined ? current.startedAt : patch.startedAt > 0 ? patch.startedAt : 0,
   });
 }
 

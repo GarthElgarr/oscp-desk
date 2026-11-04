@@ -25,10 +25,10 @@ export function LocalMatch() {
     <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
       <div className="border-b border-border px-4 py-3">
         <p className="font-mono text-xs text-primary">Builder</p>
-        <h2 className="text-lg font-semibold">Kernel / sudo exploit</h2>
+        <h2 className="text-lg font-semibold">Exploit suggester (LES/WES, local)</h2>
         <p className="mt-1 text-sm text-muted">
           Linux, sudo, and Windows. Paste <span className="font-mono">uname -a</span>,{" "}
-          <span className="font-mono">sudo --version</span>, or <span className="font-mono">systeminfo</span>. The
+          <span className="font-mono">sudo --version</span>, or <span className="font-mono">systeminfo</span>. This runs local tools only. It does not call a chatbot. The
           short list reads the kernel and the sudo version on the same paste. A lead is passed to linux-exploit-suggester,
           searchsploit, or wes. A dead row is not. Baron is sudo 1.8.2–1.8.31p1 or 1.9.0–1.9.5p1. sudoedit (CVE-2023-22809) is 1.8.0–1.9.12p1, and only if sudo -l allows sudoedit or sudo -e. 1.9.12p2 is patched.
         </p>

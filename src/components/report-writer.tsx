@@ -18,6 +18,7 @@ import {
 import { reportHtml } from "@/lib/report-html";
 import { reportMarkdown } from "@/lib/report-md";
 import { buildReportPdf } from "@/lib/report-pdf";
+import { packCommands } from "@/lib/exam-rules";
 import { deleteShot, fileToShot, loadShots, putShot, shotBytes, type StoredShot } from "@/lib/report-shots";
 
 const input = "w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg outline-none";
@@ -41,6 +42,27 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       {children}
       {hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </label>
+  );
+}
+
+function PackChecklist({ base }: { base: string }) {
+  const pack = packCommands(base);
+  const [copied, setCopied] = useState("");
+  function copy(text: string, id: string) {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      window.setTimeout(() => setCopied(""), 1200);
+    }).catch(() => undefined);
+  }
+  return (
+    <div className="rounded-lg border border-border bg-bg px-3 py-3 text-sm">
+      <p className="font-mono text-xs tracking-wide text-muted">UPLOAD CHECK</p>
+      <p className="mt-1 text-muted">{pack.note} File: {base}.pdf</p>
+      <p className="mt-2 break-all font-mono text-xs">{pack.seven}</p>
+      <button type="button" onClick={() => copy(pack.seven, "7z")} className="mt-1 underline">{copied === "7z" ? "Copied" : "Copy 7z"}</button>
+      <p className="mt-2 break-all font-mono text-xs">{pack.md5}</p>
+      <button type="button" onClick={() => copy(pack.md5, "md5")} className="mt-1 underline">{copied === "md5" ? "Copied" : "Copy md5"}</button>
+    </div>
   );
 }
 
@@ -277,6 +299,7 @@ export function ReportWriter() {
           </button>
         </div>
         {error ? <p className="text-sm text-dead">{error}</p> : null}
+        <PackChecklist base={reportFileBase(report)} />
         {preview ? <iframe title="Report preview" className="h-[70vh] w-full rounded-lg border border-border bg-white" srcDoc={html} /> : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
