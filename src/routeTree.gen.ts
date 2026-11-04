@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AiRouteImport } from './routes/ai'
 import { Route as ApiAdRouteImport } from './routes/api/ad'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiImpacketRouteImport } from './routes/api/impacket'
@@ -30,6 +31,11 @@ import { Route as RevshellsRawSplatRouteImport } from './routes/revshells/raw/$'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiRoute = AiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdRoute = ApiAdRouteImport.update({
@@ -115,6 +121,7 @@ const RevshellsRawSplatRoute = RevshellsRawSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
@@ -154,6 +162,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai'
     | '/api/ad'
     | '/api/hydra'
     | '/api/impacket'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai'
     | '/api/ad'
     | '/api/hydra'
     | '/api/impacket'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai'
     | '/api/ad'
     | '/api/hydra'
     | '/api/impacket'
@@ -233,6 +245,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiRoute: typeof AiRoute
   ApiAdRoute: typeof ApiAdRoute
   ApiHydraRoute: typeof ApiHydraRoute
   ApiImpacketRoute: typeof ApiImpacketRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai': {
+      id: '/ai'
+      path: '/ai'
+      fullPath: '/ai'
+      preLoaderRoute: typeof AiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ad': {
@@ -377,6 +397,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRoute: AiRoute,
   ApiAdRoute: ApiAdRoute,
   ApiHydraRoute: ApiHydraRoute,
   ApiImpacketRoute: ApiImpacketRoute,

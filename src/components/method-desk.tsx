@@ -21,9 +21,16 @@ import { MatrixRain } from "@/components/matrix-rain";
 import { RainColor } from "@/components/rain-color";
 import { NmapReports } from "@/components/nmap-reports";
 import { JobList } from "@/components/job-list";
+import { previewPathPrefix } from "@/lib/preview-path-prefix";
 import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
+
+function aiHref(): string {
+  if (typeof window === "undefined") return "/ai";
+  const prefix = previewPathPrefix(window.location.hostname, window.location.pathname) ?? "";
+  return `${prefix}/ai`;
+}
 
 const STORE = "oscp-field-notes-v1";
 const UNSURE_STORE = "oscp-field-unsure-v1";
@@ -418,7 +425,7 @@ export function MethodDesk() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="font-mono text-xs tracking-widest text-primary">FIELD NOTES</p>
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">OSCP methodology</h1>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Kerberos Security Desk</h1>
               <p className="mt-1 max-w-2xl text-sm text-muted">
                 Each check is a description, then an example of a result that means pursue, and an example that means stop and move on. Click a title to open that card, and click it again to close it. Mark ticks it done. Unsure means you think it is done and you will check it later. Reset desk clears both ticks and the runs. Notes, loot, and the report stay until you delete those yourself.
               </p>
@@ -428,6 +435,12 @@ export function MethodDesk() {
                 {marked}/{total} checked{unsureCount ? ` · ${unsureCount} unsure` : ""}
               </p>
               <RainColor />
+              <a
+                href={aiHref()}
+                className="inline-flex min-h-11 items-center rounded-lg border border-primary bg-raised px-3 text-sm text-fg"
+              >
+                Kerberos AI Desk
+              </a>
               <button
                 type="button"
                 onClick={() => {
