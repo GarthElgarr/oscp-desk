@@ -132,7 +132,7 @@ curl -sI http://<ip>/
     title: "Passive reconnaissance",
     look: "No question is sent to the model. Headers, public docs, the source repo, and job posts. It can be outdated, and the config in git may not be what is running. It does not alert the app.",
     cmd: `# finish this list before the first chat message
-# 1. HTTP headers and the public docs
+# 1. headers, then the health paths
 # 2. the GitHub or GitLab repo, including old commits
 # 3. job posts that name the stack
 # lab: 2.1 HTTP fingerprinting is chat01. 2.2 repo analysis is git01.`,
@@ -144,12 +144,22 @@ curl -sI http://<ip>/
     id: "ai-recon-headers",
     section: "Recon",
     title: "HTTP fingerprint, chat01",
-    look: "Section 2.1. Response headers and public metadata. Server, Via, a docs link, a model name in a script. You are not sending a prompt.",
+    look: "Section 2.1. Headers are passive. Developers leave debug headers, a load balancer adds routing metadata, and a framework names itself. On an AI app those lines often name the model provider, the vector database, and the framework. -I asks for headers only. You have not sent a prompt.",
     cmd: `curl -sI http://<ip>/
-curl -s http://<ip>/ | head -n 80`,
-    alive: "A header or a script names the gateway, the framework, or a /v1 path.",
-    dead: "Generic headers and a page with no client. Nothing to fingerprint.",
-    next: "Save the names. Do not log in and do not open the chat yet.",
+# if the three health paths are not in the headers, one GET each. Still no prompt.
+curl -s http://<ip>/api/health
+curl -s http://<ip>/api/status
+curl -s http://<ip>/-/health
+# only if all three 404: one SecLists API list, stop at the first JSON
+# /usr/share/seclists/Discovery/Web-Content/api/`,
+    alive: `X-AI-Backend: OpenAI-GPT5.2
+X-RAG-Provider: ChromaDB
+"model": "gpt-5.2-turbo"
+"mcp_enabled": true
+"rag_enabled": false
+"status": "healthy"`,
+    dead: "Server: nginx and nothing else. Health is 404. No model, no store, no MCP flag.",
+    next: "Write the provider, the store, and whether MCP and RAG are on. The chat POST is the next card, and it is active. Do not fuzz the API yet.",
   },
   {
     id: "ai-recon-docs",
@@ -204,12 +214,16 @@ git log -S 'api_key' --oneline`,
     id: "ai-recon-model",
     section: "Recon",
     title: "Model fingerprint, chat02",
-    look: "Section 3.1. One prompt that asks what the model can know, or a fact after its cutoff. The point is the model family and the cutoff, not a jailbreak. The API model list is stronger than the model's own claim.",
-    cmd: `curl -s http://<ip>/v1/models
-curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"what is the latest year you were trained on?"}'`,
-    alive: "The model list names an id, or the answer gives a cutoff that matches a known family.",
-    dead: "The list is empty and the answer refuses or invents a year. You do not have a fingerprint.",
-    next: "Record the id. A cutoff is a note. It is not a vulnerability by itself.",
+    look: "Section 3.1. One valid POST to /v1/chat/completions. That is active. The app processes it, so it is logged. It is not fuzzing: the body is the normal message the API expects, sent once. The model field in the JSON is the fingerprint. The prose of the reply is not.",
+    cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}]}'`,
+    alive: `"model": "gpt-5.2-turbo"
+"object": "chat.completion"
+"finish_reason": "stop"
+"rag_sources": null`,
+    dead: "404, or a body with no model field. This host is not speaking the OpenAI chat API. Go back to the health JSON.",
+    next: "rag_sources null, or rag_enabled false on the health card, means this reply did not use RAG. Do not probe chunks until a reply actually cites a document. A maintenance sentence with a model field is still a fingerprint.",
   },
   {
     id: "ai-recon-rag",

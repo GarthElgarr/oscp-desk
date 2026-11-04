@@ -19,17 +19,23 @@ export const AI_WHY: Record<string, string> = {
 
   "ai-recon-passive": `The list is the order. Headers and docs, then the repo, then job posts. None of these send a prompt, so none of them alert the model host. The result can be wrong. A repo from last year is not the running config. That gap is why active recon exists, and why it comes second.`,
 
-  "ai-recon-headers": `curl -sI is headers only. The second curl is the page, and head stops it at 80 lines. This is lab chat01. You are looking for a product name or a path. A login and a prompt are a later card.`,
+  "ai-recon-headers": `curl -sI sends a HEAD request. -s is silent, -I is headers only, so you do not download the page and you do not send a prompt. Server is the proxy. Custom headers are the find. X-AI-Backend names the model provider, for example OpenAI-GPT5.2. X-RAG-Provider names the vector database, for example ChromaDB. A vector database stores document chunks as embeddings so the app can search them. That header is why you later look for RAG.
 
-  "ai-recon-docs": `The docs are a public page. Searching it for those words finds the paths the stack cards use. If the docs and the live headers disagree, write both down. The live one is checked in active recon.`,
+A health path is a GET, still with no prompt. /api/health, /api/status, and /-/health are the usual ones. mcp_enabled true means tool schemas are exposed, so the tool card is worth opening. model is the identifier, which can be more precise than the header, such as gpt-5.2-turbo. rag_enabled false means retrieval is switched off even if the header named Chroma. status and version are the build. service is the app name.
+
+If those three paths 404, one list under /usr/share/seclists/Discovery/Web-Content/api/ is enough. Stop at the first path that returns JSON. A second list is fuzzing. This is lab chat01.`,
+
+  "ai-recon-model": `This POST is the first active request. /v1/chat/completions is the OpenAI-compatible chat method. -X POST sets the method. The header says the body is JSON. The body is one normal user message, Hello. You are not changing it, so you are not fuzzing. You are checking that the documented method is alive.
+
+model in the response is the fingerprint. Believe it over the sentence. object chat.completion means you hit that API. finish_reason stop means the reply ended normally. rag_sources null means no document was attached to this answer. That matches rag_enabled false. usage is the token count, prompt plus completion. A maintenance sentence is still a hit when model is filled in, because the pipeline answered. A 404 or a body with no model means this path is wrong. Return to the health JSON. This is chat02.`,
+
+  "ai-recon-docs": `The docs are a public page. Searching it for those words finds the paths the stack cards use. If the docs and the live headers disagree, write both down. The live one is checked with one chat completion, not a list of bodies.`,
 
   "ai-recon-git": `git log -20 is the recent history. git log -S 'api_key' finds commits that added or removed that string, which is where a key is often left behind. Search the names only in a repository you are allowed to read. A private repo you were not given is out of scope. Lab git01 is this card.`,
 
   "ai-recon-jobs": `A job post is a hint. People advertise the stack they want, which may not be the stack this host runs. A new product name is worth a look in the repo and the headers. A repeat of what you have is a stop.`,
 
   "ai-recon-active": `These lines are the lab map, not three commands to fire together. chat02 is the model. kb01 is the documents. agent01 is the tools. Each one is a request to the running app, so each one is logged and each one counts against a rate limit. The passive note is what you compare the answer to.`,
-
-  "ai-recon-model": `/v1/models is the list, and it beats the prose. The second request is one question about the cutoff. A year that matches Llama, Mistral, Phi, Qwen, GPT-4, Claude, or Gemini is the fingerprint. An invented year is not. This is chat02.`,
 
   "ai-recon-rag": `The question asks for a quote and the sentence after it. A stop in the middle of the rule is the chunk size showing itself. A score or a collection in the JSON is the store. No source means this is not kb01's finding. Do not send a second wording until you have read the first body.`,
 
