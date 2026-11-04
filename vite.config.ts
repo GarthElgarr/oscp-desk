@@ -13,6 +13,64 @@ import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { startFileHost } from "./src/lib/file-host.server.ts";
 
+/** Rejects /api requests that are not from this desk. Registered before TanStack so a new route cannot skip it. */
+function apiGuardPlugin(): Plugin {
+  return {
+    name: "oscp-api-guard",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const pathOnly = (req.url ?? "").split("?", 1)[0] ?? "";
+        if (!pathOnly.startsWith("/api/") && pathOnly !== "/api") {
+          next();
+          return;
+        }
+        try {
+          const mod = (await server.ssrLoadModule("/src/lib/api-guard.server.ts")) as {
+            guardNodeRequest: (input: {
+              method: string | undefined;
+              url: string | undefined;
+              host: string | undefined;
+              origin: string | undefined;
+              contentType: string | undefined;
+              token: string | undefined;
+              listenPort: number;
+            }) => { status: number; body: string } | null;
+          };
+          const header = (name: string) => {
+            const value = req.headers[name];
+            return typeof value === "string" ? value : undefined;
+          };
+          const denied = mod.guardNodeRequest({
+            method: req.method,
+            url: req.url,
+            host: header("host"),
+            origin: header("origin"),
+            contentType: header("content-type"),
+            token: header("x-desk-token"),
+            listenPort: req.socket?.localPort || Number(process.env.DESK_PORT) || 81,
+          });
+          if (!denied) {
+            next();
+            return;
+          }
+          res.statusCode = denied.status;
+          res.setHeader("content-type", "text/plain; charset=utf-8");
+          res.setHeader("cache-control", "no-store");
+          res.end(denied.body);
+        } catch (err) {
+          console.error("[oscp] api guard failed:", err);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("content-type", "text/plain; charset=utf-8");
+            res.end("The desk could not check this request.\n");
+          }
+        }
+      });
+    },
+  };
+}
+
 /** Serves the uploads folder on port 80 for the victim to download. */
 function fileHostPlugin(): Plugin {
   return {
@@ -171,6 +229,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   resolve: { tsconfigPaths: true },
   plugins: [
+    apiGuardPlugin(),
     fileHostPlugin(),
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.

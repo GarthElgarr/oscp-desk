@@ -3,6 +3,7 @@ import { Copy } from "lucide-react";
 import { ShellTerm } from "@/components/shell-term";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getJobs, getJobsServer, launchJob, stopJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
+import { deskFetch } from "@/lib/desk-fetch";
 import { penelopeBeats, penelopeInShell, penelopeLine, penelopePlan, type PenelopeBeat } from "@/lib/penelope-plan";
 import { useGlobalField } from "@/lib/use-global-field";
 
@@ -53,7 +54,7 @@ export function PenelopeCard() {
   async function killListener() {
     setKillNote("");
     if (running) void stopJob(running.id);
-    const response = await fetch("/api/penelope", {
+    const response = await deskFetch("/api/penelope", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ kill: true, port }),
@@ -80,7 +81,7 @@ export function PenelopeCard() {
     const id = runningId.current;
     if (!id) return false;
     for (let i = 0; i < text.length; i += 4000) {
-      const response = await fetch("/api/jobs", {
+      const response = await deskFetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ write: id, text: text.slice(i, i + 4000), silent: true }),

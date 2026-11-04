@@ -1,3 +1,5 @@
+import { deskFetch } from "./desk-fetch";
+
 export type LiveJob = {
   id: string;
   tool: string;
@@ -36,7 +38,7 @@ export function subscribeJobs(listener: () => void): () => void {
 
 export async function syncJobs(): Promise<void> {
   try {
-    const response = await fetch("/api/jobs");
+    const response = await deskFetch("/api/jobs");
     if (!response.ok) return;
     const body = (await response.json()) as { jobs?: LiveJob[] };
     if (!Array.isArray(body.jobs)) return;
@@ -64,7 +66,7 @@ export async function launchJob(
   const id = `${pending.tool}-${Date.now().toString(36)}-${++seq}`;
   publish([{ id, tool: pending.tool, title: pending.title, command: pending.command, name: pending.name ?? "", output: "", running: true }, ...jobs]);
   if (!timer) timer = setInterval(() => void syncJobs(), 700);
-  const response = await fetch(endpoint, {
+  const response = await deskFetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...body, id, tool: pending.tool }),
@@ -78,7 +80,7 @@ export async function launchJob(
 }
 
 async function post(body: Record<string, unknown>) {
-  await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  await deskFetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   await syncJobs();
 }
 

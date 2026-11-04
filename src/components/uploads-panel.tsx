@@ -3,6 +3,7 @@ import { Copy, RefreshCw } from "lucide-react";
 import { listUploadFiles, updateStandardPeas, type UploadsListing } from "@/lib/uploads";
 import { transferPlan, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { deskFetch } from "@/lib/desk-fetch";
 import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
@@ -62,7 +63,7 @@ export function UploadsPanel() {
     const body = new FormData();
     for (const item of list) body.append("file", item);
     try {
-      const response = await fetch("/api/upload", { method: "POST", body });
+      const response = await deskFetch("/api/upload", { method: "POST", body });
       const text = await response.text();
       if (!response.ok) {
         setError(text.trim() || "The upload failed.");
@@ -83,7 +84,7 @@ export function UploadsPanel() {
     setError(null);
     setBusy("Deleting.");
     try {
-      const response = await fetch("/api/upload", {
+      const response = await deskFetch("/api/upload", {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: file }),

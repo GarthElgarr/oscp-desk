@@ -1,0 +1,66 @@
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import test from "node:test";
+import { guardDecision, tokensEqual } from "./api-guard.ts";
+
+const token = "ab".repeat(32);
+const names = new Set(["localhost", "127.0.0.1", "::1", "10.10.14.5"]);
+
+function decide(over: Partial<Parameters<typeof guardDecision>[0]>) {
+  return guardDecision({
+    method: "GET",
+    path: "/api/jobs",
+    host: "127.0.0.1:81",
+    origin: undefined,
+    contentType: undefined,
+    token,
+    listenPort: 81,
+    names,
+    expectedToken: token,
+    ...over,
+  });
+}
+
+test("the happy path is allowed and a missing or wrong token is the same refusal", () => {
+  assert.equal(decide({}), null);
+  assert.equal(decide({ token: undefined })?.status, 401);
+  assert.equal(decide({ token: "" })?.status, 401);
+  assert.equal(decide({ token: "nope" })?.status, 401);
+  assert.equal(decide({ token: undefined })?.body, decide({ token: "nope" })?.body);
+  assert.equal(tokensEqual("short", token), false);
+  assert.equal(tokensEqual(token, token), true);
+});
+
+test("a foreign host or origin is refused, including a rebinding name on the desk port", () => {
+  assert.equal(decide({ host: "evil.example:81" })?.status, 403);
+  assert.equal(decide({ host: "127.0.0.1:80" })?.status, 403);
+  assert.equal(decide({ host: "127.0.0.1" })?.status, 403);
+  assert.equal(decide({ origin: "http://evil.example:81" })?.status, 403);
+  assert.equal(decide({ origin: "http://127.0.0.1:80" })?.status, 403);
+  assert.equal(decide({ origin: "http://10.10.14.5:81" }), null);
+  assert.equal(decide({ method: "OPTIONS" })?.status, 403);
+});
+
+test("a post must be JSON, except the file upload", () => {
+  assert.equal(decide({ method: "POST", contentType: "application/json" }), null);
+  assert.equal(decide({ method: "POST" })?.status, 415);
+  assert.equal(decide({ method: "POST", contentType: "text/plain" })?.status, 415);
+  assert.equal(decide({ method: "PATCH", path: "/api/jobs", contentType: "application/json; charset=utf-8" }), null);
+  assert.equal(decide({ method: "POST", path: "/api/upload", contentType: "multipart/form-data; boundary=x" }), null);
+  assert.equal(decide({ method: "POST", path: "/api/upload", contentType: "application/json" })?.status, 415);
+});
+
+test("every route under src/routes/api is covered by the prefix guard", () => {
+  const files = readdirSync(new URL("../routes/api/", import.meta.url)).filter((name) => name.endsWith(".ts"));
+  const tree = readFileSync(new URL("../routeTree.gen.ts", import.meta.url), "utf8");
+  const vite = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
+  const pluginAt = vite.indexOf("apiGuardPlugin()");
+  const startAt = vite.indexOf("tanstackStart()");
+  assert.ok(pluginAt >= 0 && startAt > pluginAt);
+  assert.ok(files.length >= 10);
+  for (const file of files) {
+    const path = `/api/${file.replace(/\.ts$/, "")}`;
+    assert.match(tree, new RegExp(`path: '${path}'`));
+    assert.equal(decide({ path, token: undefined })?.status, 401, path);
+  }
+});

@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getJobs, getJobsServer, subscribeJobs } from "@/lib/live-jobs";
+import { deskFetch } from "@/lib/desk-fetch";
 import { deskCard } from "@/lib/nmap-card";
 
 type Script = { id: string; output: string };
@@ -58,7 +59,7 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
     .join("|");
 
   function loadList() {
-    void fetch("/api/nmap")
+    void deskFetch("/api/nmap")
       .then((response) => (response.ok ? response.json() : { names: [] }))
       .then((body: { names?: string[] }) => setSaved(Array.isArray(body.names) ? body.names : []))
       .catch(() => setSaved([]));
@@ -107,7 +108,7 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
   }
 
   async function openSaved(name: string) {
-    const response = await fetch(`/api/nmap?name=${encodeURIComponent(name)}`);
+    const response = await deskFetch(`/api/nmap?name=${encodeURIComponent(name)}`);
     if (!response.ok) {
       setError(await response.text());
       return;
