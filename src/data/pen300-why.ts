@@ -15,7 +15,26 @@ export const AI_WHY: Record<string, string> = {
 
   "ai-stack-model": `The model id comes from the tags or models list you already fetched. The chat's claim of its own name is not evidence. Llama, Mistral, Phi, Qwen, GPT-4, Claude, and Gemini are the families. The id tells you which prompt notes apply. It is not a new scan.`,
 
-  "ai-stack-enum": `The five lines are the order. Headers first, because they are free. Endpoints you already saw, not a wordlist of every AI path. The tool schema if it exists. Then one action that schema allows, to see if it really runs. The error body is kept, because a stack trace names the layer. A bare 404 on all five means this host is not the stack.`,
+  "ai-stack-enum": `The five lines are the order. Headers first, because they are free. Endpoints you already saw, not a wordlist of every AI path. The tool schema if it exists. Then one action that schema allows, to see if it really runs. The error body is kept, because a stack trace names the layer. A bare 404 on all five means this host is not the stack. Passive notes come before a chat message. The chat is logged.`,
+
+  "ai-recon-passive": `The list is the order. Headers and docs, then the repo, then job posts. None of these send a prompt, so none of them alert the model host. The result can be wrong. A repo from last year is not the running config. That gap is why active recon exists, and why it comes second.`,
+
+  "ai-recon-headers": `curl -sI is headers only. The second curl is the page, and head stops it at 80 lines. This is lab chat01. You are looking for a product name or a path. A login and a prompt are a later card.`,
+
+  "ai-recon-docs": `The docs are a public page. Searching it for those words finds the paths the stack cards use. If the docs and the live headers disagree, write both down. The live one is checked in active recon.`,
+
+  "ai-recon-git": `git log -20 is the recent history. git log -S 'api_key' finds commits that added or removed that string, which is where a key is often left behind. Search the names only in a repository you are allowed to read. A private repo you were not given is out of scope. Lab git01 is this card.`,
+
+  "ai-recon-jobs": `A job post is a hint. People advertise the stack they want, which may not be the stack this host runs. A new product name is worth a look in the repo and the headers. A repeat of what you have is a stop.`,
+
+  "ai-recon-active": `These lines are the lab map, not three commands to fire together. chat02 is the model. kb01 is the documents. agent01 is the tools. Each one is a request to the running app, so each one is logged and each one counts against a rate limit. The passive note is what you compare the answer to.`,
+
+  "ai-recon-model": `/v1/models is the list, and it beats the prose. The second request is one question about the cutoff. A year that matches Llama, Mistral, Phi, Qwen, GPT-4, Claude, or Gemini is the fingerprint. An invented year is not. This is chat02.`,
+
+  "ai-recon-rag": `The question asks for a quote and the sentence after it. A stop in the middle of the rule is the chunk size showing itself. A score or a collection in the JSON is the store. No source means this is not kb01's finding. Do not send a second wording until you have read the first body.`,
+
+  "ai-recon-agent": `The message names a tool you already saw in the schema, and one argument. If the tool runs, the boundary is wider than the docs said. If the error names a path, a role, or a scope, the boundary is that sentence. If the model only talks, no tool was called. This is agent01. One attempt.`,
+
 
   "ai-order": `The four lines are notes, not commands. PEN-300 fails when the payload changes before the block is named. The first line is the parent that actually ran your code. The second line is the error, copied, not paraphrased. The third line is one control. The fourth line is one change. A new error after that change is a new control, and you start the list again.`,
 

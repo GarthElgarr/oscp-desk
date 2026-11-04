@@ -7,6 +7,7 @@ import { MatrixRain } from "@/components/matrix-rain";
 import { RainColor } from "@/components/rain-color";
 import { CoverImage } from "@/components/cover-image";
 import { AiStack } from "@/components/ai-stack";
+import { AiRecon } from "@/components/ai-recon";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const STORE = "kerberos-ai-done-v1";
@@ -105,7 +106,7 @@ export function AiDesk() {
                 <p className="font-mono text-xs tracking-widest text-primary">PEN-300</p>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Kerberos AI Desk</h1>
                 <p className="mt-1 max-w-2xl text-sm text-muted">
-                  The lab method for breaching a defense. Name the control, make one change, and write the hop. This page does not build the payload for you. The other desk has the builders.
+                  The lab method. On an AI target, passive recon comes before a chat message. Then name the control, make one change, and write the hop. This page does not build the payload. The other desk has the builders.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +152,7 @@ export function AiDesk() {
                     onKeyDown={(event) => {
                       if (event.key === "Escape") setSearchOpen(false);
                     }}
-                    placeholder="Search: stack, RAG, AMSI, AppLocker, proxy"
+                    placeholder="Search: passive, chat01, RAG, AMSI, stack"
                     className="w-full min-w-0 bg-transparent text-sm text-fg outline-none placeholder:text-muted"
                   />
                 </label>
@@ -186,6 +187,7 @@ export function AiDesk() {
           </nav>
           <div className="flex min-w-0 flex-col gap-3">
             {section === "Stack" || section === "All" ? <AiStack /> : null}
+            {section === "Recon" || section === "All" ? <AiRecon /> : null}
             {visible.map((item) => (
               <AiCard
                 key={item.id}

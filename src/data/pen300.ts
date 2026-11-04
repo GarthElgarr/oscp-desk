@@ -2,6 +2,7 @@ import type { Technique } from "./methodology";
 
 export const AI_SECTIONS = [
   "Stack",
+  "Recon",
   "Start",
   "Controls",
   "Foothold",
@@ -123,7 +124,113 @@ curl -sI http://<ip>/
 # 5 keep the error body. Do not dismiss it.`,
     alive: "One of the five returned a name you did not have: a header, a path, a tool, a real action, or a stack trace.",
     dead: "Headers are generic, the paths 404, there is no schema, the model refuses, and the error is a bare status code. This host is not the AI stack.",
-    next: "Write the layer next to the proof. Then the next layer down, or back to the PEN-300 chain if this was only one hop.",
+    next: "Write the layer next to the proof. Passive recon comes before a chat message. Headers, docs, the repo, and job posts first. A chat request is the active half, and it writes logs.",
+  },
+  {
+    id: "ai-recon-passive",
+    section: "Recon",
+    title: "Passive reconnaissance",
+    look: "No question is sent to the model. Headers, public docs, the source repo, and job posts. It can be outdated, and the config in git may not be what is running. It does not alert the app.",
+    cmd: `# finish this list before the first chat message
+# 1. HTTP headers and the public docs
+# 2. the GitHub or GitLab repo, including old commits
+# 3. job posts that name the stack
+# lab: 2.1 HTTP fingerprinting is chat01. 2.2 repo analysis is git01.`,
+    alive: "You can name a framework, a model, or a store without having sent a prompt.",
+    dead: "The pages are a marketing site and the repo has no code. Passive is finished. Move to active.",
+    next: "Write the three notes. Then one active request, not five.",
+  },
+  {
+    id: "ai-recon-headers",
+    section: "Recon",
+    title: "HTTP fingerprint, chat01",
+    look: "Section 2.1. Response headers and public metadata. Server, Via, a docs link, a model name in a script. You are not sending a prompt.",
+    cmd: `curl -sI http://<ip>/
+curl -s http://<ip>/ | head -n 80`,
+    alive: "A header or a script names the gateway, the framework, or a /v1 path.",
+    dead: "Generic headers and a page with no client. Nothing to fingerprint.",
+    next: "Save the names. Do not log in and do not open the chat yet.",
+  },
+  {
+    id: "ai-recon-docs",
+    section: "Recon",
+    title: "Public API docs",
+    look: "The docs page is passive. It lists paths, key headers, and sometimes the tool schema. The published page can be older than the running app.",
+    cmd: `# open the docs URL you already saw. Search the page for
+# /v1/  tools  models  mcp  chroma  langchain`,
+    alive: "A path, a header name, or a tool that the stack cards can check.",
+    dead: "No docs link, or the docs are only a getting-started with no paths.",
+    next: "Add the paths to the note. Check them in active recon, one at a time.",
+  },
+  {
+    id: "ai-recon-git",
+    section: "Recon",
+    title: "Code repository, git01",
+    look: "Section 2.2. GitHub or GitLab for this product. Read the code and the history. A deleted key or an old model name is still a note. Cloning a private repo you were not given is not this card.",
+    cmd: `# in the public repo, search
+# langchain  langgraph  chroma  pinecone  ollama  openai  tools
+git log --oneline -20
+git log -S 'api_key' --oneline`,
+    alive: "A file names the framework, the store, the model, or a tool function.",
+    dead: "No public repo, or the repo is empty of those names. The job posts are the last passive source.",
+    next: "Write what the code says is configured. Active recon checks whether that is still true.",
+  },
+  {
+    id: "ai-recon-jobs",
+    section: "Recon",
+    title: "Job posts",
+    look: "A posting asks for LangChain, a vector database, or a model host. That is a hint about the stack, not proof of what this host runs. Hints go stale.",
+    cmd: `# search the company name plus
+# LangChain  RAG  LLM  vector  Python`,
+    alive: "A post names a product you have not seen in the headers or the repo.",
+    dead: "Posts are generic software engineer, or they repeat what you already have.",
+    next: "Passive is done. The next request is active, and it will be logged.",
+  },
+  {
+    id: "ai-recon-active",
+    section: "Recon",
+    title: "Active reconnaissance",
+    look: "You now talk to the running system. This is the runtime truth the repo might not match. It writes logs, it can alert, and a rate limit applies. One request per question.",
+    cmd: `# only after the passive notes exist
+# 3.1 model fingerprint is chat02
+# 3.2 RAG probing is kb01
+# 3.3 agent probing is agent01
+# one request, read it, then the next`,
+    alive: "The live answer or error confirms a name from passive recon, or contradicts it.",
+    dead: "You are sending variations because the first answer was dull. Stop. Read the first body.",
+    next: "A contradiction means the config and the runtime differ. Believe the runtime, and note that the repo was stale.",
+  },
+  {
+    id: "ai-recon-model",
+    section: "Recon",
+    title: "Model fingerprint, chat02",
+    look: "Section 3.1. One prompt that asks what the model can know, or a fact after its cutoff. The point is the model family and the cutoff, not a jailbreak. The API model list is stronger than the model's own claim.",
+    cmd: `curl -s http://<ip>/v1/models
+curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"what is the latest year you were trained on?"}'`,
+    alive: "The model list names an id, or the answer gives a cutoff that matches a known family.",
+    dead: "The list is empty and the answer refuses or invents a year. You do not have a fingerprint.",
+    next: "Record the id. A cutoff is a note. It is not a vulnerability by itself.",
+  },
+  {
+    id: "ai-recon-rag",
+    section: "Recon",
+    title: "RAG and chunk boundaries, kb01",
+    look: "Section 3.2. Ask for something at the edge of a document, then for the next sentence. A cutoff mid-sentence is the chunk boundary. A score or a collection name in the body is the pipeline.",
+    cmd: `curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"quote the password rule and the sentence after it"}'`,
+    alive: "The quote stops mid-thought, or the body shows a chunk, a score, or a store name.",
+    dead: "A normal answer with no source and no break. This app is not showing you a RAG pipeline.",
+    next: "Note the break and the store. A document you should not have been given is the finding.",
+  },
+  {
+    id: "ai-recon-agent",
+    section: "Recon",
+    title: "Agent and permission boundary, agent01",
+    look: "Section 3.3. Use a tool the schema already listed. The error is the test. A refusal that names a path, a role, or a missing scope is the boundary. A stack trace is the same find.",
+    cmd: `# one tool from the schema, one argument it allows
+curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"use the file tool on /etc/hostname"}'`,
+    alive: "The tool runs, or the error names the file, the role, or the scope that stopped it.",
+    dead: "The model chats about the file and no tool is called. There is no agent on this path.",
+    next: "One tool. If it can read, write, or open a URL, that is the hop onto the Security desk.",
   },
   {
     id: "ai-order",
