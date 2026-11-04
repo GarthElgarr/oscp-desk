@@ -259,9 +259,23 @@ R:socks asks Kali to open a SOCKS port, 1080, on Kali. R:8081:internal:80 asks K
 The agent runs on the pivot and dials that Kali port. -ignore-cert accepts the self-signed certificate. session and start are typed in the proxy window on Kali, not on the pivot and not in bash. start is what actually builds the tunnel. The route comes after that, in a normal Kali shell. ip route add sends one subnet the pivot can see into the tun device. nmap and nxc then run on Kali with no proxychains, because the packets are normal.
 ip route del removes that route when you are finished. Leave the tun device. 240.0.0.1/32 on the ligolo device is the agent's 127.0.0.1, which is the victim, not Kali. Add it after start, and point nmap at 240.0.0.1. Do not route 127.0.0.0/8, or Kali loses its own loopback. A host that cannot reach your Kali IP cannot run this agent. That case is the callback card.`,
 
-  "cc-gcc": `gcc compiles C. file.c is the source. -o names the output. With no -static, the binary is dynamically linked and will look for the Kali glibc on the target.
-file prints the type: ELF, 32 or 64 bit, static or dynamic. ldd prints the libraries a dynamic binary needs. After gcc -static, ldd should say it is not a dynamic executable. That is what you want for an older target.
-GLIBC_2.34 not found means you uploaded the dynamic build. invalid preprocessing directive #Exploit means a line starts with # and is not a real C preprocessor command. Exploit-DB headers do that. missing terminating quote means a string's closing quote is on the next line. Put the string back on one line.`,
+  "cc-gcc": `Step 1 compiles on the target when gcc is there. file.c is the source. gcc turns it into object code, links it with libc, and -o writes the executable. main is the start. With no -static the file is dynamically linked: it does not contain libc. It only records the names of the libraries it needs.
+
+Step 2, file, tells you what you built. ELF is Linux. 64-bit or 32-bit has to match the box. dynamically linked means it will ask the target for libraries. statically linked means the libraries are already inside the file.
+
+Step 3, ldd, is the list of those libraries. libc.so.6 is glibc. The path is where the dynamic linker will open them when the program starts. They are not copied into your binary. If the target's libc is older than the one you linked against, you get GLIBC_2.34 not found. The exploit did not fail. The file will not start.
+
+Step 4 is the fix when the target is older, or gcc exists only on Kali. -static pulls libc into the file. It gets bigger. ldd then says not a dynamic executable. file says statically linked. That is what you upload. A Kali dynamic build uploaded to Ubuntu 20.04 is the usual GLIBC error.
+
+A shared object is a library, not a program. It has no main the shell can start. gcc -shared writes a .so. -fPIC makes position-independent code, so the linker can map the library at whatever free address is left. The program already occupies its own addresses. Two libraries cannot both assume they load at the same place. -nostartfiles skips the normal C startup, which a tiny constructor does not need.
+
+The dynamic linker is what loads .so files. It runs before main. It reads the program's needed-library list, finds each file, maps it into the process, and fills in the function addresses. A function marked constructor runs at that moment, as the user the process is running as, before main. That is the whole shared-object trick. You do not replace a binary. You get code into a process that is already about to start.
+
+LD_PRELOAD is one way in. The variable names an extra .so, and the linker loads that file first. sudo LD_PRELOAD=... only works if sudo -l keeps the variable. The allowed command then runs as root, so the constructor runs as root. A SUID binary you start yourself ignores LD_PRELOAD. The linker sets AT_SECURE and drops those variables. That is a stop, not a reason to try a different path.
+
+LD_LIBRARY_PATH is the other way. ldd prints a real library name the program already needs. You compile a .so with that exact filename and point the variable at your directory. The linker searches your directory first and takes your file instead of the one in /usr/lib. You did not edit /usr/lib. The filename has to match. An invented name is never loaded. A static binary has no list, so ldd saying not a dynamic executable means there is nothing to hijack.
+
+GLIBC_2.34 not found means rebuild with -static. invalid preprocessing directive #Exploit means a line starts with # and is not a real preprocessor command. Exploit-DB headers do that. Delete them or turn them into // comments. missing terminating quote means a string's closing quote is on the next line. Put the string back on one line.`,
 
   "cc-win": `x86_64-w64-mingw32-gcc is the 64-bit Windows cross compiler. i686-w64-mingw32-gcc is the 32-bit one. You pick from systeminfo, not from habit. -o is the output exe.
 file on Kali should say PE32+ and x86-64 for a 64-bit box. PE32 (80386) is a 32-bit exe. On Server 2022 that is the wrong tool, not a broken exploit.`,
