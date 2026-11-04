@@ -6,6 +6,7 @@ import type { Technique } from "@/data/methodology";
 import { MatrixRain } from "@/components/matrix-rain";
 import { RainColor } from "@/components/rain-color";
 import { CoverImage } from "@/components/cover-image";
+import { AiStack } from "@/components/ai-stack";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const STORE = "kerberos-ai-done-v1";
@@ -30,7 +31,7 @@ function homeHref(): string {
 export function AiDesk() {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [section, setSection] = useState<string>("Start");
+  const [section, setSection] = useState<string>("Stack");
   const [openOnly, setOpenOnly] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [unsure, setUnsure] = useState<Set<string>>(new Set());
@@ -125,7 +126,7 @@ export function AiDesk() {
                     setDone(new Set());
                     setUnsure(new Set());
                     setQuery("");
-                    setSection("Start");
+                    setSection("Stack");
                     setOpenCard(null);
                     setOpenOnly(false);
                     setConfirmClear(false);
@@ -150,7 +151,7 @@ export function AiDesk() {
                     onKeyDown={(event) => {
                       if (event.key === "Escape") setSearchOpen(false);
                     }}
-                    placeholder="Search: AMSI, AppLocker, proxy, injection"
+                    placeholder="Search: stack, RAG, AMSI, AppLocker, proxy"
                     className="w-full min-w-0 bg-transparent text-sm text-fg outline-none placeholder:text-muted"
                   />
                 </label>
@@ -184,6 +185,7 @@ export function AiDesk() {
             ))}
           </nav>
           <div className="flex min-w-0 flex-col gap-3">
+            {section === "Stack" || section === "All" ? <AiStack /> : null}
             {visible.map((item) => (
               <AiCard
                 key={item.id}

@@ -1,4 +1,22 @@
 export const AI_WHY: Record<string, string> = {
+  "ai-stack-user": `curl -sI fetches the headers only. curl -s fetches the page. head keeps the first 40 lines so you see the title and the scripts without a full dump. A chat box or a script that posts to /api is the application. A page with no request behind it is not an AI target.`,
+
+  "ai-stack-gateway": `The same header request against / and against /v1/models. /v1/models is the OpenAI-compatible list. A body that lists models, or a 401 that tells you the header the key goes in, means you found the proxy. Server and Via name the software in front. A generic 404 with empty product headers means try the path you saw in the page, not a list of guesses.`,
+
+  "ai-stack-orch": `The POST is one normal message, so you can read the raw JSON. A framework name, a steps array, or a langsmith trace means something is choosing tools and retrieval before the model speaks. One plain answer means the path goes to the model and there is no orchestrator to test.`,
+
+  "ai-stack-rag": `The question is one the documents should answer. A quoted policy, a score, a collection name, or text-embedding-ada-002 in the body means retrieval happened. Chroma, Pinecone, and Milvus are the stores. Chunk size and the similarity cutoff explain why a near miss came back or a real document did not. No source and no retrieval fields means this card is finished.`,
+
+  "ai-stack-tools": `The three curls are the usual open schema paths. MCP is a JSON-RPC tool server. A tools array with names and arguments is the permission list. Read it. A calculator is not a file read. A tool with a path or a URL is the boundary that matters. No schema and no function call in the conversation means the model is only chatting.`,
+
+  "ai-stack-ext": `The message asks what it can reach, and you believe a host, a path, or a SQL error more than a polite answer. A2A is another agent, not another website. One named connector is the hop. A vague yes with nothing you can connect to is a stop.`,
+
+  "ai-stack-infer": `11434 is Ollama's port, and /api/tags lists local models. 8000 and 8080 with /v1/models are the usual vLLM and TGI ports. The path that returns JSON is the server type. Connection refused on all three means the inference port is not exposed. Use the gateway you already have.`,
+
+  "ai-stack-model": `The model id comes from the tags or models list you already fetched. The chat's claim of its own name is not evidence. Llama, Mistral, Phi, Qwen, GPT-4, Claude, and Gemini are the families. The id tells you which prompt notes apply. It is not a new scan.`,
+
+  "ai-stack-enum": `The five lines are the order. Headers first, because they are free. Endpoints you already saw, not a wordlist of every AI path. The tool schema if it exists. Then one action that schema allows, to see if it really runs. The error body is kept, because a stack trace names the layer. A bare 404 on all five means this host is not the stack.`,
+
   "ai-order": `The four lines are notes, not commands. PEN-300 fails when the payload changes before the block is named. The first line is the parent that actually ran your code. The second line is the error, copied, not paraphrased. The third line is one control. The fourth line is one change. A new error after that change is a new control, and you start the list again.`,
 
   "ai-lab": `The two comments are the check. The course VPN range is the scope. An address outside it is not a harder lab. This desk does not decide that for you. You do, before the file is sent.`,

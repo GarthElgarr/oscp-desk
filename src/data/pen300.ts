@@ -1,6 +1,7 @@
 import type { Technique } from "./methodology";
 
 export const AI_SECTIONS = [
+  "Stack",
   "Start",
   "Controls",
   "Foothold",
@@ -10,6 +11,120 @@ export const AI_SECTIONS = [
 ] as const;
 
 export const AI_TECHNIQUES: Technique[] = [
+  {
+    id: "ai-stack-user",
+    section: "Stack",
+    title: "User and application layer",
+    look: "The thing a person or a script talks to. A web page, a mobile app, a CLI, or an API client. This is where you see the prompt box. It is not the model.",
+    cmd: `curl -sI http://<ip>/
+curl -s http://<ip>/ | head -n 40`,
+    alive: "A page or a client that sends what you type to a backend. A chat box, a /api path in the page source, or a CLI that names a host.",
+    dead: "A static site with no form and no script that posts anywhere. There is no AI application here.",
+    next: "Find where the message is sent. That address is the gateway.",
+  },
+  {
+    id: "ai-stack-gateway",
+    section: "Stack",
+    title: "API and gateway proxy",
+    look: "nginx or another proxy in front of the model. Keys, rate limits, and load balancing live here. The headers are the tell. They name the backend the proxy is hiding.",
+    cmd: `curl -sI http://<ip>/
+curl -sI http://<ip>/v1/models
+curl -s http://<ip>/v1/models`,
+    alive: "Server, Via, X-Powered-By, or a body that lists models. A 401 that names a key header is still a find. You have the front door.",
+    dead: "Nothing but a generic 404, and no product name in any header. You do not have the API yet.",
+    next: "Note the key header and the path that answered. Do not guess a second product.",
+  },
+  {
+    id: "ai-stack-orch",
+    section: "Stack",
+    title: "Orchestration layer",
+    look: "The code that decides the steps. LangChain, LangGraph, CrewAI, AutoGen, or a custom loop. A stack trace or a debug field that names one of those is the pursue. The model name alone is not.",
+    cmd: `# send one normal question, then read the raw response
+curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"hi"}'
+# names to look for in the JSON or the error
+# LangChain, LangGraph, CrewAI, AutoGen, langsmith`,
+    alive: "The response, a trace, or an error names the framework or shows more than one step.",
+    dead: "One plain answer and no framework name. You are talking to a model endpoint, not an orchestrator.",
+    next: "If a trace shows a retrieval step, open RAG. If it shows a tool call, open Agent tools.",
+  },
+  {
+    id: "ai-stack-rag",
+    section: "Stack",
+    title: "RAG pipeline",
+    look: "Retrieval adds documents to the prompt. The pieces are the embedding model, the vector database, the chunk size and overlap, and the similarity cutoff. A low cutoff returns junk. A high one returns nothing. An error that names Chroma, Pinecone, or Milvus tells you which store.",
+    cmd: `# one question you expect the documents to answer, and one they should not
+curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"what does the internal policy say about passwords?"}'
+# in the raw body, look for
+# text-embedding-ada-002, chroma, pinecone, milvus, collection, score, chunk`,
+    alive: "The answer quotes a document, or the raw body shows a score, a collection, or a vector store name.",
+    dead: "The model answers with no source and the body has no retrieval fields. This app is not using RAG.",
+    next: "Record the store and whether a score is exposed. A document you were not meant to see is the finding.",
+  },
+  {
+    id: "ai-stack-tools",
+    section: "Stack",
+    title: "Agent tools",
+    look: "Tools are functions the model is allowed to call. MCP servers speak JSON-RPC. The schema is the list of those functions. The permission boundary is what a tool can touch. A tool that can read a file or call a URL is a different finding from a tool that only does maths.",
+    cmd: `# common places a schema is left open
+curl -s http://<ip>/tools
+curl -s http://<ip>/v1/tools
+curl -s http://<ip>/.well-known/mcp.json
+# in the page source, look for tools, function, mcp`,
+    alive: "A JSON list of tools, or a response that shows a function name and arguments. You can see the boundary.",
+    dead: "No schema and no function call in a real conversation. The model is only answering text.",
+    next: "Read each tool. Name the one that reaches a file, a database, or a URL. That is the next hop.",
+  },
+  {
+    id: "ai-stack-ext",
+    section: "Stack",
+    title: "External integrations",
+    look: "The agent talking to something that is not the model. Another agent, an external API, a database, or the file system. A2A is agent to agent. The finding is a connector the prompt can make the app use.",
+    cmd: `# from a response or a stack trace, note the connector
+# http:// to a second host, a SQL error, a file path, or an agent id
+curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"which systems can you reach?"}'`,
+    alive: "The reply or the error names a host, a database, a path, or a second agent.",
+    dead: "The reply is a generic yes and no address, path, or error follows. It cannot reach anything, or it will not say.",
+    next: "One connector. Check it the way you would check that service on the Security desk.",
+  },
+  {
+    id: "ai-stack-infer",
+    section: "Stack",
+    title: "Inference server",
+    look: "The server that runs the model. Ollama is the local one, usually port 11434. vLLM and Hugging Face TGI are the production ones. The API shape tells you which. Ollama uses /api/tags. OpenAI-compatible servers use /v1/models.",
+    cmd: `curl -s http://<ip>:11434/api/tags
+curl -s http://<ip>:8000/v1/models
+curl -s http://<ip>:8080/v1/models`,
+    alive: "A JSON list of model names. The path that worked tells you the server.",
+    dead: "All three refuse the connection. The model is behind the gateway only. Stay on the gateway path.",
+    next: "Record the server and the model names. Do not scan a new subnet because one port was open.",
+  },
+  {
+    id: "ai-stack-model",
+    section: "Stack",
+    title: "Underlying model",
+    look: "The weights behind the server. Llama, Mistral, Phi, Qwen, GPT-4, Claude, Gemini. The name changes which prompt style works. It does not change the layers above. Get the name from the server, not from the prose of an answer.",
+    cmd: `# use the path that already answered
+curl -s http://<ip>:11434/api/tags
+curl -s http://<ip>/v1/models`,
+    alive: "A model id you can write down. llama3, mistral, phi3, qwen, gpt-4, claude, gemini, or a local filename.",
+    dead: "The chat claims a name and the API list does not. Believe the list.",
+    next: "The name goes in the chain note. The tests stay on the layer that is exposed.",
+  },
+  {
+    id: "ai-stack-enum",
+    section: "Stack",
+    title: "What you enumerate",
+    look: "Five places, in order. HTTP headers. API endpoints. Tool schemas. What the model will actually do. Error messages. An error that names a file, a query, or a framework is a finding, not a failed request.",
+    cmd: `# 1 headers
+curl -sI http://<ip>/
+# 2 endpoints you already saw in the page or the docs
+# 3 tool schema, if a tools path exists
+# 4 one action the schema allows, and whether it really runs
+# 5 keep the error body. Do not dismiss it.`,
+    alive: "One of the five returned a name you did not have: a header, a path, a tool, a real action, or a stack trace.",
+    dead: "Headers are generic, the paths 404, there is no schema, the model refuses, and the error is a bare status code. This host is not the AI stack.",
+    next: "Write the layer next to the proof. Then the next layer down, or back to the PEN-300 chain if this was only one hop.",
+  },
   {
     id: "ai-order",
     section: "Start",
