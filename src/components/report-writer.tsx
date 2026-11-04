@@ -16,6 +16,7 @@ import {
   type HostReport,
 } from "@/lib/report-model";
 import { reportHtml } from "@/lib/report-html";
+import { reportMarkdown } from "@/lib/report-md";
 import { buildReportPdf } from "@/lib/report-pdf";
 import { deleteShot, fileToShot, loadShots, putShot, shotBytes, type StoredShot } from "@/lib/report-shots";
 
@@ -50,7 +51,7 @@ export function ReportWriter() {
   const [openId, setOpenId] = useState<string>("standalone-1");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
-  const [busy, setBusy] = useState<"html" | "pdf" | null>(null);
+  const [busy, setBusy] = useState<"html" | "pdf" | "md" | null>(null);
   const [error, setError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -75,7 +76,7 @@ export function ReportWriter() {
   }, [report]);
 
   const html = useMemo(() => (report ? reportHtml(report, shots) : ""), [report, shots]);
-  const gaps = report ? reportGaps(report) : [];
+  const gaps = report ? reportGaps(report, shotsReady ? new Set(shots.keys()) : undefined) : [];
 
   function patch(partial: Partial<ExamReport>) {
     setReport((current) => (current ? { ...current, ...partial } : current));
@@ -182,6 +183,19 @@ export function ReportWriter() {
     }
   }
 
+  async function exportMarkdown() {
+    if (!report) return;
+    setBusy("md");
+    setError("");
+    try {
+      download(`${reportFileBase(report)}.md`, new Blob([reportMarkdown(report)], { type: "text/markdown" }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The Markdown could not be built.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function exportPdf() {
     if (!report) return;
     setBusy("pdf");
@@ -233,6 +247,10 @@ export function ReportWriter() {
           <button type="button" onClick={() => void exportHtml()} disabled={busy !== null} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40">
             <Download className="size-4" aria-hidden="true" />
             {busy === "html" ? "Building HTML" : "Download HTML"}
+          </button>
+          <button type="button" onClick={() => void exportMarkdown()} disabled={busy !== null} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm text-fg disabled:opacity-40">
+            <Download className="size-4" aria-hidden="true" />
+            {busy === "md" ? "Building Markdown" : "Download Markdown"}
           </button>
           <button
             type="button"
@@ -287,6 +305,15 @@ export function ReportWriter() {
         </Field>
         <Field label="3. RECOMMENDATIONS" hint="Optional overview. Each host can also carry its own fix.">
           <textarea className={area} value={report.recommendations} onChange={(event) => patch({ recommendations: event.target.value })} />
+        </Field>
+        <Field label="4. METHODOLOGIES" hint="How you looked, not a second copy of the exploit. Information gathering, the checks, and when you stopped.">
+          <textarea className={area} value={report.methodologies} onChange={(event) => patch({ methodologies: event.target.value })} />
+        </Field>
+        <Field label="RAW POINTS" hint="Your tally only. OffSec scales it. The export says the number is not the published score.">
+          <textarea className={area} value={report.rawPoints} onChange={(event) => patch({ rawPoints: event.target.value })} placeholder={"Standalone: 20\nActive Directory: 40\nRaw total: 60"} />
+        </Field>
+        <Field label="APPENDIX, OTHER CODE" hint="PoC that is not already pasted on a host. Each host's exploit code is copied into the appendix for you.">
+          <textarea className={area} value={report.pocAppendix} onChange={(event) => patch({ pocAppendix: event.target.value })} />
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -383,6 +410,26 @@ export function ReportWriter() {
                   </Field>
                   <Field label="FIX" hint="The one change that would have stopped this step.">
                     <textarea className={area} value={host.fix} onChange={(event) => patchHost(host.id, { fix: event.target.value })} />
+                  </Field>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="VULNERABILITY NAME">
+                      <input className={input} value={host.vulnName} onChange={(event) => patchHost(host.id, { vulnName: event.target.value })} />
+                    </Field>
+                    <Field label="SEVERITY" hint="A word is enough. Critical, high, medium, low.">
+                      <input className={input} value={host.severity} onChange={(event) => patchHost(host.id, { severity: event.target.value })} />
+                    </Field>
+                  </div>
+                  <Field label="VULNERABILITY EXPLANATION" hint="What was wrong, in one short paragraph. The command stays in initial access.">
+                    <textarea className={area} value={host.vulnExplanation} onChange={(event) => patchHost(host.id, { vulnExplanation: event.target.value })} />
+                  </Field>
+                  <Field label="ORIGINAL EXPLOIT URL" hint="Where the public code came from. Leave blank if you wrote it.">
+                    <input className={input} value={host.exploitUrl} onChange={(event) => patchHost(host.id, { exploitUrl: event.target.value })} />
+                  </Field>
+                  <Field label="MODIFIED EXPLOIT" hint="The code you actually ran.">
+                    <textarea className={area} value={host.exploitCode} onChange={(event) => patchHost(host.id, { exploitCode: event.target.value })} />
+                  </Field>
+                  <Field label="WHAT CHANGED, AND WHY">
+                    <textarea className={area} value={host.exploitChanges} onChange={(event) => patchHost(host.id, { exploitChanges: event.target.value })} />
                   </Field>
                   <div className="flex flex-col gap-2">
                     <span className="font-mono text-xs tracking-wide text-muted">SCREENSHOTS</span>

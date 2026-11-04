@@ -1,4 +1,4 @@
-import { accessLabel, hostLabel, hostStarted, type ExamReport, type HostReport } from "./report-model";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model";
 
 export type ShotFile = { dataUrl: string; w: number; h: number };
 
@@ -38,29 +38,36 @@ function figures(host: HostReport, shots: Map<string, ShotFile>, start: number):
     const file = shots.get(shot.id);
     const caption = shot.caption.trim() || "Proof screenshot. The flag, the identity, and the IP are in this frame.";
     const src = file ? jpegSrc(file.dataUrl) : null;
+    const note = src ? "" : " File missing.";
     const img = src
       ? `<img alt="${esc(caption)}" src="${src}" />`
-      : `<p class="missing">Screenshot file was not in this browser.</p>`;
-    return `<figure>${img}<figcaption>Figure ${n}. ${esc(caption)}</figcaption></figure>`;
+      : `<p class="missing">File missing.</p>`;
+    return `<figure>${img}<figcaption>Figure ${n}. ${esc(caption)}${note}</figcaption></figure>`;
   });
   return { html: parts.join("\n"), next: n };
 }
 
-function hostSection(host: HostReport, number: string, index: number, shots: Map<string, ShotFile>, figure: number): { html: string; next: number } {
+function hostSection(host: HostReport, number: string, hosts: HostReport[], shots: Map<string, ShotFile>, figure: number): { html: string; next: number } {
   const figs = figures(host, shots, figure);
-  const os = host.os.trim() ? ` (${esc(host.os.trim())})` : "";
+  const index = hostKindIndex(hosts, host);
   return {
     next: figs.next,
     html: `<section>
-      <h2>${number} ${esc(hostLabel(host, index))} — ${esc(host.ip.trim() || "IP not recorded")}${os}</h2>
+      <h3>${number} ${esc(hostTitle(host, index))}</h3>
       <p class="reached">Reached: ${esc(accessLabel(host.access))}.</p>
-      <h3>${number}.1 Service enumeration</h3>
+      <h4>${number}.1 Service enumeration</h4>
       ${block(host.enumeration, "Not recorded.")}
-      <h3>${number}.2 Initial access</h3>
+      <h4>${number}.2 Vulnerability</h4>
+      ${block([host.vulnName.trim() && `Name: ${host.vulnName.trim()}`, host.severity.trim() && `Severity: ${host.severity.trim()}`, host.vulnExplanation.trim()].filter(Boolean).join("\n"), "Not recorded.")}
+      <h4>${number}.3 Initial access</h4>
       ${block(host.foothold, "Not recorded.")}
-      <h3>${number}.3 Privilege escalation</h3>
+      <h4>${number}.4 Privilege escalation</h4>
       ${block(host.privesc, host.access === "full" ? "Not recorded." : "Privilege escalation was not reached.")}
-      <h3>${number}.4 Proof</h3>
+      <h4>${number}.5 Exploit code</h4>
+      ${block([host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim() && `Modified code:\n${host.exploitCode.trim()}`, host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n"), "Not recorded.")}
+      <h4>${number}.6 Fix</h4>
+      ${block(host.fix, "Not recorded.")}
+      <h4>${number}.7 Proof</h4>
       ${flagLine("local.txt:", host.localFlag)}
       ${flagLine("proof.txt:", host.proofFlag)}
       ${figs.html}
@@ -74,23 +81,29 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
   let figure = 0;
   const standHtml: string[] = [];
   stand.forEach((host, index) => {
-    const part = hostSection(host, `4.${index + 1}`, index, shots, figure);
+    const part = hostSection(host, `5.${index + 1}`, report.hosts, shots, figure);
     figure = part.next;
     standHtml.push(part.html);
   });
   const adHtml: string[] = [];
   ad.forEach((host, index) => {
-    const part = hostSection(host, `5.${index + 2}`, index, shots, figure);
+    const part = hostSection(host, `6.${index + 2}`, report.hosts, shots, figure);
     figure = part.next;
     adHtml.push(part.html);
   });
   const fixes = report.hosts.filter(hostStarted).filter((host) => host.fix.trim());
   const rows = report.hosts.filter(hostStarted).map((host) => {
-    const index = report.hosts.filter((item) => item.kind === host.kind).indexOf(host);
+    const index = hostKindIndex(report.hosts, host);
     const kind = host.kind === "ad" ? "Active Directory" : "Standalone";
     return `<tr><td>${esc(hostLabel(host, index))}</td><td>${esc(host.ip.trim() || "—")}</td><td>${kind}</td><td>${esc(accessLabel(host.access))}</td></tr>`;
   });
-  const title = `OSCP Exam Report${report.osid.trim() ? ` — ${report.osid.trim()}` : ""}`;
+  const title = `OSCP Exam Report — ${normaliseOsid(report.osid)}`;
+  const pocBlocks = report.hosts.filter(hostStarted).flatMap((host) => {
+    if (!host.exploitCode.trim() && !host.exploitUrl.trim()) return [];
+    const index = hostKindIndex(report.hosts, host);
+    return [`${hostLabel(host, index)}\n${[host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim(), host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n")}`];
+  });
+  const appendix = [...pocBlocks, report.pocAppendix.trim()].filter(Boolean).join("\n\n");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,10 +114,11 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
     * { box-sizing: border-box; }
     body { margin: 0; color: #1a1a1a; background: #fff; font: 11.5pt/1.45 Georgia, "Times New Roman", serif; }
     main { max-width: 42rem; margin: 0 auto; padding: 1.5rem 0 3rem; }
-    h1, h2, h3 { font-family: Calibri, "Segoe UI", sans-serif; line-height: 1.25; page-break-after: avoid; }
+    h1, h2, h3, h4 { font-family: Calibri, "Segoe UI", sans-serif; line-height: 1.25; page-break-after: avoid; }
     h1 { font-size: 22pt; font-weight: 700; margin: 0 0 0.4rem; }
     h2 { font-size: 15pt; margin: 1.6rem 0 0.4rem; }
     h3 { font-size: 12.5pt; margin: 1rem 0 0.3rem; }
+    h4 { font-size: 11.5pt; margin: 0.8rem 0 0.25rem; }
     p { margin: 0.35rem 0 0.7rem; }
     .kicker { font-family: Calibri, "Segoe UI", sans-serif; letter-spacing: 0.14em; font-size: 10pt; margin: 0 0 0.4rem; }
     .cover { page-break-after: always; min-height: 70vh; padding-top: 18vh; }
@@ -130,7 +144,7 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
     <h1>OSCP Exam Report</h1>
     <table class="meta">
       <tr><th>Student</th><td>${esc(report.name.trim() || "Not recorded")}</td></tr>
-      <tr><th>OSID</th><td>${esc(report.osid.trim() || "Not recorded")}</td></tr>
+      <tr><th>OSID</th><td>${esc(normaliseOsid(report.osid))}</td></tr>
       <tr><th>Email</th><td>${esc(report.email.trim() || "Not recorded")}</td></tr>
       <tr><th>Exam date</th><td>${esc(report.examDate.trim() || "Not recorded")}</td></tr>
       <tr><th>Report date</th><td>${esc(report.reportDate.trim() || "Not recorded")}</td></tr>
@@ -143,12 +157,20 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
   ${block(report.summary, "Not recorded.")}
   <h2>3. Recommendations</h2>
   ${block(report.recommendations, fixes.length ? "" : "Not recorded.")}
-  ${fixes.length ? `<ul>${fixes.map((host) => `<li><strong>${esc(hostLabel(host, report.hosts.filter((item) => item.kind === host.kind).indexOf(host)))}</strong> — ${esc(host.fix.trim())}</li>`).join("")}</ul>` : ""}
-  <h2>4. Independent challenges</h2>
+  ${fixes.length ? `<ul>${fixes.map((host) => `<li><strong>${esc(hostLabel(host, hostKindIndex(report.hosts, host)))}</strong> — ${esc(host.fix.trim())}</li>`).join("")}</ul>` : ""}
+  <h2>4. Methodologies</h2>
+  ${block(report.methodologies, "Not recorded.")}
+  <h2>5. Independent challenges</h2>
   ${standHtml.length ? standHtml.join("\n") : block("", "No standalone host is included.")}
-  <h2>5. Active Directory</h2>
-  ${report.domain.trim() || report.adUser.trim() || report.adNarrative.trim() ? `<h3>5.1 Domain</h3>${block([report.domain.trim() && `Domain: ${report.domain.trim()}`, report.adUser.trim() && `Starting credential: ${report.adUser.trim()}`, report.adNarrative.trim()].filter(Boolean).join("\n\n"), "Not recorded.")}` : `<h3>5.1 Domain</h3>${block("", "Not recorded.")}`}
+  <h2>6. Active Directory</h2>
+  <h3>6.1 Domain</h3>
+  ${block([report.domain.trim() && `Domain: ${report.domain.trim()}`, report.adUser.trim() && `Starting credential: ${report.adUser.trim()}`, report.adNarrative.trim()].filter(Boolean).join("\n\n"), "Not recorded.")}
   ${adHtml.length ? adHtml.join("\n") : block("", "No Active Directory host is included.")}
+  <h2>7. Appendix: proof of concept code</h2>
+  ${block(appendix, "Not recorded.")}
+  <h2>8. Scoring note</h2>
+  ${block(report.rawPoints, "Not recorded.")}
+  <p>${esc(SCORE_CAVEAT)}</p>
 </main>
 </body>
 </html>`;

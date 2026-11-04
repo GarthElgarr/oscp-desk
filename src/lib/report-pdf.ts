@@ -1,4 +1,4 @@
-import { accessLabel, hostLabel, hostStarted, type ExamReport, type HostReport } from "./report-model";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model";
 
 export type JpegShot = { jpeg: Uint8Array; w: number; h: number };
 
@@ -32,7 +32,7 @@ function normalize(input: string): string {
     .replaceAll("\u201d", '"')
     .replaceAll("\u2026", "...")
     .replaceAll("\u00a0", " ")
-    .replaceAll(/[^\u0000-\u00ff]/g, "?");
+    .replaceAll(/[^\u0000-\u00ff]/gu, "");
 }
 
 function textWidth(text: string, size: number, mono: boolean): number {
@@ -128,7 +128,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
     next.cmds.push("0.35 0.35 0.35 rg", "BT", "/F1 9 Tf", `1 0 0 1 ${LEFT} 812 Tm`, `${pdfString("OSCP Exam Report")} Tj`, "ET");
     const title = "OSCP Exam Report";
     const titleW = textWidth(title, 9, false);
-    const id = fit(report.osid.trim() || "OS-XXXXX", 9, Math.max(36, CONTENT_W - titleW - 16));
+    const id = fit(normaliseOsid(report.osid), 9, Math.max(36, CONTENT_W - titleW - 16));
     const idW = textWidth(id, 9, false);
     const idX = Math.max(LEFT, RIGHT - idW);
     next.cmds.push("BT", "/F1 9 Tf", `1 0 0 1 ${idX.toFixed(2)} 812 Tm`, `${pdfString(id)} Tj`, "ET", "0.75 0.75 0.75 RG", "0.6 w", `${LEFT} 804 m ${RIGHT} 804 l S`);
@@ -213,10 +213,10 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
     }
   }
 
-  function table(rows: string[][]) {
-    const cols = [150, 110, 227];
+  function table(header: string[], rows: string[][]) {
+    const cols = header.length === 4 ? [148, 100, 110, 129] : [150, 110, 227];
     const rowH = 18;
-    const all = [["Host", "IP", "Reached"], ...rows];
+    const all = [header, ...rows];
     for (const row of all) {
       need(rowH + 2);
       y -= rowH;
@@ -244,7 +244,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
       shot.w > 0 &&
       shot.h > 0;
     if (!valid) {
-      prose("", "Screenshot could not be placed. The file was empty or not a JPEG.");
+      missingFigure(caption);
       return;
     }
     const iw = Math.max(1, Math.round(shot.w));
@@ -253,7 +253,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
     let dh = (ih * dw) / iw;
     const maxH = 360;
     if (!Number.isFinite(dh) || dh <= 0) {
-      prose("", "Screenshot could not be placed. The file was empty or not a JPEG.");
+      missingFigure(caption);
       return;
     }
     if (dh > maxH) {
@@ -272,26 +272,45 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
     gap(6);
   }
 
-  function hostBlock(host: HostReport, number: string, index: number) {
-    const os = host.os.trim() ? ` (${host.os.trim()})` : "";
-    heading(`${number} ${hostLabel(host, index)} - ${host.ip.trim() || "IP not recorded"}${os}`, 13, 12);
+  function missingFigure(caption: string) {
+    figure += 1;
+    line(`Figure ${figure}. ${caption.trim() || "Proof screenshot."} File missing.`, "F1", 9, false, "0.25 0.25 0.25");
+    gap(6);
+  }
+
+  function hostBlock(host: HostReport, number: string) {
+    const index = hostKindIndex(report.hosts, host);
+    heading(`${number} ${hostTitle(host, index)}`, 13, 12);
     paragraph(`Reached: ${accessLabel(host.access)}.`, "F1", 11, false, 14);
     heading(`${number}.1 Service enumeration`, 12, 8);
     prose(host.enumeration, "Not recorded.");
-    heading(`${number}.2 Initial access`, 12, 8);
+    heading(`${number}.2 Vulnerability`, 12, 8);
+    prose(
+      [host.vulnName.trim() && `Name: ${host.vulnName.trim()}`, host.severity.trim() && `Severity: ${host.severity.trim()}`, host.vulnExplanation.trim()].filter(Boolean).join("\n"),
+      "Not recorded.",
+    );
+    heading(`${number}.3 Initial access`, 12, 8);
     prose(host.foothold, "Not recorded.");
-    heading(`${number}.3 Privilege escalation`, 12, 8);
+    heading(`${number}.4 Privilege escalation`, 12, 8);
     prose(host.privesc, host.access === "full" ? "Not recorded." : "Privilege escalation was not reached.");
-    heading(`${number}.4 Proof`, 12, 8);
+    heading(`${number}.5 Exploit code`, 12, 8);
+    prose(
+      [host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim() && `Modified code:\n${host.exploitCode.trim()}`, host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n"),
+      "Not recorded.",
+    );
+    heading(`${number}.6 Fix`, 12, 8);
+    prose(host.fix, "Not recorded.");
+    heading(`${number}.7 Proof`, 12, 8);
     paragraph(`local.txt: ${host.localFlag.trim() || "Not obtained."}`, "F1", 11, false, 14);
     paragraph(`proof.txt: ${host.proofFlag.trim() || "Not obtained."}`, "F1", 11, false, 14);
     for (const shot of host.shots) {
       const file = shots.get(shot.id);
+      const caption = shot.caption.trim() || "Proof screenshot.";
       if (!file) {
-        prose("", "Screenshot file was not in this browser.");
+        missingFigure(caption);
         continue;
       }
-      image(file, shot.caption);
+      image(file, caption);
     }
   }
 
@@ -302,7 +321,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
   line("OSCP Exam Report", "F2", 22, false);
   gap(16);
   meta("Student", report.name);
-  meta("OSID", report.osid);
+  meta("OSID", normaliseOsid(report.osid));
   meta("Email", report.email);
   meta("Exam date", report.examDate);
   meta("Report date", report.reportDate);
@@ -314,9 +333,11 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
   const started = report.hosts.filter(hostStarted);
   if (started.length) {
     table(
+      ["Host", "IP", "Set", "Reached"],
       started.map((host) => {
-        const index = report.hosts.filter((item) => item.kind === host.kind).indexOf(host);
-        return [hostLabel(host, index), host.ip.trim() || "-", accessLabel(host.access)];
+        const index = hostKindIndex(report.hosts, host);
+        const kind = host.kind === "ad" ? "Active Directory" : "Standalone";
+        return [hostLabel(host, index), host.ip.trim() || "-", kind, accessLabel(host.access)];
       }),
     );
   }
@@ -325,24 +346,42 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
   prose(report.recommendations, started.some((host) => host.fix.trim()) ? "" : "Not recorded.");
   for (const host of started) {
     if (!host.fix.trim()) continue;
-    const index = report.hosts.filter((item) => item.kind === host.kind).indexOf(host);
+    const index = hostKindIndex(report.hosts, host);
     paragraph(`${hostLabel(host, index)} - ${host.fix.trim()}`, "F1", 11, false, 14);
   }
 
-  heading("4. Independent challenges", 16, 14);
+  heading("4. Methodologies", 16, 14);
+  prose(report.methodologies, "Not recorded.");
+
+  heading("5. Independent challenges", 16, 14);
   const stand = started.filter((host) => host.kind === "standalone");
   if (!stand.length) prose("", "No standalone host is included.");
-  stand.forEach((host, index) => hostBlock(host, `4.${index + 1}`, index));
+  stand.forEach((host, index) => hostBlock(host, `5.${index + 1}`));
 
-  heading("5. Active Directory", 16, 14);
-  heading("5.1 Domain", 12, 8);
+  heading("6. Active Directory", 16, 14);
+  heading("6.1 Domain", 12, 8);
   const domainText = [report.domain.trim() && `Domain: ${report.domain.trim()}`, report.adUser.trim() && `Starting credential: ${report.adUser.trim()}`, report.adNarrative.trim()]
     .filter(Boolean)
     .join("\n");
   prose(domainText, "Not recorded.");
   const ad = started.filter((host) => host.kind === "ad");
   if (!ad.length) prose("", "No Active Directory host is included.");
-  ad.forEach((host, index) => hostBlock(host, `5.${index + 2}`, index));
+  ad.forEach((host, index) => hostBlock(host, `6.${index + 2}`));
+
+  heading("7. Appendix: proof of concept code", 16, 14);
+  const poc = started
+    .flatMap((host) => {
+      if (!host.exploitCode.trim() && !host.exploitUrl.trim()) return [];
+      const index = hostKindIndex(report.hosts, host);
+      return [[hostLabel(host, index), [host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim(), host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n")].join("\n")];
+    })
+    .concat(report.pocAppendix.trim() ? [report.pocAppendix.trim()] : [])
+    .join("\n\n");
+  prose(poc, "Not recorded.");
+
+  heading("8. Scoring note", 16, 14);
+  prose(report.rawPoints, "Not recorded.");
+  paragraph(SCORE_CAVEAT, "F1", 11, false, 14);
 
   const fonts = [
     enc("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),

@@ -15,6 +15,12 @@ export type HostReport = {
   foothold: string;
   privesc: string;
   fix: string;
+  vulnName: string;
+  vulnExplanation: string;
+  severity: string;
+  exploitUrl: string;
+  exploitCode: string;
+  exploitChanges: string;
   shots: ShotMeta[];
 };
 
@@ -30,6 +36,9 @@ export type ExamReport = {
   domain: string;
   adUser: string;
   adNarrative: string;
+  methodologies: string;
+  rawPoints: string;
+  pocAppendix: string;
   hosts: HostReport[];
 };
 
@@ -51,6 +60,12 @@ export function hostTemplate(kind: HostReport["kind"], id: string): HostReport {
     foothold: "",
     privesc: "",
     fix: "",
+    vulnName: "",
+    vulnExplanation: "",
+    severity: "",
+    exploitUrl: "",
+    exploitCode: "",
+    exploitChanges: "",
     shots: [],
   };
 }
@@ -69,6 +84,9 @@ export function blankReport(): ExamReport {
     domain: "",
     adUser: "",
     adNarrative: "",
+    methodologies: "",
+    rawPoints: "",
+    pocAppendix: "",
     hosts: [
       hostTemplate("standalone", "standalone-1"),
       hostTemplate("standalone", "standalone-2"),
@@ -104,6 +122,12 @@ function asHost(value: unknown): HostReport | null {
     foothold: typeof row.foothold === "string" ? row.foothold : "",
     privesc: typeof row.privesc === "string" ? row.privesc : "",
     fix: typeof row.fix === "string" ? row.fix : "",
+    vulnName: typeof row.vulnName === "string" ? row.vulnName : "",
+    vulnExplanation: typeof row.vulnExplanation === "string" ? row.vulnExplanation : "",
+    severity: typeof row.severity === "string" ? row.severity : "",
+    exploitUrl: typeof row.exploitUrl === "string" ? row.exploitUrl : "",
+    exploitCode: typeof row.exploitCode === "string" ? row.exploitCode : "",
+    exploitChanges: typeof row.exploitChanges === "string" ? row.exploitChanges : "",
     shots,
   };
 }
@@ -141,6 +165,9 @@ export function parseReport(raw: string | null): ExamReport | null {
       domain: typeof value.domain === "string" ? value.domain : "",
       adUser: typeof value.adUser === "string" ? value.adUser : "",
       adNarrative: typeof value.adNarrative === "string" ? value.adNarrative : "",
+      methodologies: typeof value.methodologies === "string" ? value.methodologies : "",
+      rawPoints: typeof value.rawPoints === "string" ? value.rawPoints : "",
+      pocAppendix: typeof value.pocAppendix === "string" ? value.pocAppendix : "",
       hosts,
     };
   } catch {
@@ -165,7 +192,7 @@ export function hostStarted(host: HostReport): boolean {
   return (
     host.access !== "none" ||
     host.shots.length > 0 ||
-    [host.hostname, host.ip, host.os, host.localFlag, host.proofFlag, host.enumeration, host.foothold, host.privesc, host.fix].some(
+    [host.hostname, host.ip, host.os, host.localFlag, host.proofFlag, host.enumeration, host.foothold, host.privesc, host.fix, host.vulnName, host.vulnExplanation, host.severity, host.exploitUrl, host.exploitCode, host.exploitChanges].some(
       (value) => value.trim(),
     )
   );
@@ -200,32 +227,60 @@ export function moveHost(hosts: HostReport[], id: string, dir: -1 | 1): HostRepo
   return copy;
 }
 
-export function reportFileBase(report: ExamReport): string {
-  const raw = report.osid.trim().replace(/[^A-Za-z0-9-]/g, "");
-  const body = /^os-/i.test(raw) ? raw.slice(3) : /^os\d/i.test(raw) ? raw.slice(2) : raw;
-  const osid = body ? `OS-${body}` : "OS-XXXXX";
-  return `OSCP-${osid}-Exam-Report`;
+export function hostKindIndex(hosts: HostReport[], host: HostReport): number {
+  return hosts.filter((item) => item.kind === host.kind).indexOf(host);
 }
 
-export function reportGaps(report: ExamReport): Gap[] {
+export function hostTitle(host: HostReport, index: number): string {
+  const label = hostLabel(host, index);
+  const ip = host.ip.trim();
+  const os = host.os.trim() ? ` (${host.os.trim()})` : "";
+  if (!ip) return `${label} - IP not recorded${os}`;
+  if (label === ip) return `${label}${os}`;
+  return `${label} - ${ip}${os}`;
+}
+
+export function normaliseOsid(osid: string): string {
+  const raw = osid.trim().replace(/[^A-Za-z0-9-]/g, "");
+  const body = /^os-/i.test(raw) ? raw.slice(3) : /^os\d/i.test(raw) ? raw.slice(2) : raw;
+  return body ? `OS-${body}` : "OS-XXXXX";
+}
+
+export const SCORE_CAVEAT =
+  "The tally above is the raw point count. OffSec scales that total before it publishes a result. This number is not the score on the result letter. Confirm the live exam guide on the day.";
+
+export function reportFileBase(report: ExamReport): string {
+  return `OSCP-${normaliseOsid(report.osid)}-Exam-Report`;
+}
+
+export function reportGaps(report: ExamReport, loadedShotIds?: ReadonlySet<string>): Gap[] {
   const gaps: Gap[] = [];
   if (!report.osid.trim()) gaps.push({ level: "miss", text: "OSID is empty. The file OffSec expects is OSCP-OS-XXXXX-Exam-Report.pdf." });
   else if (!/^OS-\d{3,}$/i.test(report.osid.trim())) gaps.push({ level: "warn", text: "OSID usually looks like OS-12345." });
   if (!report.summary.trim()) gaps.push({ level: "warn", text: "High-level summary is empty. Two or three sentences on what fell, then the table carries the hosts." });
+  if (!report.methodologies.trim()) gaps.push({ level: "warn", text: "Methodologies is empty. OffSec expects the process you used, not only the commands that worked." });
   const started = report.hosts.filter(hostStarted);
   if (started.length === 0) gaps.push({ level: "miss", text: "No host has an IP or a write-up yet." });
   const fixes = report.recommendations.trim() || started.some((host) => host.fix.trim());
   if (!fixes) gaps.push({ level: "warn", text: "Recommendations are empty. One sentence per host on what would have stopped the step." });
   started.forEach((host) => {
-    const name = hostLabel(host, report.hosts.filter((item) => item.kind === host.kind).indexOf(host));
+    const name = hostLabel(host, hostKindIndex(report.hosts, host));
     if (!host.ip.trim()) gaps.push({ level: "miss", text: `${name}: no IP address.` });
     if (!host.enumeration.trim()) gaps.push({ level: "warn", text: `${name}: service enumeration is empty. The scan command and the ports that mattered.` });
+    if (host.access !== "none" && !host.vulnName.trim()) gaps.push({ level: "warn", text: `${name}: vulnerability name is empty.` });
     if (host.access !== "none" && !host.foothold.trim()) gaps.push({ level: "miss", text: `${name}: access is marked, but initial access has no command.` });
     if (host.access === "full" && !host.privesc.trim()) gaps.push({ level: "miss", text: `${name}: proof.txt is claimed, but privilege escalation is empty.` });
     if (host.access !== "none" && !host.localFlag.trim()) gaps.push({ level: "warn", text: `${name}: local.txt value is empty.` });
     if (host.access === "full" && !host.proofFlag.trim()) gaps.push({ level: "warn", text: `${name}: proof.txt value is empty.` });
     if (host.access !== "none" && host.shots.length === 0) {
       gaps.push({ level: "warn", text: `${name}: no screenshot. One frame needs the flag, id or whoami, and the IP.` });
+    }
+    if (loadedShotIds) {
+      for (const shot of host.shots) {
+        if (loadedShotIds.has(shot.id)) continue;
+        const caption = shot.caption.trim() || "untitled screenshot";
+        gaps.push({ level: "warn", text: `${name}: screenshot file is missing (${caption}).` });
+      }
     }
   });
   return gaps;
