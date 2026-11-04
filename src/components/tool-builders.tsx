@@ -12,14 +12,17 @@ import { ImpacketBuilder } from "@/components/impacket-builder";
 import { AdBuilder } from "@/components/ad-builder";
 import { BasicList } from "@/components/basic-list";
 import { WfuzzBuilder } from "@/components/wfuzz-builder";
+import { FfufBuilder, DirBuilder, SmbBuilder, BofBuilder, SqliBuilder, AdHourBuilder, ClientSideBuilder } from "@/components/study-builders";
 import { SnmpBuilder } from "@/components/snmp-builder";
 import { LootPick } from "@/components/loot-card";
 import { getLoot, getLootServer, lootLines, LOOT_HASHCAT, subscribeLoot, type LootKind } from "@/lib/loot";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
+import { nxcGuard, nxcTarget, nxcUnknownFlag } from "@/lib/nxc-plan";
 import { useGlobalField } from "@/lib/use-global-field";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
-export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket" | "ad" | "basic";
+export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket" | "ad" | "basic" | "ffuf" | "dirs" | "smb" | "bof" | "sqli" | "adhour" | "client";
 
 const LABELS: Record<ToolId, string> = {
   msfvenom: "msfvenom",
@@ -38,6 +41,13 @@ const LABELS: Record<ToolId, string> = {
   impacket: "impacket",
   ad: "AD tools",
   basic: "base64",
+  ffuf: "ffuf",
+  dirs: "gobuster",
+  smb: "smb",
+  bof: "buffer",
+  sqli: "sqli",
+  adhour: "AD hour",
+  client: "client",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -65,6 +75,7 @@ function cleanTarget(value: string) {
 
 function cleanUser(value: string) {
   const v = value.trim();
+  if (v.startsWith("-")) return "";
   if (!/^[A-Za-z0-9_./\\@+-]+$/.test(v)) return "";
   if (v.includes("..")) return "";
   return v;
@@ -1646,8 +1657,11 @@ const NXC_ACTIONS: NxcAction[] = [
   { id: "zero", label: "Zerologon check", protocols: ["smb"], stop: true, note: "Last look, after roast, ACL, LAPS, shares, and local privesc are dead. This line only checks. Exploiting it can break the DC." },
 ];
 
+const NXC_PROTOS = new Set(["smb", "ldap", "winrm", "mssql", "rdp", "wmi", "ssh", "ftp"]);
+
 function NxcBuilder() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
+  const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   const [proto, setProto] = useState("smb");
   const [action, setAction] = useState("auth");
   const [target, setTarget] = useGlobalField(globals.target);
@@ -1664,8 +1678,8 @@ function NxcBuilder() {
 
   const actions = NXC_ACTIONS.filter((a) => a.protocols.includes(proto));
   const picked = actions.find((a) => a.id === action) ?? actions[0];
-  const host = cleanTarget(target);
-  const domainOk = domain.trim() === "" || /^[A-Za-z0-9.-]+$/.test(domain.trim());
+  const host = nxcTarget(target) ?? "";
+  const domainOk = domain.trim() === "" || /^[A-Za-z0-9][A-Za-z0-9.-]{0,80}$/.test(domain.trim());
   const isFile = userModeIsFile(user);
   const userOk =
     picked.id === "zero" || auth === "anon" || (auth === "key" ? cleanPath(user) !== "" : cleanUser(user) !== "");
@@ -1678,11 +1692,12 @@ function NxcBuilder() {
   const portOk = port.trim() === "" || (/^\d+$/.test(port.trim()) && Number(port) >= 1 && Number(port) <= 65535);
   const shareOk = picked.id !== "spider" || cleanPath(share) !== "";
   const patternOk = picked.id !== "spider" || /^[A-Za-z0-9|._*-]+$/.test(pattern);
-  const outOk = !picked.outfile || cleanPath(outfile) !== "";
+  const outOk = !picked.outfile || outfileSafe(outfile) !== "";
   const cmdOk = (picked.id !== "cmd" && picked.id !== "query") || (cleanLoose(cmd).length > 0 && !/[\n'`]/.test(cmd));
-  const ready = Boolean(host) && domainOk && userOk && secretOk && !rockyou && portOk && shareOk && patternOk && outOk && cmdOk;
+  const ready = Boolean(host) && NXC_PROTOS.has(proto) && domainOk && userOk && secretOk && !rockyou && portOk && shareOk && patternOk && outOk && cmdOk;
 
   let command = "";
+  let blockNote = "";
   if (ready && picked) {
     const bits = ["nxc", proto, host];
     if (picked.id === "zero" || auth === "anon") {
@@ -1702,7 +1717,10 @@ function NxcBuilder() {
     if (local && ["smb", "winrm", "mssql", "wmi"].includes(proto) && auth !== "cache" && auth !== "anon" && picked.id !== "zero") {
       bits.push("--local-auth");
     }
-    if (port.trim()) bits.push(`--port ${port.trim()}`);
+    if (port.trim()) {
+      const safePort = digits(port, 65535);
+      if (safePort) bits.push(`--port ${safePort}`);
+    }
     if (picked.id === "shares") bits.push("--shares");
     if (picked.id === "users") bits.push("--users");
     if (picked.id === "groups") bits.push("--groups");
@@ -1715,8 +1733,8 @@ function NxcBuilder() {
     if (picked.id === "laps-smb") bits.push("--laps");
     if (picked.id === "adcs") bits.push("-M adcs");
     if (picked.id === "deleg") bits.push("--trusted-for-delegation");
-    if (picked.id === "kerb") bits.push(`--kerberoasting ${cleanPath(outfile)}`);
-    if (picked.id === "asrep") bits.push(`--asreproast ${cleanPath(outfile)}`);
+    if (picked.id === "kerb") bits.push(`--kerberoasting ${outfileSafe(outfile)}`);
+    if (picked.id === "asrep") bits.push(`--asreproast ${outfileSafe(outfile)}`);
     if (picked.id === "blood") bits.push("--bloodhound", "-c All");
     if (picked.id === "sam") bits.push("--sam");
     if (picked.id === "lsa") bits.push("--lsa");
@@ -1727,6 +1745,12 @@ function NxcBuilder() {
     if (picked.id === "query") bits.push(`-q ${bashSingle(cleanLoose(cmd))}`);
     if (picked.id === "zero") bits.push("-M zerologon");
     command = bits.join(" ");
+    const unknown = nxcUnknownFlag(command);
+    const blocked = unknown ? `nxc will not add ${unknown}. Relay and coerce are not on the allow-list.` : nxcGuard(command, exam.on);
+    if (blocked) {
+      blockNote = blocked;
+      command = "";
+    }
   }
 
   const authChoices = authChoicesFor(proto);
@@ -1736,7 +1760,7 @@ function NxcBuilder() {
       title="nxc"
       blurb="Check the login on one host before you scan the subnet. A hash uses -H. A local SAM hash also needs --local-auth."
       command={command}
-      empty={rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret."}
+      empty={blockNote || (rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret. A subnet wider than /24 is refused.")}
       why={nxcWhy(proto, picked.id, auth, local)}
       note={picked.note}
       stop={Boolean(picked.stop) || rockyou}
@@ -2042,6 +2066,13 @@ export function Builders({ tools, tab, onTab }: { tools: ToolId[]; tab: ToolId |
           <BasicList />
         </div>
       ) : null}
+      {current === "ffuf" ? <FfufBuilder /> : null}
+      {current === "dirs" ? <DirBuilder /> : null}
+      {current === "smb" ? <SmbBuilder /> : null}
+      {current === "bof" ? <BofBuilder /> : null}
+      {current === "sqli" ? <SqliBuilder /> : null}
+      {current === "adhour" ? <AdHourBuilder /> : null}
+      {current === "client" ? <ClientSideBuilder /> : null}
     </div>
   );
 }

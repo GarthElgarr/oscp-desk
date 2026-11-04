@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy, RefreshCw } from "lucide-react";
 import { listUploadFiles, updateStandardPeas, type UploadsListing } from "@/lib/uploads";
-import { transferPlan, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
+import { transferPlan, transferBundle, TRANSFER_PRESETS, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { deskFetch } from "@/lib/desk-fetch";
 import { useGlobalField } from "@/lib/use-global-field";
@@ -54,6 +54,7 @@ export function UploadsPanel() {
   }, []);
 
   const plan = useMemo(() => transferPlan({ host, port, file, os, client }), [host, port, file, os, client]);
+  const bundle = useMemo(() => transferBundle({ host, port, file }), [host, port, file]);
   const ready = !("error" in plan);
 
   async function uploadChosen(list: FileList | null) {
@@ -168,6 +169,13 @@ export function UploadsPanel() {
               ))}
             </select>
           </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            {TRANSFER_PRESETS.map((item) => (
+              <button key={item.id} type="button" onClick={() => setFile(item.file)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs text-fg">
+                {item.file}
+              </button>
+            ))}
+          </div>
           <div className="sm:col-span-2">
             <button type="button" onClick={() => void removeChosen()} disabled={!file} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40">
               Delete this file
@@ -214,6 +222,15 @@ export function UploadsPanel() {
         </div>
         <pre className="whitespace-pre-wrap break-all rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">{ready ? plan.command : plan.error}</pre>
         {ready ? <p className="text-sm text-fg">{plan.why}</p> : null}
+        {"lines" in bundle ? (
+          <div className="flex flex-col gap-2">
+            <p className="font-mono text-xs tracking-wide text-muted">ALL ONE-LINERS, SAME FILE, TUN0</p>
+            {bundle.lines.map((line) => (
+              <pre key={line.label} className="whitespace-pre-wrap break-all rounded-lg bg-bg p-3 font-mono text-xs text-fg">{`${line.label}\n${line.command}`}</pre>
+            ))}
+            <p className="text-sm text-muted">Presets if the file is already in the folder: {TRANSFER_PRESETS.map((item) => item.file).join(", ")}. The SMB line is impacket-smbserver on Kali, then copy on the target. Nothing is started from this page.</p>
+          </div>
+        ) : null}
       </div>
     </article>
   );

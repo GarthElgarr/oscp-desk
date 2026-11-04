@@ -380,6 +380,13 @@ export function MethodDesk() {
     want("wfuzz", section === "Web");
     want("impacket", section === "Active Directory" || section === "Windows" || section === "Passwords");
     want("ad", section === "Active Directory");
+    want("ffuf", section === "Web");
+    want("dirs", section === "Web");
+    want("sqli", section === "Web");
+    want("client", section === "Web");
+    want("smb", section === "Active Directory" || section === "Services");
+    want("adhour", section === "Active Directory");
+    want("bof", section === "Windows");
     return tools;
   }, [section]);
 
@@ -594,7 +601,7 @@ export function MethodDesk() {
           />
           <SectionButton
             label="Builders"
-            count={14}
+            count={24}
             active={section === "Builders"}
             onClick={() => setSection("Builders")}
           />

@@ -23,6 +23,16 @@ export const STANDARD_UPLOADS = [
     asset: "^chisel_[0-9][0-9.]*_windows_amd64\\.zip$",
   },
   {
+    name: "pspy64",
+    pack: "raw",
+    url: "https://github.com/DominicBreuker/pspy/releases/latest/download/pspy64",
+  },
+  {
+    name: "GodPotato-NET4.exe",
+    pack: "raw",
+    url: "https://github.com/BeichenDream/GodPotato/releases/latest/download/GodPotato-NET4.exe",
+  },
+  {
     name: "agent",
     pack: "tar",
     repo: "nicocha30/ligolo-ng",
