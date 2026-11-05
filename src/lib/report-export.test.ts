@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildReportPdf } from "./report-pdf.ts";
 import { reportHtml } from "./report-html.ts";
 import { reportMarkdown } from "./report-md.ts";
-import { blankReport, hostTitle, normaliseOsid, reportFileBase, reportGaps } from "./report-model.ts";
+import { blankReport, hostTitle, normaliseOsid, reachedWarning, reportFileBase, reportGaps } from "./report-model.ts";
 
 test("the filename and the header use the same OSID", () => {
   const report = blankReport();
@@ -65,6 +65,28 @@ test("the scoring note follows the exam date", () => {
   assert.match(reportHtml(after, new Map()), /scaled score, 400 out of 500/);
   const afterPdf = Buffer.from(buildReportPdf(after, new Map())).toString("latin1");
   assert.match(afterPdf, /400 out of 500/);
+});
+
+test("filled proofs are not exported as not compromised unless REACHED was chosen", () => {
+  const report = blankReport();
+  const host = report.hosts[0];
+  host.ip = "10.10.10.5";
+  host.localFlag = "localflag";
+  host.proofFlag = "proofflag";
+  assert.ok(reachedWarning(host));
+  assert.ok(reportGaps(report).some((gap) => gap.text.includes("REACHED is still the default")));
+  const md = reportMarkdown(report);
+  assert.match(md, /Reached: local\.txt and proof\.txt\./);
+  assert.equal(md.includes("not compromised"), false);
+  assert.match(reportHtml(report, new Map()), /Reached: local\.txt and proof\.txt\./);
+  const pdf = Buffer.from(buildReportPdf(report, new Map())).toString("latin1");
+  assert.equal(pdf.includes("not compromised"), false);
+  host.accessSet = true;
+  assert.equal(reachedWarning(host), null);
+  assert.match(reportMarkdown(report), /not compromised/);
+  host.accessSet = false;
+  host.proofFlag = "";
+  assert.match(reportMarkdown(report), /Reached: local\.txt only\./);
 });
 
 test("markdown carries the methodologies, the set, and the score caveat", () => {

@@ -1,4 +1,4 @@
-import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, accessLabel, type ExamReport, type HostReport } from "./report-model.ts";
+import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 function body(text: string, empty = "Not recorded."): string {
   const value = text.trim();
@@ -13,7 +13,7 @@ function hostPart(report: ExamReport, host: HostReport, number: string): string 
   return [
     `### ${number} ${hostTitle(host, index)}`,
     "",
-    `Reached: ${accessLabel(host.access)}.`,
+    `Reached: ${reachedLabel(host)}.`,
     "",
     `#### ${number}.1 Service enumeration`,
     "",
@@ -54,7 +54,7 @@ export function reportMarkdown(report: ExamReport): string {
   const rows = started.map((host) => {
     const index = hostKindIndex(report.hosts, host);
     const kind = host.kind === "ad" ? "Active Directory" : "Standalone";
-    return `| ${hostLabel(host, index)} | ${host.ip.trim() || "-"} | ${kind} | ${accessLabel(host.access)} |`;
+    return `| ${hostLabel(host, index)} | ${host.ip.trim() || "-"} | ${kind} | ${reachedLabel(host)} |`;
   });
   const stand = started.filter((host) => host.kind === "standalone");
   const ad = started.filter((host) => host.kind === "ad");

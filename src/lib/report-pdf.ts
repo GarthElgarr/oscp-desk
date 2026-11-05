@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
+import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type JpegShot = { jpeg: Uint8Array; w: number; h: number };
 
@@ -285,7 +285,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
   function hostBlock(host: HostReport, number: string) {
     const index = hostKindIndex(report.hosts, host);
     heading(`${number} ${hostTitle(host, index)}`, 13, 12);
-    paragraph(`Reached: ${accessLabel(host.access)}.`, "F1", 11, false, 14);
+    paragraph(`Reached: ${reachedLabel(host)}.`, "F1", 11, false, 14);
     heading(`${number}.1 Service enumeration`, 12, 8);
     prose(host.enumeration, "Not recorded.");
     heading(`${number}.2 Vulnerability`, 12, 8);
@@ -341,7 +341,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
       started.map((host) => {
         const index = hostKindIndex(report.hosts, host);
         const kind = host.kind === "ad" ? "Active Directory" : "Standalone";
-        return [hostLabel(host, index), host.ip.trim() || "-", kind, accessLabel(host.access)];
+        return [hostLabel(host, index), host.ip.trim() || "-", kind, reachedLabel(host)];
       }),
     );
   }

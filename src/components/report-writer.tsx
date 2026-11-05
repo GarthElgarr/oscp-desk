@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Download } from "lucide-react";
 import {
-  accessLabel,
   blankReport,
   hostLabel,
   hostStarted,
   hostTemplate,
   loadReport,
   moveHost,
+  reachedLabel,
+  reachedWarning,
   reportFileBase,
   reportGaps,
   saveReport,
@@ -394,7 +395,7 @@ export function ReportWriter() {
                   <span className="font-mono text-xs text-primary">{host.kind === "ad" ? "AD" : "STANDALONE"}</span>
                   <span className="mt-0.5 block truncate text-sm font-semibold">{hostLabel(host, index)}</span>
                 </span>
-                <span className="shrink-0 text-xs text-muted">{hostStarted(host) ? accessLabel(host.access) : "empty"}</span>
+                <span className="shrink-0 text-xs text-muted">{hostStarted(host) ? reachedLabel(host) : "empty"}</span>
               </button>
               {open ? (
                 <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
@@ -409,11 +410,12 @@ export function ReportWriter() {
                       <input className={input} value={host.os} onChange={(event) => patchHost(host.id, { os: event.target.value })} placeholder="Linux or Windows" />
                     </Field>
                     <Field label="REACHED">
-                      <select className={input} value={host.access} onChange={(event) => patchHost(host.id, { access: event.target.value as Access })}>
+                      <select className={input} value={host.access} onChange={(event) => patchHost(host.id, { access: event.target.value as Access, accessSet: true })}>
                         <option value="none">Not compromised</option>
                         <option value="local">local.txt only</option>
                         <option value="full">local.txt and proof.txt</option>
                       </select>
+                      {reachedWarning(host) ? <span className="text-sm text-fg">{reachedWarning(host)}</span> : null}
                     </Field>
                     <Field label="LOCAL.TXT">
                       <input className={input} value={host.localFlag} onChange={(event) => patchHost(host.id, { localFlag: event.target.value })} />

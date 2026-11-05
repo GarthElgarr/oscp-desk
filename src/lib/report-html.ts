@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
+import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type ShotFile = { dataUrl: string; w: number; h: number };
 
@@ -54,7 +54,7 @@ function hostSection(host: HostReport, number: string, hosts: HostReport[], shot
     next: figs.next,
     html: `<section>
       <h3>${number} ${esc(hostTitle(host, index))}</h3>
-      <p class="reached">Reached: ${esc(accessLabel(host.access))}.</p>
+      <p class="reached">Reached: ${esc(reachedLabel(host))}.</p>
       <h4>${number}.1 Service enumeration</h4>
       ${block(host.enumeration, "Not recorded.")}
       <h4>${number}.2 Vulnerability</h4>
@@ -95,7 +95,7 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
   const rows = report.hosts.filter(hostStarted).map((host) => {
     const index = hostKindIndex(report.hosts, host);
     const kind = host.kind === "ad" ? "Active Directory" : "Standalone";
-    return `<tr><td>${esc(hostLabel(host, index))}</td><td>${esc(host.ip.trim() || "—")}</td><td>${kind}</td><td>${esc(accessLabel(host.access))}</td></tr>`;
+    return `<tr><td>${esc(hostLabel(host, index))}</td><td>${esc(host.ip.trim() || "—")}</td><td>${kind}</td><td>${esc(reachedLabel(host))}</td></tr>`;
   });
   const title = `OSCP Exam Report — ${normaliseOsid(report.osid)}`;
   const pocBlocks = report.hosts.filter(hostStarted).flatMap((host) => {

@@ -24,6 +24,8 @@ export type HostReport = {
   exploitCode: string;
   exploitChanges: string;
   shots: ShotMeta[];
+  /** True once the user picks REACHED. The default of none is not that choice. */
+  accessSet?: boolean;
 };
 
 export type ExamReport = {
@@ -131,6 +133,7 @@ function asHost(value: unknown): HostReport | null {
     exploitCode: typeof row.exploitCode === "string" ? row.exploitCode : "",
     exploitChanges: typeof row.exploitChanges === "string" ? row.exploitChanges : "",
     shots,
+    accessSet: row.accessSet === true,
   };
 }
 
@@ -212,6 +215,28 @@ export function accessLabel(access: Access): string {
   return "not compromised";
 }
 
+export function proofsPresent(host: HostReport): boolean {
+  return Boolean(host.localFlag.trim() || host.proofFlag.trim());
+}
+
+export const REACHED_DEFAULT_WARNING =
+  "local.txt or proof.txt is filled, but REACHED is still the default. Set it, or the export will not say not compromised.";
+
+/** The export line. Filled proofs do not stay "not compromised" unless the user picked that. */
+export function reachedLabel(host: HostReport): string {
+  if (host.access === "none" && host.accessSet !== true && proofsPresent(host)) {
+    if (host.localFlag.trim() && host.proofFlag.trim()) return "local.txt and proof.txt";
+    if (host.proofFlag.trim()) return "proof.txt only";
+    return "local.txt only";
+  }
+  return accessLabel(host.access);
+}
+
+export function reachedWarning(host: HostReport): string | null {
+  if (host.access === "none" && host.accessSet !== true && proofsPresent(host)) return REACHED_DEFAULT_WARNING;
+  return null;
+}
+
 export function moveHost(hosts: HostReport[], id: string, dir: -1 | 1): HostReport[] {
   const index = hosts.findIndex((host) => host.id === id);
   if (index < 0) return hosts;
@@ -290,6 +315,7 @@ export function reportGaps(report: ExamReport, loadedShotIds?: ReadonlySet<strin
     if (host.access !== "none" && host.shots.length === 0) {
       gaps.push({ level: "warn", text: `${name}: no screenshot. One frame needs the flag, id or whoami, and the IP.` });
     }
+    if (reachedWarning(host)) gaps.push({ level: "warn", text: `${name}: ${REACHED_DEFAULT_WARNING}` });
     if (loadedShotIds) {
       for (const shot of host.shots) {
         if (loadedShotIds.has(shot.id)) continue;
