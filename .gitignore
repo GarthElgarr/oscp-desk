@@ -11,4 +11,5 @@ uploads/*
 !uploads/README.txt
 scans/*
 !scans/README.txt
+data/exam-ledger.json
 .DS_Store

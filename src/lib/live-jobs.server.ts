@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { createTerminalFeed } from "./terminal-feed";
+import { createTerminalFeed } from "./terminal-feed.ts";
 
-export { createTerminalFeed } from "./terminal-feed";
+export { createTerminalFeed } from "./terminal-feed.ts";
 
 export type LiveJob = {
   id: string;
@@ -291,13 +291,16 @@ export function clearJobs(): void {
   writeRunsNow();
 }
 
-export function clearScanFiles(): void {
-  const dir = path.resolve(process.cwd(), "scans");
+export function clearScanFiles(root = process.cwd()): void {
+  const dir = path.resolve(root, "scans");
   if (!existsSync(dir)) return;
   for (const file of readdirSync(dir)) {
-    if (file === "README.txt" || file === "runs.json") continue;
+    if (file === "README.txt" || file === "runs.json" || file === "exam-ledger.json") continue;
+    if (file.endsWith(".tmp")) continue;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/.test(file)) continue;
-    unlinkSync(path.join(dir, file));
+    const full = path.join(dir, file);
+    if (!statSync(full).isFile()) continue;
+    unlinkSync(full);
   }
 }
 
