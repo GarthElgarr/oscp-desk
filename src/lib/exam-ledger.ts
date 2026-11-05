@@ -202,12 +202,21 @@ export function examApiBody(result: { ledger: ExamLedger; error?: string }): { s
   return { status: 200, json: result.ledger };
 }
 
+function keepsMsfHistory(current: ExamLedger, next: ExamLedger): boolean {
+  if (!(current.on && current.msf.length > 0)) return true;
+  if (!next.on || next.meterpreterHost !== current.meterpreterHost) return false;
+  return current.msf.every((row) => next.msf.some((item) => item.host === row.host && item.at === row.at && item.payload === row.payload));
+}
+
 export function applyLedger(current: ExamLedger, action: unknown, now = Date.now()): { ledger: ExamLedger; error?: string } {
   if (!action || typeof action !== "object") return { ledger: current, error: "That exam action is not valid." };
   const row = action as Record<string, unknown>;
   if (row.action === "replace") {
     const parsed = parseLedger(row.ledger, now);
     if (!parsed) return { ledger: current, error: "That backup is not a valid exam ledger." };
+    if (!keepsMsfHistory(current, parsed)) {
+      return { ledger: current, error: "A restore cannot drop Meterpreter history during the exam." };
+    }
     return { ledger: withAudit(parsed, now, "restore", "restored from a backup") };
   }
   if (row.action === "patch") return applyPatch(current, row, now);

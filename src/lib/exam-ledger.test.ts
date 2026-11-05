@@ -100,6 +100,21 @@ test("an exam meterpreter attempt cannot be unlocked by toggling the lock", () =
   assert.equal(cleared.ledger.msf.length, 0);
 });
 
+test("a restore during the exam cannot drop meterpreter history", () => {
+  const locked = applyLedger(emptyLedger(), { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  const wiped = applyLedger(locked, { action: "replace", ledger: emptyLedger() }, NOW);
+  assert.match(wiped.error ?? "", /cannot drop Meterpreter history/);
+  assert.equal(wiped.ledger, locked);
+  const http = examApiBody(wiped);
+  assert.equal(http.status, 400);
+  const extra = { ...locked, audit: locked.audit.concat([{ at: NOW, kind: "note", detail: "kept" }]) };
+  const kept = applyLedger(locked, { action: "replace", ledger: extra }, NOW);
+  assert.equal(kept.error, undefined);
+  assert.equal(kept.ledger.msf[0].host, "10.10.10.5");
+  assert.equal(kept.ledger.audit.some((row) => row.detail === "kept"), true);
+  assert.equal(kept.ledger.audit.at(-1)?.kind, "restore");
+});
+
 test("backup restore keeps the ledger and appends an audit line", () => {
   const saved = applyLedger(emptyLedger(), { action: "host", ip: "10.10.10.10", flagLocal: true }, NOW).ledger;
   const bad = applyLedger(saved, { action: "replace", ledger: { on: true } }, NOW);
