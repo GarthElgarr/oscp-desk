@@ -180,3 +180,30 @@ test("a quote in the target does not become part of a client command", () => {
   assert.ok("error" in smbEnumPlan({ tool: "smbclient", auth: "creds", target: "10.10.10.10", user: "-p", password: "secret", share: "", examOn: true }));
   assert.ok("error" in smbEnumPlan({ tool: "smbclient", auth: "creds", target: "10.10.10.10", user: "admin", password: "a%b", share: "", examOn: true }));
 });
+
+test("builders refuse a wide subnet, a bad wordlist, threads 41, and an unknown SQL step", () => {
+  assert.ok("error" in ffufPlan({ ...ffufBase, threads: "41" }));
+  assert.ok("error" in ffufPlan({ ...ffufBase, wordlist: "/usr/share/seclists/../passwd" }));
+  assert.ok("error" in ffufPlan({ ...ffufBase, target: "10.10.10.05" }));
+  assert.ok("error" in ffufPlan({ ...ffufBase, target: "10.10.10.10; id" }));
+  assert.ok("error" in ffufPlan({ ...ffufBase, mode: "vhost", vhost: "exam.local; id", filters: { fc: "", fs: "10", fw: "" } }));
+  assert.ok("error" in ffufPlan({ ...ffufBase, filters: { fc: "404; id", fs: "", fw: "" } }));
+  assert.equal(hostOrIp("10.10.10.05"), null);
+  assert.equal(nxcTarget("10.10.10.0/16"), null);
+  const quoted = smbEnumPlan({ tool: "smbmap", auth: "creds", target: "10.10.10.10", user: "admin", password: "sec'ret", share: "", examOn: true });
+  assert.ok("error" in quoted);
+  const sqli = {
+    step: "union" as const,
+    target: "10.10.10.10",
+    port: "80",
+    path: "/page.php",
+    param: "id",
+    columns: "2",
+    injectable: "1",
+    table: "users",
+    examOn: true,
+  };
+  const unknown = sqliPlan({ ...sqli, step: "drop" as "union" });
+  assert.ok("error" in unknown);
+  if ("error" in unknown) assert.match(unknown.error, /not one this desk builds/);
+});

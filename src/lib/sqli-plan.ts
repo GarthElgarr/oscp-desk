@@ -2,6 +2,8 @@ import { cappedInt, finishCommand, hostOrIp, portNumber, quoteArg } from "./scop
 
 export type SqliStep = "error" | "columns" | "union" | "schema" | "tables" | "names" | "dump" | "xp" | "sqlmap";
 
+const SQLI_STEPS = new Set<string>(["error", "columns", "union", "schema", "tables", "names", "dump", "xp", "sqlmap"]);
+
 export function sqliPlan(input: {
   step: SqliStep;
   target: string;
@@ -13,6 +15,7 @@ export function sqliPlan(input: {
   table: string;
   examOn: boolean;
 }): { command: string; why: string; labOnly: boolean } | { error: string } {
+  if (!SQLI_STEPS.has(input.step)) return { error: "That SQL step is not one this desk builds." };
   if (input.step === "sqlmap") {
     if (input.examOn) return { error: "sqlmap is LAB ONLY. Automatic exploitation is banned in the exam. Use the manual steps." };
     const host = hostOrIp(input.target);
