@@ -8,9 +8,7 @@ test("a glued nmap output flag does not bypass the save path", () => {
   const extra = nmapExtra("-oNout");
   assert.equal(extra.ok, false);
   const edited = nmapEditedCommand("nmap -Pn -oNout 10.10.10.10", "box");
-  assert.ok(!("error" in edited));
-  assert.equal(edited.args.includes("-oNout"), false);
-  assert.equal(edited.args[edited.args.indexOf("-oA") + 1], "scans/box");
+  assert.ok("error" in edited);
 });
 
 test("an address with a leading zero is not an IPv4 target", () => {

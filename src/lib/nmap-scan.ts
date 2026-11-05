@@ -2,11 +2,42 @@ import { quoteHydraArg } from "./hydra-args.ts";
 
 const SHELL = /[;|&`$<>\\\n\r\0]/;
 const OUTPUT_FLAGS = ["-oA", "-oN", "-oX", "-oG", "-oS"];
+const GLUED_PATH = /^-(o[ANXGS]|i[LR])/;
+const BANNED_LONG = new Set([
+  "--script-args-file",
+  "--datadir",
+  "--servicedb",
+  "--versiondb",
+  "--excludefile",
+  "--resume",
+  "--stylesheet",
+  "--webxml",
+]);
+const BARE_IPV4 = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-function isOutputFlag(arg: string): boolean {
-  const flag = arg.split("=")[0] ?? "";
-  if (flag === "--append-output") return true;
-  return OUTPUT_FLAGS.some((item) => flag === item || flag.startsWith(item));
+function flagHead(arg: string): string {
+  const eq = arg.indexOf("=");
+  return eq === -1 ? arg : arg.slice(0, eq);
+}
+
+/** Glued -oNout / -iL/etc/passwd, and the long flags that read or write a file. Exact -oA is left for the editor to strip. */
+function pathFlagError(arg: string): string | null {
+  if (GLUED_PATH.test(arg) && !OUTPUT_FLAGS.includes(arg)) {
+    return "The output name sets where the scan is saved. Leave -oA and -iL out of the command.";
+  }
+  if (BANNED_LONG.has(flagHead(arg))) {
+    return "That nmap flag reads or writes a file. Leave it out of the command.";
+  }
+  return null;
+}
+
+function scriptError(arg: string, next: string | undefined): string | null {
+  if (flagHead(arg) !== "--script") return null;
+  const value = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : next && !next.startsWith("-") ? next : "";
+  if (!/^[a-z0-9,_-]+$/.test(value)) {
+    return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+  }
+  return null;
 }
 
 export const NMAP_PROFILES = ["quick", "alltcp", "udp", "deep", "custom"] as const;
@@ -80,14 +111,16 @@ export function nmapExtra(input: string): { ok: true; args: string[] } | { ok: f
   if (quote) return { ok: false, error: "A quote in the custom flags is not closed." };
   if (cur) args.push(cur);
   if (args.length > 24) return { ok: false, error: "Too many custom flags." };
-  for (const arg of args) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
     if (arg.length > 200 || SHELL.test(arg) || arg.includes("..") || arg.startsWith("/")) {
       return { ok: false, error: "One custom flag is not an nmap option this desk will run." };
     }
-    if (isOutputFlag(arg) || arg === "-iL" || arg === "-iR" || arg.split("=")[0] === "-iL") {
-      return { ok: false, error: "The output name sets where the scan is saved. Leave -oA and -iL out of the custom flags." };
+    const blocked = pathFlagError(arg) ?? scriptError(arg, args[i + 1]);
+    if (blocked || OUTPUT_FLAGS.includes(arg) || arg === "--append-output") {
+      return { ok: false, error: blocked ?? "The output name sets where the scan is saved. Leave -oA and -iL out of the custom flags." };
     }
-    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(arg)) {
+    if (BARE_IPV4.test(arg)) {
       return { ok: false, error: "The target stays in the IP box, so a second address is not a flag." };
     }
   }
@@ -150,15 +183,16 @@ export function nmapEditedCommand(line: string, name: string): { args: string[];
   const args: string[] = [];
   for (let i = 0; i < body.length - 1; i++) {
     const arg = body[i] ?? "";
-    if (isOutputFlag(arg)) {
-      const exact = OUTPUT_FLAGS.includes(arg);
-      if (exact && !arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
+    const blocked = pathFlagError(arg) ?? scriptError(arg, body[i + 1]);
+    if (blocked) return { error: blocked };
+    if (OUTPUT_FLAGS.includes(arg) || arg === "--append-output") {
+      if (OUTPUT_FLAGS.includes(arg) && !arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
       continue;
     }
-    if (arg === "-iL" || arg === "-iR") return { error: "The output name sets where the scan is saved. Leave -iL out of the command." };
     if (arg.length > 200 || arg.includes("..") || arg.startsWith("/")) {
       return { error: "One argument is not an nmap option this desk will run." };
     }
+    if (BARE_IPV4.test(arg)) return { error: "The target IP stays at the end of the command. A second address is not a flag." };
     args.push(arg);
   }
   args.push("-oA", `scans/${name}`, host);
