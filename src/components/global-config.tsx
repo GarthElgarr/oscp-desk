@@ -86,7 +86,7 @@ export function GlobalConfig() {
     setProblem("");
     const result = await postExam(body);
     if (result.ledger) setLedger(result.ledger);
-    setProblem(result.error);
+    setProblem(result.error ? result.error : "");
     return result;
   }
 
@@ -119,6 +119,11 @@ export function GlobalConfig() {
         These fill nmap, UDP, hydra, nxc, impacket, wfuzz, SNMP, WinRM, msfvenom, the tunnel, uploads, and Penelope until you edit that box. Editing a box does not change these. Reverse shells opens the local copy of revshells, with your local IP filled in.
       </p>
       <div className="mt-3 rounded-lg border border-border bg-bg px-3 py-3">
+        {problem ? (
+          <p data-exam-problem className="mb-2 text-sm text-fg" role="alert">
+            {problem}
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-xs tracking-wide text-primary">EXAM LOCK</p>
           <button
@@ -332,7 +337,6 @@ export function GlobalConfig() {
           </label>
           <p className="text-sm text-muted">The backup is the ledger file. Restore checks it before it replaces this one.</p>
         </div>
-        {problem ? <p className="mt-2 text-sm text-fg">{problem}</p> : null}
       </div>
     </div>
   );
