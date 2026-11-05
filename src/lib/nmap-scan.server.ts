@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { spawnLiveJob } from "./live-jobs.server";
-import { nmapEditedCommand, nmapExtra, nmapName, nmapPlan, nmapPorts, nmapProfile, nmapTarget, type NmapProfile } from "./nmap-scan";
+import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { nmapEditedCommand, nmapExtra, nmapName, nmapPlan, nmapPorts, nmapProfile, nmapTarget, type NmapProfile } from "./nmap-scan.ts";
+import { examGuard } from "./scope-guard.server.ts";
 
 const TIMEOUT_MS: Record<NmapProfile, number> = {
   quick: 10 * 60 * 1000,
@@ -91,4 +92,21 @@ export function startNmapScan(
     doneLine: (code, stopped) =>
       stopped ? "\n[stopped]\n" : `\n[nmap exit ${code ?? "unknown"}]\nSaved scans/${meta.name}.{nmap,xml,gnmap}\n`,
   });
+}
+
+const NMAP_TITLES = { quick: "1. Quick TCP", alltcp: "2. All TCP", udp: "3. UDP top 20", deep: "4. Deep", custom: "Custom" };
+
+export function nmapHttp(body: unknown, start: typeof startNmapScan = startNmapScan, root = process.cwd()): Response {
+  const scan = nmapRequest(body);
+  if ("error" in scan) return new Response(`${scan.error}\n`, { status: 400 });
+  const id = jobId((body as { id?: unknown }).id);
+  if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+  const target = scan.args[scan.args.length - 1] ?? "";
+  const blocked = examGuard([target], scan.command, root);
+  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
+  const title = `${NMAP_TITLES[scan.profile]} ${target}`;
+  const saved = scan.args[scan.args.indexOf("-oA") + 1]?.split("/").pop() ?? "scan";
+  const started = start(scan.command, scan.bin, scan.args, scan.profile, { id, name: saved, title });
+  if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+  return Response.json({ ok: true });
 }

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { urlTargets } from "@/lib/exam-block";
 import { jobId, spawnLiveJob } from "@/lib/live-jobs.server";
+import { examGuard } from "@/lib/scope-guard.server";
 import { wfuzzArgsOk } from "@/lib/wfuzz-args";
 
 export const Route = createFileRoute("/api/wfuzz")({
@@ -17,6 +19,8 @@ export const Route = createFileRoute("/api/wfuzz")({
         const id = jobId((body as { id?: unknown }).id);
         if (!id) return new Response("The scan id is missing.\n", { status: 400 });
         const command = ["wfuzz", ...args].join(" ");
+        const blocked = examGuard(urlTargets(args), command);
+        if (blocked) return new Response(`${blocked}\n`, { status: 403 });
         const started = spawnLiveJob({
           id,
           tool: "wfuzz",

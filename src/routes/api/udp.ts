@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { namedTargets } from "@/lib/exam-block";
 import { jobId } from "@/lib/live-jobs.server";
+import { examGuard } from "@/lib/scope-guard.server";
 import { startUdpScan, udpRequest } from "@/lib/udp-scan.server";
 
 export const Route = createFileRoute("/api/udp")({
@@ -18,6 +20,8 @@ export const Route = createFileRoute("/api/udp")({
         }
         const id = jobId((body as { id?: unknown }).id);
         if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+        const blocked = examGuard(namedTargets((body as { target?: unknown }).target), scan.command);
+        if (blocked) return new Response(`${blocked}\n`, { status: 403 });
         if (!startUdpScan(id, scan.command, scan.args)) {
           return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
         }

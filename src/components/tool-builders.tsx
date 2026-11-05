@@ -1322,8 +1322,8 @@ function HydraBuilder() {
   const [modOpt, setModOpt] = useState("");
   const [webGuide, setWebGuide] = useState("method");
   const [stamp, setStamp] = useState(() => Date.now().toString(36));
-  const lootUserFile = `loot-users-${stamp}.txt`;
-  const lootPassFile = `loot-passwords-${stamp}.txt`;
+  const lootUserFile = `scans/hydra/loot-users-${stamp}.txt`;
+  const lootPassFile = `scans/hydra/loot-passwords-${stamp}.txt`;
 
   const svc = HYDRA_SERVICES.find((s) => s.id === serviceId) ?? HYDRA_SERVICES[0];
   const host = cleanTarget(target);
