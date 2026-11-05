@@ -18,7 +18,7 @@ import { LootPick } from "@/components/loot-card";
 import { getLoot, getLootServer, lootLines, LOOT_HASHCAT, subscribeLoot, type LootKind } from "@/lib/loot";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
-import { nxcGuard, nxcTarget, nxcUnknownFlag } from "@/lib/nxc-plan";
+import { nxcGuard, nxcInputError, nxcTarget, nxcUnknownFlag } from "@/lib/nxc-plan";
 import { useGlobalField } from "@/lib/use-global-field";
 import { quoteHydraArg } from "@/lib/hydra-args";
 
@@ -1679,6 +1679,7 @@ function NxcBuilder() {
   const actions = NXC_ACTIONS.filter((a) => a.protocols.includes(proto));
   const picked = actions.find((a) => a.id === action) ?? actions[0];
   const host = nxcTarget(target) ?? "";
+  const inputError = nxcInputError({ target, user: picked.id === "zero" || auth === "anon" ? "" : user });
   const domainOk = domain.trim() === "" || /^[A-Za-z0-9][A-Za-z0-9.-]{0,80}$/.test(domain.trim());
   const isFile = userModeIsFile(user);
   const userOk =
@@ -1760,7 +1761,7 @@ function NxcBuilder() {
       title="nxc"
       blurb="Check the login on one host before you scan the subnet. A hash uses -H. A local SAM hash also needs --local-auth."
       command={command}
-      empty={blockNote || (rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret. A subnet wider than /24 is refused.")}
+      empty={blockNote || inputError || (rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret.")}
       why={nxcWhy(proto, picked.id, auth, local)}
       note={picked.note}
       stop={Boolean(picked.stop) || rockyou}

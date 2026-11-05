@@ -43,6 +43,31 @@ export function nxcTarget(value: string): string | null {
   return hostOrSubnet(value);
 }
 
+function leadingZeroIp(value: string): boolean {
+  const text = value.trim();
+  if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(text)) return false;
+  return text.split(".").some((part) => part.length > 1 && part.startsWith("0"));
+}
+
+/** A specific reason for a bad target or user. Null when those two fields are usable. */
+export function nxcInputError(input: { target: string; user: string }): string | null {
+  const target = input.target.trim();
+  const user = input.user.trim();
+  if (target.includes("/")) {
+    const slash = target.indexOf("/");
+    const ip = target.slice(0, slash);
+    const maskText = target.slice(slash + 1);
+    if (leadingZeroIp(ip)) return "A leading zero is not an address.";
+    if (/^\d{1,2}$/.test(maskText) && Number(maskText) < 24) return "A subnet wider than /24 is refused.";
+  } else if (leadingZeroIp(target)) {
+    return "A leading zero is not an address.";
+  }
+  if (user && (user.startsWith("-") || user.includes("..") || !/^[A-Za-z0-9_./\\@+-]+$/.test(user))) {
+    return "The user name has characters this builder will not accept.";
+  }
+  return null;
+}
+
 export function nxcGuard(command: string, examOn: boolean): string | null {
   const banned = bannedCommand(command, examOn);
   if (banned) return `${banned} LAB ONLY. Turn exam lock off only in a lab.`;
