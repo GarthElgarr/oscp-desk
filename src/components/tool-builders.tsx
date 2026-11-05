@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { VenomBuilder } from "@/components/venom-builder";
 import { HashIdentifier } from "@/components/hash-identifier";
@@ -455,7 +455,7 @@ function HashcatBuilder() {
   const hashFile = source === "file" ? cleanPath(file) : source === "loot" ? `loot-${mode}-${hashStamp}.txt` : picked.file;
   const hash = cleanLoose(pasted).replace(/\s+/g, "");
   const hashOk = source === "loot" ? savedHashes.length > 0 : source === "file" || (hash.length > 0 && !/['"\\;&|`]/.test(hash));
-  const maskOk = attack !== "mask" || /^\?[ludsab](?:\?[ludsab]|[A-Za-z0-9!@#$%&*._-]|\?l|\?u|\?d|\?s|\?a|\?b){0,30}$/.test(mask) || /^[\?ludsabA-Za-z0-9!@#$%&*._-]+$/.test(mask);
+  const maskOk = attack !== "mask" || /^\?[ludsab](?:\?[ludsab]|[A-Za-z0-9!@#$%&*._-]|\?l|\?u|\?d|\?s|\?a|\?b){0,30}$/.test(mask) || /^[?ludsabA-Za-z0-9!@#$%&*._-]+$/.test(mask);
   const ready = Boolean(hashFile) && hashOk && (attack === "show" || attack === "mask" || Boolean(wordlist)) && (attack !== "mask" || (mask.length > 0 && maskOk));
 
   let command = "";

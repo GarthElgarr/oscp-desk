@@ -55,20 +55,19 @@ async function runInstall(handle: Handle) {
       let text = "";
       let missing = false;
       let settled = false;
-      let probeTimer: ReturnType<typeof setTimeout> | undefined;
+      const child = spawn(step.bin, step.args, {
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, DEBIAN_FRONTEND: "noninteractive", NEEDRESTART_MODE: "a", APT_LISTCHANGES_FRONTEND: "none" },
+      });
+      const probeTimer = quiet ? setTimeout(() => child.kill("SIGTERM"), 8_000) : undefined;
       const finish = (code: number | null) => {
         if (settled) return;
         settled = true;
         if (probeTimer) clearTimeout(probeTimer);
         resolve({ code, missing, text });
       };
-      const child = spawn(step.bin, step.args, {
-        shell: false,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, DEBIAN_FRONTEND: "noninteractive", NEEDRESTART_MODE: "a", APT_LISTCHANGES_FRONTEND: "none" },
-      });
       handle.attach(child);
-      probeTimer = quiet ? setTimeout(() => child.kill("SIGTERM"), 8_000) : undefined;
       const block = { value: "" };
       const feed = createTerminalFeed((full) => {
         if (!quiet) handle.paint(full, block);

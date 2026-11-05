@@ -11,7 +11,7 @@ function text(node: Element | null, attr: string): string {
   return node?.getAttribute(attr)?.trim() ?? "";
 }
 
-export function parseNmapXml(xml: string): { hosts: Host[]; error: string } {
+function parseNmapXml(xml: string): { hosts: Host[]; error: string } {
   if (!xml.includes("<nmaprun")) return { hosts: [], error: "That file is not an nmap XML report." };
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   if (doc.querySelector("parsererror")) return { hosts: [], error: "The XML did not parse." };

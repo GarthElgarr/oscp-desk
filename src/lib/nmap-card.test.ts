@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deskCard, deskCardHref } from "./nmap-card.ts";
+import { deskCard } from "./nmap-card.ts";
 import { nmapReportHtml } from "./nmap-html.ts";
 
 describe("deskCard", () => {

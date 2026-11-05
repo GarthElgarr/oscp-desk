@@ -144,7 +144,8 @@ function listenerLabel(name: string, value: string): string {
 }
 
 export function parseSnmpOutput(raw: string): SnmpView {
-  const text = raw.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+  const esc = String.fromCharCode(27);
+  const text = raw.replace(new RegExp(`${esc}\\[[0-9;?]*[ -/]*[@-~]`, "g"), "");
   const hits: SnmpHit[] = [];
   const system: SnmpPair[] = [];
   const ssids: SnmpSsid[] = [];

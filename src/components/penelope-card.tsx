@@ -106,7 +106,8 @@ export function PenelopeCard() {
   }
 
   function tally(text: string, what: keyof typeof WAIT): number {
-    const clean = text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+    const esc = String.fromCharCode(27);
+    const clean = text.replace(new RegExp(`${esc}\\[[0-9;?]*[ -/]*[@-~]`, "g"), "");
     return [...clean.matchAll(new RegExp(WAIT[what].source, "g"))].length;
   }
 
@@ -179,7 +180,7 @@ export function PenelopeCard() {
     await runBeats(beats, transfer ? "The file is moving. Typing is paused until the shell comes back." : "");
   }
 
-  async function useSession(n: number) {
+  async function pickSession(n: number) {
     setSession(String(n));
     if (!running || !seenSession || hold.current) return;
     const beats = penelopeBeats("interact", penelopeInShell(outputNow()), String(n), local, remote, true);
@@ -250,7 +251,7 @@ export function PenelopeCard() {
         <div className="flex flex-wrap items-center gap-1">
           <span className="px-1 font-mono text-xs text-muted">SESSION</span>
           {["1", "2", "3", "4", "5"].map((n) => (
-            <button key={n} type="button" disabled={!running || !seenSession} onClick={() => void useSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs disabled:opacity-40 " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
+            <button key={n} type="button" disabled={!running || !seenSession} onClick={() => void pickSession(Number(n))} className={"inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-xs disabled:opacity-40 " + (session === n ? "border-primary bg-raised text-fg" : "border-border text-muted")}>
               {n}
             </button>
           ))}

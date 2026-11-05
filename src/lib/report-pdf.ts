@@ -23,7 +23,7 @@ const WIDTHS: Record<string, number> = {
 type Font = "F1" | "F2" | "F3";
 
 function normalize(input: string): string {
-  return input
+  const mapped = input
     .replaceAll("\u2014", "-")
     .replaceAll("\u2013", "-")
     .replaceAll("\u2018", "'")
@@ -31,8 +31,12 @@ function normalize(input: string): string {
     .replaceAll("\u201c", '"')
     .replaceAll("\u201d", '"')
     .replaceAll("\u2026", "...")
-    .replaceAll("\u00a0", " ")
-    .replaceAll(/[^\u0000-\u00ff]/gu, "");
+    .replaceAll("\u00a0", " ");
+  let out = "";
+  for (const ch of mapped) {
+    if ((ch.codePointAt(0) ?? 0) <= 0xff) out += ch;
+  }
+  return out;
 }
 
 function textWidth(text: string, size: number, mono: boolean): number {
@@ -68,7 +72,7 @@ function wrap(text: string, size: number, mono: boolean, max: number): string[] 
         continue;
       }
       if (cur.trim()) lines.push(cur.replace(/\s+$/, ""));
-      let piece = word.replace(/^\s+/, "");
+      const piece = word.replace(/^\s+/, "");
       if (textWidth(piece, size, mono) <= max) {
         cur = piece;
         continue;

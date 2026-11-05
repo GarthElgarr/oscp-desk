@@ -55,7 +55,8 @@ const PATH = /^[A-Za-z0-9_./:@+=,~-]{1,180}$/;
 export const PENELOPE_DETACH = "\u001b[24~";
 
 export function penelopeInShell(output: string): boolean {
-  const text = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+  const esc = String.fromCharCode(27);
+  const text = output.replace(new RegExp(`${esc}\\[[0-9;?]*[ -/]*[@-~]`, "g"), "");
   let last = "";
   for (const match of text.matchAll(/Interacting with session|Session detached/g)) last = match[0];
   return last === "Interacting with session";
