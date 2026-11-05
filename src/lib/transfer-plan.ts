@@ -68,6 +68,28 @@ export function transferPlan(input: {
   };
 }
 
+const WINDOWS_EXT = new Set(["exe", "ps1", "dll", "bat"]);
+const LINUX_EXT = new Set(["sh", "py", "elf"]);
+
+/** Linux for a script, an ELF, or no extension. Windows for exe, ps1, dll, and bat. Unknown extensions are left alone. */
+export function transferOsForFile(file: string): TransferOs | null {
+  const base = file.trim().split("/").filter((part) => part.length > 0).pop() ?? "";
+  const dot = base.lastIndexOf(".");
+  const ext = dot <= 0 ? "" : base.slice(dot + 1).toLowerCase();
+  if (ext === "" || LINUX_EXT.has(ext)) return "linux";
+  if (WINDOWS_EXT.has(ext)) return "windows";
+  return null;
+}
+
+/** Port 80 needs root. A higher port does not. */
+export function transferPortWarning(port: string): string | null {
+  const text = port.trim();
+  if (!/^\d{1,5}$/.test(text)) return null;
+  const n = Number(text);
+  if (n < 1 || n > 65535 || n >= 1024) return null;
+  return "A port below 1024 only works if this desk is running as root. Otherwise the file host cannot bind it, and the target will not get the file.";
+}
+
 export const TRANSFER_PRESETS = [
   { id: "linpeas", file: "linpeas.sh" },
   { id: "winpeas", file: "winPEASx64.exe" },

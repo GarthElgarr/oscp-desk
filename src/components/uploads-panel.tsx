@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Copy, RefreshCw } from "lucide-react";
 import { listUploadFiles, updateStandardPeas, type UploadsListing } from "@/lib/uploads";
-import { transferPlan, transferBundle, TRANSFER_PRESETS, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
+import { transferPlan, transferBundle, transferOsForFile, transferPortWarning, TRANSFER_PRESETS, type TransferClient, type TransferOs } from "@/lib/transfer-plan";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { deskFetch } from "@/lib/desk-fetch";
 import { useGlobalField } from "@/lib/use-global-field";
@@ -109,6 +109,12 @@ export function UploadsPanel() {
     setClient(next === "windows" ? "certutil" : "curl");
   }
 
+  function chooseFile(name: string) {
+    setFile(name);
+    const guessed = transferOsForFile(name);
+    if (guessed) pickOs(guessed);
+  }
+
   async function copy() {
     if (!ready) return;
     try {
@@ -160,7 +166,7 @@ export function UploadsPanel() {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-mono text-xs tracking-wide text-muted">FILE</span>
-            <select className={control} value={file} onChange={(event) => setFile(event.target.value)}>
+            <select className={control} value={file} onChange={(event) => chooseFile(event.target.value)}>
               <option value="">Choose a file</option>
               {listing?.files.map((item) => (
                 <option key={item.name} value={item.name}>
@@ -171,7 +177,7 @@ export function UploadsPanel() {
           </label>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             {TRANSFER_PRESETS.map((item) => (
-              <button key={item.id} type="button" onClick={() => setFile(item.file)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs text-fg">
+              <button key={item.id} type="button" onClick={() => chooseFile(item.file)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs text-fg">
                 {item.file}
               </button>
             ))}
@@ -188,6 +194,7 @@ export function UploadsPanel() {
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-mono text-xs tracking-wide text-muted">PORT</span>
             <input className={control} value={port} onChange={(event) => setPort(event.target.value.trim())} spellCheck={false} />
+            {transferPortWarning(port) ? <span className="text-sm text-fg">{transferPortWarning(port)}</span> : null}
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-mono text-xs tracking-wide text-muted">TARGET</span>
