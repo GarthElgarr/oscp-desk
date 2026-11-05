@@ -8,6 +8,15 @@ export type UploadFile = {
 };
 
 const MAX_BYTES = 200 * 1024 * 1024;
+export const UPLOAD_REQUEST_CAP = 210 * 1024 * 1024;
+export const UPLOAD_BATCH_CAP = 10;
+
+/** True when Content-Length is over 210 MB. Missing means the body cap still applies per file. */
+export function uploadRequestTooLarge(lengthHeader: string | null): boolean {
+  if (lengthHeader == null || lengthHeader === "") return false;
+  if (!/^\d+$/.test(lengthHeader)) return true;
+  return Number(lengthHeader) > UPLOAD_REQUEST_CAP;
+}
 
 export function uploadsRoot(): string {
   const fromEnv = process.env.OSCP_UPLOADS?.trim();
@@ -79,7 +88,7 @@ export function uploadName(name: string): string | null {
   return base;
 }
 
-export async function saveUpload(name: string, bytes: Buffer): Promise<{ name: string } | { error: string }> {
+export async function saveUpload(name: string, bytes: Buffer, overwrite = false): Promise<{ name: string } | { error: string }> {
   const safe = uploadName(name);
   if (!safe) return { error: `${name || "That file"} needs a plain name, such as linpeas.sh or chisel.exe.` };
   if (bytes.byteLength > MAX_BYTES) return { error: `${safe} is over 200 MB.` };
@@ -89,6 +98,8 @@ export async function saveUpload(name: string, bytes: Buffer): Promise<{ name: s
   const full = path.resolve(realRoot, safe);
   const inside = path.relative(realRoot, full);
   if (inside.startsWith("..") || path.isAbsolute(inside)) return { error: `${safe} is not inside the uploads folder.` };
+  const existing = await lstat(full).catch(() => null);
+  if (existing && !overwrite) return { error: `${safe} is already in the uploads folder. Send overwrite=1 to replace it.` };
   await writeFile(full, bytes);
   return { name: safe };
 }

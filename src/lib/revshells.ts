@@ -1,3 +1,5 @@
+import { portNumber } from "./scope-target.ts";
+
 export type RevShell = {
   id: string;
   os: "Linux" | "Windows";
@@ -20,7 +22,9 @@ export const REVSHELLS: RevShell[] = [
 ];
 
 export function fillShell(template: string, ip: string, port: string): string {
-  return template.replaceAll("{ip}", ip).replaceAll("{port}", port);
+  const safe = portNumber(port);
+  if (!safe) return "";
+  return template.replaceAll("{ip}", ip).replaceAll("{port}", safe);
 }
 
 export function listenerCommand(iface: string, port: string): string {

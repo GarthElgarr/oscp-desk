@@ -2,9 +2,11 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { readDeskToken, setDeskToken } from "@/lib/desk-fetch";
+import { DeskNotFound } from "@/lib/desk-not-found";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
+  notFoundComponent: DeskNotFound,
   loader: async () => {
     if (!import.meta.env.SSR) return { token: readDeskToken() };
     const { deskToken } = await import("@/lib/api-guard.server");

@@ -242,6 +242,7 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 81,
     strictPort: true,
+    cors: false,
     fs: {
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.grok/**", "**/scans/**", "**/uploads/**", "**/data/**", "**/loot-*"],
     },

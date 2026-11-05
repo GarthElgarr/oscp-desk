@@ -4,19 +4,24 @@ export const Route = createFileRoute("/api/upload")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { saveUpload, uploadRequestTooLarge, UPLOAD_BATCH_CAP } = await import("@/lib/uploads.server");
+        if (uploadRequestTooLarge(request.headers.get("content-length"))) {
+          return new Response("That upload is over 210 MB.\n", { status: 413 });
+        }
         let form: FormData;
         try {
           form = await request.formData();
         } catch {
           return new Response("The upload was not a file.\n", { status: 400 });
         }
-        const { saveUpload } = await import("@/lib/uploads.server");
+        const files = form.getAll("file").filter((item): item is File => item instanceof File);
+        if (files.length > UPLOAD_BATCH_CAP) return new Response("Ten files at a time.\n", { status: 400 });
+        const overwrite = form.get("overwrite") === "1";
         const saved: string[] = [];
         const errors: string[] = [];
-        for (const item of form.getAll("file")) {
-          if (!(item instanceof File)) continue;
+        for (const item of files) {
           const bytes = Buffer.from(await item.arrayBuffer());
-          const result = await saveUpload(item.name, bytes);
+          const result = await saveUpload(item.name, bytes, overwrite);
           if ("error" in result) errors.push(result.error);
           else saved.push(result.name);
         }
