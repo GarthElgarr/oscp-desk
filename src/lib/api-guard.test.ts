@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { guardDecision, tokensEqual } from "./api-guard.ts";
+import { DESK_TOKEN_SLOT, deskToken } from "./api-guard.server.ts";
 
 const token = "ab".repeat(32);
 const names = new Set(["localhost", "127.0.0.1", "::1", "10.10.14.5"]);
@@ -48,6 +49,23 @@ test("a post must be JSON, except the file upload", () => {
   assert.equal(decide({ method: "PATCH", path: "/api/jobs", contentType: "application/json; charset=utf-8" }), null);
   assert.equal(decide({ method: "POST", path: "/api/upload", contentType: "multipart/form-data; boundary=x" }), null);
   assert.equal(decide({ method: "POST", path: "/api/upload", contentType: "application/json" })?.status, 415);
+});
+
+test("the desk token is one process-wide value, so a second module copy cannot mint another", () => {
+  const bag = globalThis as typeof globalThis & { [DESK_TOKEN_SLOT]?: string };
+  const previous = bag[DESK_TOKEN_SLOT];
+  delete bag[DESK_TOKEN_SLOT];
+  try {
+    const minted = deskToken();
+    assert.match(minted, /^[0-9a-f]{64}$/);
+    assert.equal(deskToken(), minted);
+    const shared = "cd".repeat(32);
+    bag[DESK_TOKEN_SLOT] = shared;
+    assert.equal(deskToken(), shared);
+  } finally {
+    if (previous === undefined) delete bag[DESK_TOKEN_SLOT];
+    else bag[DESK_TOKEN_SLOT] = previous;
+  }
 });
 
 test("every route under src/routes/api is covered by the prefix guard", () => {

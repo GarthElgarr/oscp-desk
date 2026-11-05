@@ -1,13 +1,24 @@
 import { randomBytes } from "node:crypto";
 import { networkInterfaces } from "node:os";
-import { guardDecision, type GuardDenial } from "./api-guard";
+import { guardDecision, type GuardDenial } from "./api-guard.ts";
 
-let token = "";
+/**
+ * Vite dev loads this module twice: the guard plugin via ssrLoadModule, and the
+ * root loader via the SSR graph. A module-level `let` would mint two tokens and
+ * the page would 401 its own calls. The symbol slot is one value per process.
+ */
+export const DESK_TOKEN_SLOT = Symbol.for("oscp.desk.token");
+
+type TokenBag = typeof globalThis & { [DESK_TOKEN_SLOT]?: string };
 
 /** Created once per server process. The page receives it in the first HTML, not in a cookie or a URL. */
 export function deskToken(): string {
-  if (!token) token = randomBytes(32).toString("hex");
-  return token;
+  const bag = globalThis as TokenBag;
+  const existing = bag[DESK_TOKEN_SLOT];
+  if (typeof existing === "string" && /^[0-9a-f]{64}$/.test(existing)) return existing;
+  const minted = randomBytes(32).toString("hex");
+  bag[DESK_TOKEN_SLOT] = minted;
+  return minted;
 }
 
 export function deskNames(): Set<string> {

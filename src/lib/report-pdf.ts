@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type JpegShot = { jpeg: Uint8Array; w: number; h: number };
 

@@ -1,6 +1,7 @@
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
+import { postExam } from "@/lib/exam-client";
 import { claimMeterpreter, getExam, getExamServer, meterpreterBlock, subscribeExam } from "@/lib/exam-lock";
 import { useGlobalField } from "@/lib/use-global-field";
 
@@ -343,6 +344,7 @@ export function VenomBuilder() {
   const [user, setUser] = useState("ops");
   const [password, setPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ledgerNote, setLedgerNote] = useState("");
 
   const platforms = useMemo(() => {
     const seen = new Map<string, string>();
@@ -427,7 +429,15 @@ export function VenomBuilder() {
 
   async function copyCmd() {
     if (!cmd || meterBlock) return;
-    if (spec.kind.startsWith("meter")) claimMeterpreter(globals.target);
+    if (spec.kind.startsWith("meter")) {
+      const result = await postExam({ action: "msf", host: globals.target, payload: spec.payload, ok: true });
+      if (result.error && result.ledger) {
+        setLedgerNote(result.error);
+        return;
+      }
+      if (result.error) claimMeterpreter(globals.target);
+      setLedgerNote(result.error);
+    }
     try {
       await navigator.clipboard.writeText(cmd);
       setCopied(true);
@@ -536,8 +546,9 @@ export function VenomBuilder() {
             {meterBlock || cmd || "Fill in the address and port. The command appears here."}
           </pre>
           {meterBlock ? null : spec.kind.startsWith("meter") && exam.on ? (
-            <p className="mt-2 text-sm text-muted">Copying this claims {globals.target || "Target IP"} as your one Meterpreter machine.</p>
+            <p className="mt-2 text-sm text-muted">Copying this claims {globals.target || "Target IP"} as your one Meterpreter machine. A failed run still keeps the lock.</p>
           ) : null}
+          {ledgerNote ? <p className="mt-2 text-sm text-fg">{ledgerNote}</p> : null}
         </div>
         <div>
           <p className="font-mono text-xs tracking-wide text-primary">WHAT IT DOES</p>

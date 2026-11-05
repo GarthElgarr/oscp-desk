@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AiRouteImport } from './routes/ai'
 import { Route as ApiAdRouteImport } from './routes/api/ad'
+import { Route as ApiExamRouteImport } from './routes/api/exam'
 import { Route as ApiHydraRouteImport } from './routes/api/hydra'
 import { Route as ApiImpacketRouteImport } from './routes/api/impacket'
 import { Route as ApiInstallRouteImport } from './routes/api/install'
@@ -41,6 +42,11 @@ const AiRoute = AiRouteImport.update({
 const ApiAdRoute = ApiAdRouteImport.update({
   id: '/api/ad',
   path: '/api/ad',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExamRoute = ApiExamRouteImport.update({
+  id: '/api/exam',
+  path: '/api/exam',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHydraRoute = ApiHydraRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
+  '/api/exam': typeof ApiExamRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
+  '/api/exam': typeof ApiExamRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/ai': typeof AiRoute
   '/api/ad': typeof ApiAdRoute
+  '/api/exam': typeof ApiExamRoute
   '/api/hydra': typeof ApiHydraRoute
   '/api/impacket': typeof ApiImpacketRoute
   '/api/install': typeof ApiInstallRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai'
     | '/api/ad'
+    | '/api/exam'
     | '/api/hydra'
     | '/api/impacket'
     | '/api/install'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai'
     | '/api/ad'
+    | '/api/exam'
     | '/api/hydra'
     | '/api/impacket'
     | '/api/install'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/'
     | '/ai'
     | '/api/ad'
+    | '/api/exam'
     | '/api/hydra'
     | '/api/impacket'
     | '/api/install'
@@ -247,6 +259,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AiRoute: typeof AiRoute
   ApiAdRoute: typeof ApiAdRoute
+  ApiExamRoute: typeof ApiExamRoute
   ApiHydraRoute: typeof ApiHydraRoute
   ApiImpacketRoute: typeof ApiImpacketRoute
   ApiInstallRoute: typeof ApiInstallRoute
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/api/ad'
       fullPath: '/api/ad'
       preLoaderRoute: typeof ApiAdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/exam': {
+      id: '/api/exam'
+      path: '/api/exam'
+      fullPath: '/api/exam'
+      preLoaderRoute: typeof ApiExamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/hydra': {
@@ -399,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiRoute: AiRoute,
   ApiAdRoute: ApiAdRoute,
+  ApiExamRoute: ApiExamRoute,
   ApiHydraRoute: ApiHydraRoute,
   ApiImpacketRoute: ApiImpacketRoute,
   ApiInstallRoute: ApiInstallRoute,

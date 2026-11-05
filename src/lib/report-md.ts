@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model.ts";
 
 function body(text: string, empty = "Not recorded."): string {
   const value = text.trim();

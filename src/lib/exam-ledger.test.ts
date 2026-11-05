@@ -1,0 +1,107 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { applyLedger, emptyLedger, ipInScope, parseLedger, type AuditEntry, type ExamLedger } from "./exam-ledger.ts";
+
+const NOW = Date.parse("2026-06-01T12:00:00Z");
+
+function ledger(over: Partial<ExamLedger> = {}): ExamLedger {
+  return { ...emptyLedger(), ...over };
+}
+
+test("scope is hosts or one subnet no wider than /24", () => {
+  const wide = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/16"] }, NOW);
+  assert.match(wide.error ?? "", /\/24/);
+  const both = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24", "10.10.10.5"] }, NOW);
+  assert.match(both.error ?? "", /Not both/);
+  const two = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24", "10.10.11.0/28"] }, NOW);
+  assert.match(two.error ?? "", /second subnet/);
+  const zeros = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.010.0/24"] }, NOW);
+  assert.ok(zeros.error);
+  const ok = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.5", "10.10.10.6"] }, NOW);
+  assert.equal(ok.error, undefined);
+  assert.deepEqual(ok.ledger.scope, ["10.10.10.5", "10.10.10.6"]);
+  const net = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24"] }, NOW);
+  assert.deepEqual(net.ledger.scope, ["10.10.10.0/24"]);
+});
+
+test("a host is kept only inside the declared scope", () => {
+  assert.equal(ipInScope("10.10.10.15", ["10.10.10.0/28"]), true);
+  assert.equal(ipInScope("10.10.10.16", ["10.10.10.0/28"]), false);
+  assert.equal(ipInScope("10.10.10.5", ["10.10.10.9/28"]), true);
+  assert.equal(ipInScope("10.10.11.5", ["10.10.10.0/24"]), false);
+  const scoped = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24"] }, NOW).ledger;
+  const inside = applyLedger(scoped, { action: "host", ip: "10.10.10.5", note: "dc" }, NOW);
+  assert.equal(inside.error, undefined);
+  assert.equal(inside.ledger.hosts[0].note, "dc");
+  const outside = applyLedger(scoped, { action: "host", ip: "10.10.11.5" }, NOW);
+  assert.match(outside.error ?? "", /outside/);
+  const narrow = applyLedger(inside.ledger, { action: "patch", scope: ["10.10.11.0/24"] }, NOW);
+  assert.match(narrow.error ?? "", /tracker/);
+});
+
+test("a failed meterpreter attempt locks the machine and a second machine is refused", () => {
+  const failed = applyLedger(emptyLedger(), { action: "msf", host: "10.10.10.10", payload: "windows/x64/meterpreter_reverse_tcp", ok: false }, NOW);
+  assert.equal(failed.error, undefined);
+  assert.equal(failed.ledger.meterpreterHost, "10.10.10.10");
+  assert.equal(failed.ledger.msf[0].ok, false);
+  const shell = applyLedger(emptyLedger(), { action: "msf", host: "10.10.10.10", payload: "windows/x64/shell_reverse_tcp", ok: true }, NOW);
+  assert.match(shell.error ?? "", /normal msfvenom/);
+  assert.equal(shell.ledger.meterpreterHost, "");
+  const second = applyLedger(failed.ledger, { action: "msf", host: "10.10.10.11", payload: "meterpreter", ok: false }, NOW);
+  assert.match(second.error ?? "", /second machine/);
+  assert.equal(second.ledger.meterpreterHost, "10.10.10.10");
+  assert.equal(second.ledger.audit.at(-1)?.kind, "msf-refused");
+  const cleared = applyLedger(failed.ledger, { action: "patch", meterpreterHost: "" }, NOW);
+  assert.match(cleared.error ?? "", /still locks/);
+  const same = applyLedger(failed.ledger, { action: "msf", host: "10.10.10.10", payload: "meterpreter", ok: true }, NOW);
+  assert.equal(same.error, undefined);
+  assert.equal(same.ledger.msf.length, 2);
+});
+
+test("lab attempts on two machines cannot be turned into an exam lock", () => {
+  const off = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
+  const first = applyLedger(off, { action: "msf", host: "10.10.10.10", payload: "meterpreter", ok: true }, NOW).ledger;
+  const second = applyLedger(first, { action: "msf", host: "10.10.10.11", payload: "meterpreter", ok: false }, NOW).ledger;
+  assert.equal(second.meterpreterHost, "");
+  const locked = applyLedger(second, { action: "patch", on: true }, NOW);
+  assert.match(locked.error ?? "", /only one/);
+  const cleared = applyLedger(second, { action: "patch", clearMsf: true }, NOW);
+  assert.equal(cleared.error, undefined);
+  assert.equal(cleared.ledger.msf.length, 0);
+  const refused = applyLedger(applyLedger(cleared.ledger, { action: "patch", on: true }, NOW).ledger, { action: "patch", clearMsf: true }, NOW);
+  assert.match(refused.error ?? "", /stays while exam lock is on/);
+});
+
+test("backup restore keeps the ledger and appends an audit line", () => {
+  const saved = applyLedger(emptyLedger(), { action: "host", ip: "10.10.10.10", flagLocal: true }, NOW).ledger;
+  const bad = applyLedger(saved, { action: "replace", ledger: { on: true } }, NOW);
+  assert.match(bad.error ?? "", /not a valid/);
+  assert.equal(bad.ledger.hosts.length, 1);
+  const restored = applyLedger(emptyLedger(), { action: "replace", ledger: saved }, NOW);
+  assert.equal(restored.error, undefined);
+  assert.equal(restored.ledger.hosts[0].flagLocal, true);
+  assert.equal(restored.ledger.audit.at(-1)?.kind, "restore");
+  const lying = { ...saved, meterpreterHost: "10.10.10.10", msf: [{ host: "10.10.10.11", at: NOW, payload: "meterpreter", ok: false }] };
+  assert.equal(parseLedger(lying, NOW), null);
+});
+
+test("the audit log drops the oldest line at the cap", () => {
+  const audit: AuditEntry[] = Array.from({ length: 200 }, (_, index) => ({ at: NOW - 200 + index, kind: "host", detail: `n${index}` }));
+  const full = ledger({ audit, hosts: [{ ip: "10.10.10.10", note: "", startedAt: 0, flagLocal: false, flagProof: false }] });
+  const next = applyLedger(full, { action: "host", ip: "10.10.10.10", note: "updated" }, NOW);
+  assert.equal(next.ledger.audit.length, 200);
+  assert.equal(next.ledger.audit[0].detail, "n1");
+  assert.equal(next.ledger.audit.at(-1)?.detail, "updated 10.10.10.10");
+});
+
+test("the tracker stops at 16 hosts and rejects a leading zero", () => {
+  let current = emptyLedger();
+  for (let index = 1; index <= 16; index += 1) {
+    current = applyLedger(current, { action: "host", ip: `10.10.10.${index}` }, NOW).ledger;
+  }
+  assert.equal(current.hosts.length, 16);
+  const extra = applyLedger(current, { action: "host", ip: "10.10.11.1" }, NOW);
+  assert.match(extra.error ?? "", /16/);
+  const zero = applyLedger(emptyLedger(), { action: "host", ip: "10.10.001.010" }, NOW);
+  assert.match(zero.error ?? "", /leading zeros/);
+});
