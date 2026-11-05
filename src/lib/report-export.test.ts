@@ -48,6 +48,25 @@ test("an empty earlier host does not renumber the label", () => {
   assert.equal(html.includes("Standalone 1 - IP not recorded"), false);
 });
 
+test("the scoring note follows the exam date", () => {
+  const before = blankReport();
+  before.examDate = "2026-11-05";
+  const beforeMd = reportMarkdown(before);
+  assert.match(beforeMd, /70 raw points/);
+  assert.equal(beforeMd.includes("400 out of 500"), false);
+  assert.match(reportHtml(before, new Map()), /70 raw points/);
+  const beforePdf = Buffer.from(buildReportPdf(before, new Map())).toString("latin1");
+  assert.match(beforePdf, /70 raw points/);
+  const after = blankReport();
+  after.examDate = "2026-12-01T08:00:00Z";
+  const afterMd = reportMarkdown(after);
+  assert.match(afterMd, /400 out of 500/);
+  assert.equal(afterMd.includes("70 raw points"), false);
+  assert.match(reportHtml(after, new Map()), /scaled score, 400 out of 500/);
+  const afterPdf = Buffer.from(buildReportPdf(after, new Map())).toString("latin1");
+  assert.match(afterPdf, /400 out of 500/);
+});
+
 test("markdown carries the methodologies, the set, and the score caveat", () => {
   const report = blankReport();
   report.hosts[0].ip = "10.10.10.10";

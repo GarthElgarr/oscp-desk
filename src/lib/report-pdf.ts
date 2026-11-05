@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model.ts";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type JpegShot = { jpeg: Uint8Array; w: number; h: number };
 
@@ -385,7 +385,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
 
   heading("8. Scoring note", 16, 14);
   prose(report.rawPoints, "Not recorded.");
-  paragraph(SCORE_CAVEAT, "F1", 11, false, 14);
+  paragraph(scoreCaveat(report.examDate), "F1", 11, false, 14);
 
   const fonts = [
     enc("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"),

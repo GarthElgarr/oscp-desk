@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model.ts";
+import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type ShotFile = { dataUrl: string; w: number; h: number };
 
@@ -170,7 +170,7 @@ export function reportHtml(report: ExamReport, shots: Map<string, ShotFile>): st
   ${block(appendix, "Not recorded.")}
   <h2>8. Scoring note</h2>
   ${block(report.rawPoints, "Not recorded.")}
-  <p>${esc(SCORE_CAVEAT)}</p>
+  <p>${esc(scoreCaveat(report.examDate))}</p>
 </main>
 </body>
 </html>`;

@@ -1,4 +1,4 @@
-import { accessLabel, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, SCORE_CAVEAT, type ExamReport, type HostReport } from "./report-model.ts";
+import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, scoreCaveat, accessLabel, type ExamReport, type HostReport } from "./report-model.ts";
 
 function body(text: string, empty = "Not recorded."): string {
   const value = text.trim();
@@ -115,7 +115,7 @@ export function reportMarkdown(report: ExamReport): string {
     "",
     body(report.rawPoints),
     "",
-    SCORE_CAVEAT,
+    scoreCaveat(report.examDate),
     "",
   ].join("\n");
 }

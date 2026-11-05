@@ -1,3 +1,5 @@
+import { passRule, POINTS } from "./exam-rules.ts";
+
 export type Access = "none" | "local" | "full";
 
 export type ShotMeta = { id: string; caption: string };
@@ -246,8 +248,21 @@ export function normaliseOsid(osid: string): string {
   return body ? `OS-${body}` : "OS-XXXXX";
 }
 
-export const SCORE_CAVEAT =
-  "The tally above is the raw point count. OffSec scales that total before it publishes a result. This number is not the score on the result letter. Confirm the live exam guide on the day.";
+export function examWhen(examDate: string): number {
+  const text = examDate.trim();
+  if (!text) return Date.now();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return Date.parse(`${text}T00:00:00Z`);
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+}
+
+export function scoreCaveat(examDate: string): string {
+  const rule = passRule(examWhen(examDate));
+  if (rule.scaled) {
+    return `The tally above is a raw point count. This sitting is a scaled score, ${POINTS.scaledPass} out of ${POINTS.scaledMax}. OffSec scales that total before it publishes a result. This number is not the score on the result letter. Confirm the live exam guide on the day.`;
+  }
+  return `The tally above is the raw point count. This sitting starts before 1 Dec 2026 08:00 GMT, so the pass mark is ${POINTS.passRawBeforeScale} raw points. OffSec scales that total only after the cutoff. This number is not the score on a later result letter. Confirm the live exam guide on the day.`;
+}
 
 export function reportFileBase(report: ExamReport): string {
   return `OSCP-${normaliseOsid(report.osid)}-Exam-Report`;
