@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyLedger, emptyLedger, examApiBody, ipInScope, parseLedger, type AuditEntry, type ExamLedger } from "./exam-ledger.ts";
+import { readFileSync } from "node:fs";
+import { applyLedger, emptyLedger, examApiBody, ipInScope, parseLedger, scopeNarrowed, type AuditEntry, type ExamLedger } from "./exam-ledger.ts";
 
 const NOW = Date.parse("2026-06-01T12:00:00Z");
 
@@ -22,6 +23,29 @@ test("scope is hosts or one subnet no wider than /24", () => {
   assert.deepEqual(ok.ledger.scope, ["10.10.10.5", "10.10.10.6"]);
   const net = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24"] }, NOW);
   assert.deepEqual(net.ledger.scope, ["10.10.10.0/24"]);
+});
+
+test("scope cannot be narrowed after a meterpreter attempt", () => {
+  const scoped = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24"] }, NOW).ledger;
+  const locked = applyLedger(scoped, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  const removed = applyLedger(locked, { action: "patch", scope: [] }, NOW);
+  assert.match(removed.error ?? "", /Scope cannot be narrowed after a Meterpreter attempt/);
+  assert.equal(removed.ledger, locked);
+  const swapped = applyLedger(locked, { action: "patch", scope: ["10.10.10.0/28"] }, NOW);
+  assert.match(swapped.error ?? "", /cannot be narrowed/);
+  assert.equal(swapped.ledger, locked);
+  const open = applyLedger(emptyLedger(), { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  const added = applyLedger(open, { action: "patch", scope: ["10.10.11.0/24"] }, NOW);
+  assert.equal(added.error, undefined);
+  assert.deepEqual(added.ledger.scope, ["10.10.11.0/24"]);
+  assert.equal(scopeNarrowed(["10.10.10.0/28"], ["10.10.10.0/24"]), false);
+  const off = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
+  const labScope = applyLedger(off, { action: "patch", scope: ["10.10.10.0/24"] }, NOW).ledger;
+  const cleared = applyLedger(labScope, { action: "patch", scope: [] }, NOW);
+  assert.equal(cleared.error, undefined);
+  assert.deepEqual(cleared.ledger.scope, []);
+  const ui = readFileSync(new URL("../components/global-config.tsx", import.meta.url), "utf8");
+  assert.match(ui, /exam\.on && ledger\.msf\.length > 0 \? null/);
 });
 
 test("a host is kept only inside the declared scope", () => {

@@ -186,12 +186,17 @@ export function GlobalConfig() {
               {ledger.scope.map((entry) => (
                 <li key={entry} className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-mono text-fg">{entry}</span>
-                  <button type="button" className="text-sm text-muted underline" onClick={() => void push({ action: "patch", scope: ledger.scope.filter((item) => item !== entry) })}>
-                    Remove
-                  </button>
+                  {exam.on && ledger.msf.length > 0 ? null : (
+                    <button type="button" className="text-sm text-muted underline" onClick={() => void push({ action: "patch", scope: ledger.scope.filter((item) => item !== entry) })}>
+                      Remove
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
+          ) : null}
+          {exam.on && ledger && ledger.msf.length > 0 && ledger.scope.length > 0 ? (
+            <p className="mt-1 text-sm text-muted">Scope cannot be narrowed after a Meterpreter attempt. You can still add a machine.</p>
           ) : null}
           <form
             className="mt-2 flex flex-wrap gap-2"

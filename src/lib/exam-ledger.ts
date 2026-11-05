@@ -114,6 +114,31 @@ export function scopeOk(entries: readonly string[]): string[] | null {
   return clean;
 }
 
+function entryCovered(entry: string, scope: readonly string[]): boolean {
+  if (!entry.includes("/")) return ipInScope(entry, scope);
+  const [net, bitsText] = entry.split("/");
+  const bits = Number(bitsText);
+  const netInt = ipv4ToInt(net);
+  if (netInt === null) return false;
+  return scope.some((item) => {
+    if (!item.includes("/")) return false;
+    const [other, otherBitsText] = item.split("/");
+    const otherBits = Number(otherBitsText);
+    if (otherBits > bits) return false;
+    const otherInt = ipv4ToInt(other);
+    if (otherInt === null) return false;
+    const shift = 32 - otherBits;
+    return (netInt >>> shift) === (otherInt >>> shift);
+  });
+}
+
+/** True when an address the old scope allowed would fall outside the new one. */
+export function scopeNarrowed(previous: readonly string[], next: readonly string[]): boolean {
+  if (previous.length === 0) return false;
+  if (next.length === 0) return true;
+  return previous.some((entry) => !entryCovered(entry, next));
+}
+
 function withAudit(ledger: ExamLedger, at: number, kind: string, detail: string): ExamLedger {
   const next = ledger.audit.concat([{ at, kind, detail: cleanText(detail, 240) }]);
   return { ...ledger, audit: next.length > AUDIT_CAP ? next.slice(next.length - AUDIT_CAP) : next };
@@ -264,6 +289,9 @@ function applyPatch(current: ExamLedger, row: Record<string, unknown>, now: numb
     if (row.scope.some((entry) => typeof entry !== "string")) return { ledger: current, error: "Scope entries have to be a host or one /24." };
     const scope = scopeOk(row.scope);
     if (!scope) return { ledger: current, error: "Scope is a list of hosts, or one subnet no wider than /24. Not both, and not a second subnet." };
+    if (examAttemptLocked(current) && scopeNarrowed(current.scope, scope)) {
+      return { ledger: current, error: "Scope cannot be narrowed after a Meterpreter attempt." };
+    }
     const outside = next.hosts.find((host) => scope.length > 0 && !ipInScope(host.ip, scope));
     if (outside) return { ledger: current, error: `${outside.ip} is on the tracker and would fall outside that scope.` };
     if (scope.join(",") !== next.scope.join(",")) {
