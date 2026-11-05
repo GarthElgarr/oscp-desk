@@ -12,6 +12,27 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
 import { startFileHost } from "./src/lib/file-host.server.ts";
+import { devPathDenied } from "./src/lib/dev-private.ts";
+
+/** Hides the repo from the dev server. Registered before Vite's static files. */
+function devPrivatePlugin(): Plugin {
+  return {
+    name: "oscp-dev-private",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (!devPathDenied(req.url ?? "/")) {
+          next();
+          return;
+        }
+        res.statusCode = 404;
+        res.setHeader("content-type", "text/plain; charset=utf-8");
+        res.setHeader("cache-control", "no-store");
+        res.end("Not found\n");
+      });
+    },
+  };
+}
 
 /** Rejects /api requests that are not from this desk. Registered before TanStack so a new route cannot skip it. */
 function apiGuardPlugin(): Plugin {
@@ -221,6 +242,9 @@ export default defineConfig(({ command, isPreview }) => ({
     host: "0.0.0.0",
     port: 81,
     strictPort: true,
+    fs: {
+      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.grok/**", "**/scans/**", "**/uploads/**", "**/data/**", "**/loot-*"],
+    },
   },
   preview: {
     host: "127.0.0.1",
@@ -229,6 +253,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   resolve: { tsconfigPaths: true },
   plugins: [
+    devPrivatePlugin(),
     apiGuardPlugin(),
     fileHostPlugin(),
     pgliteBootstrapPlugin(),
