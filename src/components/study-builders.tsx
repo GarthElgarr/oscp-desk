@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Copy } from "lucide-react";
-import { AD_HOUR_STEPS, adHourCommand } from "@/lib/ad-hour";
+import { AD_HOUR_STEPS } from "@/lib/ad-hour";
+import { AdHourSteps } from "@/lib/ad-hour-view";
+import { Shell } from "@/lib/builder-shell";
 import { bofSteps } from "@/lib/bof-plan";
 import { CLIENT_NOTES, clientCommand } from "@/lib/client-side";
 import { dirsearchPlan, type DirMode, type DirTool } from "@/lib/dirsearch-plan";
@@ -20,40 +21,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="font-mono text-xs tracking-wide text-muted">{label}</span>
       {children}
     </label>
-  );
-}
-
-function Shell({ title, blurb, command, why, error }: { title: string; blurb: string; command: string; why: string; error: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <article className="min-w-0 overflow-hidden rounded-lg border border-primary bg-surface">
-      <div className="border-b border-border px-4 py-3">
-        <p className="font-mono text-xs text-primary">Builder</p>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-muted">{blurb}</p>
-      </div>
-      <div className="flex flex-col gap-3 px-4 py-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-mono text-xs tracking-wide text-muted">COMMAND</p>
-          <button
-            type="button"
-            disabled={!command}
-            onClick={() => {
-              void navigator.clipboard.writeText(command).then(() => {
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1200);
-              }).catch(() => setCopied(false));
-            }}
-            className="inline-flex min-h-11 items-center gap-1 text-xs text-muted disabled:opacity-40"
-          >
-            <Copy className="size-3.5" aria-hidden="true" />
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <pre className="whitespace-pre-wrap break-all rounded-lg bg-bg p-3 font-mono text-xs leading-relaxed text-fg">{command || error}</pre>
-        {command ? <p className="text-sm text-fg">{why}</p> : null}
-      </div>
-    </article>
   );
 }
 
@@ -243,16 +210,7 @@ export function AdHourBuilder() {
         <Field label="SHARE TO SPIDER"><input className={control} value={share} onChange={(e) => setShare(e.target.value)} placeholder="Scripts" /></Field>
         <Field label="HOSTS TO TICK"><input className={control} value={hosts} onChange={(e) => setHosts(e.target.value)} placeholder="10.10.10.10 10.10.10.11" spellCheck={false} /></Field>
       </div>
-      {AD_HOUR_STEPS.map((step) => {
-        const plan = adHourCommand(step.id, { subnet, dc, user, domain, password, hash, share, examOn: exam.on });
-        return (
-          <div key={step.id} className="rounded-lg border border-border bg-bg px-3 py-3">
-            <p className="font-semibold">{step.title}</p>
-            <pre className="mt-2 whitespace-pre-wrap break-all font-mono text-xs text-fg">{"command" in plan ? plan.command : plan.error}</pre>
-            {"command" in plan ? <p className="mt-1 text-sm text-muted">{plan.why}</p> : null}
-          </div>
-        );
-      })}
+      <AdHourSteps subnet={subnet} dc={dc} user={user} domain={domain} password={password} hash={hash} share={share} examOn={exam.on} />
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[40rem] text-left text-xs">
           <thead>
