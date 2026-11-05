@@ -18,6 +18,8 @@ export type MsfEntry = {
   at: number;
   payload: string;
   ok: boolean;
+  /** True when the attempt was recorded while exam lock was on. That history cannot be cleared. */
+  examLocked: boolean;
 };
 
 export type AuditEntry = {
@@ -175,7 +177,9 @@ export function parseLedger(input: unknown, now = Date.now()): ExamLedger | null
     const payload = cleanText(entry.payload, 80);
     if (!host || at === null || at === 0 || typeof entry.ok !== "boolean") return null;
     if (!/^[A-Za-z0-9_./-]+$/.test(payload) || !/meterpreter/i.test(payload)) return null;
-    msf.push({ host, at, payload, ok: entry.ok });
+    const examLocked = entry.examLocked === undefined ? true : entry.examLocked === true;
+    if (entry.examLocked !== undefined && typeof entry.examLocked !== "boolean") return null;
+    msf.push({ host, at, payload, ok: entry.ok, examLocked });
   }
   if (!Array.isArray(row.audit) || row.audit.length > AUDIT_CAP) return null;
   const audit: AuditEntry[] = [];
@@ -193,6 +197,11 @@ export function parseLedger(input: unknown, now = Date.now()): ExamLedger | null
   return locked;
 }
 
+export function examApiBody(result: { ledger: ExamLedger; error?: string }): { status: number; json: ExamLedger | { error: string; ledger: ExamLedger } } {
+  if (result.error) return { status: 400, json: { error: result.error, ledger: result.ledger } };
+  return { status: 200, json: result.ledger };
+}
+
 export function applyLedger(current: ExamLedger, action: unknown, now = Date.now()): { ledger: ExamLedger; error?: string } {
   if (!action || typeof action !== "object") return { ledger: current, error: "That exam action is not valid." };
   const row = action as Record<string, unknown>;
@@ -207,7 +216,20 @@ export function applyLedger(current: ExamLedger, action: unknown, now = Date.now
   return { ledger: current, error: "That exam action is not valid." };
 }
 
+function examAttemptLocked(ledger: ExamLedger): boolean {
+  return ledger.msf.some((row) => row.examLocked);
+}
+
 function applyPatch(current: ExamLedger, row: Record<string, unknown>, now: number): { ledger: ExamLedger; error?: string } {
+  if (examAttemptLocked(current) && row.on === false) {
+    return { ledger: current, error: "Exam lock stays on after a Meterpreter attempt." };
+  }
+  if (examAttemptLocked(current) && row.clearMsf === true) {
+    return { ledger: current, error: "The Metasploit ledger stays while exam lock is on. A failed attempt still counts." };
+  }
+  if (examAttemptLocked(current) && row.meterpreterHost === "") {
+    return { ledger: current, error: "A Meterpreter attempt is already on the ledger. A failed attempt still locks this machine." };
+  }
   let next: ExamLedger = { ...current, scope: [...current.scope], hosts: current.hosts.map((host) => ({ ...host })), msf: [...current.msf], audit: [...current.audit] };
   const notes: string[] = [];
   if (row.clearMsf === true) {
@@ -306,7 +328,7 @@ function applyMsf(current: ExamLedger, row: Record<string, unknown>, now: number
     const refused = withAudit(current, now, "msf-refused", `refused ${payload} on ${host}`);
     return { ledger: refused, error: `Meterpreter is locked to ${current.meterpreterHost}. A failed attempt still counts, and a second machine is not allowed.` };
   }
-  const entry: MsfEntry = { host, at: now, payload, ok: row.ok };
+  const entry: MsfEntry = { host, at: now, payload, ok: row.ok, examLocked: current.on };
   const msf = current.msf.concat(entry);
   const trimmed = msf.length > MSF_CAP ? msf.slice(msf.length - MSF_CAP) : msf;
   let next: ExamLedger = { ...current, msf: trimmed };

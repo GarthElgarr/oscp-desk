@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { examApiBody } from "@/lib/exam-ledger";
 import { readLedger, updateLedger } from "@/lib/exam-ledger.server";
 
 export const Route = createFileRoute("/api/exam")({
@@ -17,8 +18,8 @@ export const Route = createFileRoute("/api/exam")({
           return new Response("The request was not JSON.\n", { status: 400 });
         }
         const result = await updateLedger(body);
-        if (result.error) return Response.json({ error: result.error, ledger: result.ledger }, { status: 400 });
-        return Response.json(result.ledger);
+        const http = examApiBody(result);
+        return Response.json(http.json, { status: http.status });
       },
     },
   },

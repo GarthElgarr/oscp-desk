@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyLedger, emptyLedger, ipInScope, parseLedger, type AuditEntry, type ExamLedger } from "./exam-ledger.ts";
+import { applyLedger, emptyLedger, examApiBody, ipInScope, parseLedger, type AuditEntry, type ExamLedger } from "./exam-ledger.ts";
 
 const NOW = Date.parse("2026-06-01T12:00:00Z");
 
@@ -70,6 +70,34 @@ test("lab attempts on two machines cannot be turned into an exam lock", () => {
   assert.equal(cleared.ledger.msf.length, 0);
   const refused = applyLedger(applyLedger(cleared.ledger, { action: "patch", on: true }, NOW).ledger, { action: "patch", clearMsf: true }, NOW);
   assert.match(refused.error ?? "", /stays while exam lock is on/);
+});
+
+test("an exam meterpreter attempt cannot be unlocked by toggling the lock", () => {
+  const locked = applyLedger(emptyLedger(), { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW);
+  assert.equal(locked.error, undefined);
+  assert.equal(locked.ledger.msf[0].examLocked, true);
+  for (const patch of [
+    { action: "patch", on: false },
+    { action: "patch", clearMsf: true },
+    { action: "patch", meterpreterHost: "" },
+  ]) {
+    const next = applyLedger(locked.ledger, patch, NOW);
+    assert.ok(next.error);
+    if (patch.on === false) assert.match(next.error ?? "", /stays on after a Meterpreter attempt/);
+    assert.equal(next.ledger, locked.ledger);
+    const http = examApiBody(next);
+    assert.equal(http.status, 400);
+    assert.equal("ledger" in http.json && http.json.ledger, locked.ledger);
+  }
+  const second = applyLedger(locked.ledger, { action: "msf", host: "10.10.10.6", payload: "meterpreter", ok: true }, NOW);
+  assert.match(second.error ?? "", /second machine/);
+  assert.equal(second.ledger.meterpreterHost, "10.10.10.5");
+  const lab = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
+  const labTry = applyLedger(lab, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: true }, NOW).ledger;
+  assert.equal(labTry.msf[0].examLocked, false);
+  const cleared = applyLedger(labTry, { action: "patch", clearMsf: true }, NOW);
+  assert.equal(cleared.error, undefined);
+  assert.equal(cleared.ledger.msf.length, 0);
 });
 
 test("backup restore keeps the ledger and appends an audit line", () => {
