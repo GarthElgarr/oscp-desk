@@ -20,6 +20,7 @@
 - Filled local.txt and proof.txt are not exported as "not compromised" unless REACHED was set to that on purpose.
 - A transfer file picks Linux or Windows from its extension. The user can still change it. A port below 1024 warns that the file host needs root.
 - The builder tabs say dirs and bof. The tool ids are unchanged.
+- The AI desk recon now covers repository files, page-source discovery, a short 401-against-404 list, model identity and cutoff, RAG source metadata, keyword log rules, and canary documents.
 
 A local methodology desk for OSCP study. It runs on your machine. Nothing here phones home.
 

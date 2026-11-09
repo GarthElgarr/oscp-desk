@@ -8,19 +8,19 @@ export function AiRecon() {
           tone="bg-[#3d7ec4]"
           title="Passive reconnaissance"
           subtitle="No direct interaction with the AI system"
-          techniques={["HTTP headers and response metadata", "Public API documentation", "Source repository (GitHub, GitLab)", "Job posts for the stack"]}
+          techniques={["HTTP headers and response metadata", "Public API documentation", "Repo files: dependencies, RAG config, prompts, history", "Job posts for the stack"]}
           advantages={["Undetectable", "No rate limit", "History is still there"]}
           limits={["May be outdated", "Incomplete", "Config is not the runtime"]}
-          labs={["2.1 HTTP fingerprinting (chat01)", "2.2 Code repository (git01)"]}
+          labs={["2.2.1 HTTP fingerprint (chat01)", "2.2.2 Code repository (git01)"]}
         />
         <Panel
           tone="bg-[#d4543c]"
           title="Active reconnaissance"
           subtitle="Direct interaction with the AI system"
-          techniques={["Model behaviour and knowledge cutoff", "Tool enumeration by using one", "RAG probing at the chunk boundary", "Permission boundary from the error"]}
+          techniques={["The assistant path in the page source", "401 against 404 on paths you already expect", "Identity, cutoff, and one style check", "RAG sources, scores, and the cutoff", "One tool, then the log rule if you have it"]}
           advantages={["Runtime truth", "Hidden features", "Tests what it actually does"]}
           limits={["Writes logs", "Can alert", "Rate limits apply"]}
-          labs={["3.1 Model fingerprint (chat02)", "3.2–3.3 RAG and agent (kb01, agent01)"]}
+          labs={["2.3.1 Service discovery", "2.3.2 Model fingerprint (chat02)", "2.3.3 RAG sources (kb01, kb02)", "2.4 Logs, if you were given them"]}
         />
       </div>
       <p className="mt-3 text-center text-sm text-[#5c6b7a]">Use both. Passive first, then one active request at a time.</p>

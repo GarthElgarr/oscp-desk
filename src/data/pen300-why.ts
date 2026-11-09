@@ -17,7 +17,7 @@ export const AI_WHY: Record<string, string> = {
 
   "ai-stack-enum": `The five lines are the order. Headers first, because they are free. Endpoints you already saw, not a wordlist of every AI path. The tool schema if it exists. Then one action that schema allows, to see if it really runs. The error body is kept, because a stack trace names the layer. A bare 404 on all five means this host is not the stack. Passive notes come before a chat message. The chat is logged.`,
 
-  "ai-recon-passive": `The list is the order. Headers and docs, then the repo, then job posts. None of these send a prompt, so none of them alert the model host. The result can be wrong. A repo from last year is not the running config. That gap is why active recon exists, and why it comes second.`,
+  "ai-recon-passive": `The list is the order. Headers and docs, then the repo, then job posts. Inside the repo, read the dependency file, the RAG config, the prompts, and the history before you believe a README. None of these send a prompt, so none of them alert the model host. The result can be wrong. A repo from last year is not the running config. That gap is why active recon exists, and why it comes second.`,
 
   "ai-recon-headers": `curl -sI sends a HEAD request. -s is silent, -I is headers only, so you do not download the page and you do not send a prompt. Server is the proxy. Custom headers are the find. X-AI-Backend names the model provider, for example OpenAI-GPT5.2. X-RAG-Provider names the vector database, for example ChromaDB. A vector database stores document chunks as embeddings so the app can search them. That header is why you later look for RAG.
 
@@ -25,21 +25,53 @@ A health path is a GET, still with no prompt. /api/health, /api/status, and /-/h
 
 If those three paths 404, one list under /usr/share/seclists/Discovery/Web-Content/api/ is enough. Stop at the first path that returns JSON. A second list is fuzzing. This is lab chat01.`,
 
-  "ai-recon-model": `This POST is the first active request. /v1/chat/completions is the OpenAI-compatible chat method. -X POST sets the method. The header says the body is JSON. The body is one normal user message, Hello. You are not changing it, so you are not fuzzing. You are checking that the documented method is alive.
+  "ai-recon-model": `This POST is the first active request on the OpenAI-shaped path. /v1/chat/completions is the chat method. -X POST sets the method. The header says the body is JSON. The body is one normal user message, Hello. You are not changing it, so you are not fuzzing. You are checking that the documented method is alive.
 
-model in the response is the fingerprint. Believe it over the sentence. object chat.completion means you hit that API. finish_reason stop means the reply ended normally. rag_sources null means no document was attached to this answer. That matches rag_enabled false. usage is the token count, prompt plus completion. A maintenance sentence is still a hit when model is filled in, because the pipeline answered. A 404 or a body with no model means this path is wrong. Return to the health JSON. This is chat02.`,
+model in the response is the fingerprint. Believe it over the sentence. object chat.completion means you hit that API. finish_reason stop means the reply ended normally. rag_sources null means no document was attached to this answer. That matches rag_enabled false. usage is the token count, prompt plus completion. A maintenance sentence is still a hit when model is filled in, because the pipeline answered. A 404 or a body with no model means this path is wrong. Return to the health JSON. If the field is missing, one identity question is the next card, not a second Hello.`,
 
   "ai-recon-docs": `The docs are a public page. Searching it for those words finds the paths the stack cards use. If the docs and the live headers disagree, write both down. The live one is checked with one chat completion, not a list of bodies.`,
 
-  "ai-recon-git": `git log -20 is the recent history. git log -S 'api_key' finds commits that added or removed that string, which is where a key is often left behind. Search the names only in a repository you are allowed to read. A private repo you were not given is out of scope. Lab git01 is this card.`,
+  "ai-recon-git": `Clone only a repository the engagement gave you. git log --oneline -20 is the recent history, so you can see if the tree is busy. The files that matter are requirements, the RAG yaml, the prompt, the tool schema, and the model config. Those are the next cards. A private repo you were not given is out of scope. Lab git01 is this card.`,
+
+  "ai-recon-deps": `grep -E prints the matching line and its number. The pattern is the two shapes. generativeai, openai, anthropic, and pinecone are clients of someone else's service. crewai is one agent framework. vllm, pymilvus, sentence-transformers, and huggingface are libraries that run on a machine in the lab. 2>/dev/null hides the missing-file error when only one of the two filenames exists. You do not pip install. The package name is the note.`,
+
+  "ai-recon-rag-config": `The same grep, aimed at the RAG file. chunk_size and chunk_overlap are how the documents were cut. An AST strategy means the corpus is code, not prose. The embedding model and its dimensions have to match the store or search returns nothing. top_k is how many chunks come back. score_threshold is the cutoff the live threshold card will poke, later. provider and collection name the database. A \${VAR} is a name, not a secret.`,
+
+  "ai-recon-prompts": `ls shows whether prompts and config exist. The grep looks for a tool definition, a NEVER line, a blocked topic, and a regex the app refuses. CrewAI uses a decorator. Other frameworks use a JSON schema with a name. Read-only in a description is the intended boundary, which the agent card checks once, on the running app. Do not paste the prompt back into the chat to see what happens.`,
+
+  "ai-recon-supply": `The example env file lists variable names. A real key in a committed env file is a finding you record and do not reuse. models.yaml type is the server, model_id is the weights, max_model_len is the context the deploy asked for, and a quantisation block means the weights were compressed to fit a GPU. That length is what the context card is trying to measure, if you still need to.`,
+
+  "ai-recon-history": `git log -S searches the changes, not just the current file. API_KEY catches a secret that was added and removed. openai catches a provider migration even when the current file says something else. The path-limited log is the guardrail and the prompt. Read the diff. Do not check the old commit out and run it.`,
 
   "ai-recon-jobs": `A job post is a hint. People advertise the stack they want, which may not be the stack this host runs. A new product name is worth a look in the repo and the headers. A repeat of what you have is a stop.`,
 
-  "ai-recon-active": `These lines are the lab map, not three commands to fire together. chat02 is the model. kb01 is the documents. agent01 is the tools. Each one is a request to the running app, so each one is logged and each one counts against a rate limit. The passive note is what you compare the answer to.`,
+  "ai-recon-active": `These lines are the order, not a script. Discovery is the page, then one POST. The 401 list is four paths. Fingerprinting starts with Hello. RAG starts with a sum and a policy question. The agent is one tool. Each line is logged. The passive note is what you compare the answer to.`,
 
-  "ai-recon-rag": `The question asks for a quote and the sentence after it. A stop in the middle of the rule is the chunk size showing itself. A score or a collection in the JSON is the store. No source means this is not kb01's finding. Do not send a second wording until you have read the first body.`,
+  "ai-recon-js": `The first curl downloads the page and grep -i script shows the script tags, ignoring case. The second curl is that file. apiBase and assistantEndpoint are the path. enableAI false means the widget is present and the model is off. The POST uses the path you just read, with one Hello. provider and model in the metadata are the fingerprint. A comment that says the file is internal does not make the GET a bypass. The server gave it to you.`,
 
-  "ai-recon-agent": `The message names a tool you already saw in the schema, and one argument. If the tool runs, the boundary is wider than the docs said. If the error names a path, a role, or a scope, the boundary is that sentence. If the model only talks, no tool was called. This is agent01. One attempt.`,
+  "ai-recon-gateway": `curl -sI is headers only. Server kong and X-Kong-Upstream-Latency mean the proxy is Kong. RateLimit headers are the budget, so you stop when the remaining count gets low. The loop asks four paths and prints only the status code. -o /dev/null drops the body. -w prints the code. 401 means the route is real and wants a credential. 404 means it is not a route. Do not add paths because four felt small.`,
+
+  "ai-recon-identity": `The first body is one question. Read the message content and the model field. The second curl is only for a product-name answer. Thanking the wrong vendor asks the model to correct you. A correction that names a different lab is the tell. A tiny model often agrees, and that agreement is worthless. Two false vendors is you guessing. Stop.`,
+
+  "ai-recon-cutoff": `The first question is the claim. The second is one event whose date you know. If it describes the event as still in the future, the weights stop before that date. If it answers correctly, the claim was a script or the cutoff is later. Do not walk year by year. The cutoff is the same wherever those weights run.`,
+
+  "ai-recon-behavior": `One paragraph, the same words, on the two hosts you cannot yet split. A longer answer with a docstring habit is a hint of a code model. It is also what a system prompt can demand. Write the difference down. Do not rename the host from the prose.`,
+
+  "ai-recon-context": `The messages array is one conversation. The marker is a word you choose. The filler is boring text, not a jailbreak. The last user turn asks for the marker. If the reply has lost it, the window or the server's num_ctx was smaller than the array. If both hosts keep it, you did not reach either limit. Do not keep adding filler after the first loss.`,
+
+  "ai-recon-rag": `The question asks for a quote and the sentence after it. Use it only after a source has already appeared. A stop in the middle of the rule is the chunk size showing itself. A score or a collection in the JSON is the store. No source means this is not the chunk-boundary finding. Do not send a second wording until you have read the first body.`,
+
+  "ai-recon-sources": `The first query is arithmetic. retrieval_time near zero and sources [] means the store was not used. The second query is something only an internal document would know. A title in sources means a chunk was selected and shown to the model. The answer can be wrong and the title can still be the find. Asking the bot to list its documents is the detection rule. This card does not do that.`,
+
+  "ai-recon-meta": `jq '.sources' prints the array and drops the essay. title is the file. chunk_id is where in the file the cut landed. text is the raw chunk. vector_score is semantic similarity. bm25_score is keyword overlap. combined_score is the rank the app used. A host that returns only titles is a smaller leak. A snippet that contains a hostname is a note for the scope, not a new target you scan.`,
+
+  "ai-recon-threshold": `Three queries, one topic, worse wording each time. The exact phrase should retrieve. The synonym tests whether the embedding still matches when the keywords change. The misspelling breaks both the keywords and the vector, so sources going empty is the cutoff. If the third query still cites, the cutoff is low or absent. A fourth spelling is fuzzing.`,
+
+  "ai-recon-detect": `You only open this when the scope includes the log server and you were given an account. The rule is a keyword query on the question field. what documents, list documents, system prompt, and your instructions are the usual strings. Your leave-policy question does not contain them, and it still returned a title, which is the point. The log has the question anyway. Quiet means you missed the keyword rule, not that nobody can read it.`,
+
+  "ai-recon-canary": `There is no command because the test is the snippet you already stored. A finished access key, a password with a dictionary word in it, or a login that arrives too easily is a planted document. Using it tells the defender the retrieval worked. Write canary on that title and do not authenticate with it.`,
+
+  "ai-recon-agent": `The message names a tool you already saw in the schema, and one argument. If the tool runs, the boundary is wider than the docs said. If the error names a path, a role, or a scope, the boundary is that sentence. If the model only talks, no tool was called. This is agent01. One attempt. If the tool prints a credential, stop and use the canary card before you type it anywhere.`,
 
 
   "ai-order": `The four lines are notes, not commands. PEN-300 fails when the payload changes before the block is named. The first line is the parent that actually ran your code. The second line is the error, copied, not paraphrased. The third line is one control. The fourth line is one change. A new error after that change is a new control, and you start the list again.`,

@@ -133,9 +133,9 @@ curl -sI http://<ip>/
     look: "No question is sent to the model. Headers, public docs, the source repo, and job posts. It can be outdated, and the config in git may not be what is running. It does not alert the app.",
     cmd: `# finish this list before the first chat message
 # 1. headers, then the health paths
-# 2. the GitHub or GitLab repo, including old commits
+# 2. the repo you were given: dependencies, rag config, prompts, history
 # 3. job posts that name the stack
-# lab: 2.1 HTTP fingerprinting is chat01. 2.2 repo analysis is git01.`,
+# lab: HTTP fingerprinting is chat01. Repo analysis is git01.`,
     alive: "You can name a framework, a model, or a store without having sent a prompt.",
     dead: "The pages are a marketing site and the repo has no code. Passive is finished. Move to active.",
     next: "Write the three notes. Then one active request, not five.",
@@ -176,14 +176,73 @@ X-RAG-Provider: ChromaDB
     id: "ai-recon-git",
     section: "Recon",
     title: "Code repository, git01",
-    look: "Section 2.2. GitHub or GitLab for this product. Read the code and the history. A deleted key or an old model name is still a note. Cloning a private repo you were not given is not this card.",
-    cmd: `# in the public repo, search
-# langchain  langgraph  chroma  pinecone  ollama  openai  tools
-git log --oneline -20
-git log -S 'api_key' --oneline`,
-    alive: "A file names the framework, the store, the model, or a tool function.",
-    dead: "No public repo, or the repo is empty of those names. The job posts are the last passive source.",
-    next: "Write what the code says is configured. Active recon checks whether that is still true.",
+    look: "Unit 2.2.2. The repo you were given. Dependencies, the RAG config, prompts, tool schemas, and guardrails are the finds. History can show a provider change or a key that was deleted. Cloning a private repo you were not given is not this card.",
+    cmd: `# only a repo the engagement gave you
+git clone http://<git-host>/<group>/<repo>.git
+cd <repo>
+ls
+git log --oneline -20`,
+    alive: "A requirements file, a rag config, a prompt, or a model config is in the tree.",
+    dead: "No repo you are allowed to read, or the tree has no AI config. Job posts are the last passive source.",
+    next: "Read the dependency file before you send a prompt. Cloud SDKs and a local inference server are different targets.",
+  },
+  {
+    id: "ai-recon-deps",
+    section: "Recon",
+    title: "Cloud SDK or local server",
+    look: "The dependency file is the architecture. A provider SDK plus a managed vector client means the model and the store are someone else's service. vLLM, a local vector library, and a Hugging Face loader mean the process is on a host you can reach. The attack surface follows that split: a key on the way out, or a service on the inside.",
+    cmd: `# one repo. Do not install the packages.
+grep -n -E 'generativeai|openai|anthropic|crewai|pinecone|vllm|autogen|pymilvus|sentence-transformers|huggingface' requirements.txt pyproject.toml 2>/dev/null`,
+    alive: "You can say cloud or self-hosted, and name the agent framework and the vector client.",
+    dead: "No dependency file, or the names are only a web framework. The RAG config is the next file, if it exists.",
+    next: "Write the split. A cloud app leaks keys and outbound hosts. A self-hosted app leaks the inference port and the database on that network.",
+  },
+  {
+    id: "ai-recon-rag-config",
+    section: "Recon",
+    title: "RAG config in the repo",
+    look: "The yaml is the pipeline before you ever query it. Chunk strategy and size, overlap, the embedding model and its dimensions, top_k, the score cutoff, the distance metric, and whether a reranker is on. Text chunks and AST-aware code chunks are different corpora. The vector store block names the product and the index. Environment variable names are notes. The values are not in this file.",
+    cmd: `# config/rag.yaml or the same keys under another name
+grep -n -E 'chunk_|embedding|top_k|score_threshold|rerank|provider|index|collection' config/rag.yaml`,
+    alive: "You can write the chunk size, the embedding model, the cutoff, and the store.",
+    dead: "No RAG config. The app may still retrieve. That is an active question, later.",
+    next: "The cutoff you write here is what the threshold card tests on the live host. Do not test it yet.",
+  },
+  {
+    id: "ai-recon-prompts",
+    section: "Recon",
+    title: "Prompts, tools, and guardrails",
+    look: "Still passive. The system prompt is the persona and the refusal list. Tool decorators and function schemas are the actions, and a comment like read-only is the intended boundary. A safety file is either the vendor's filter settings or a local regex. The regex tells you which phrases the app blocks. It is not a bypass.",
+    cmd: `# prompts, tool modules, safety config. Read them. Do not post them back to the model.
+ls prompts src config
+grep -n -E 'def |@tool|"name"|NEVER|blocked_topics|block_patterns' prompts/* src/agents/* config/safety.yaml 2>/dev/null`,
+    alive: "A restriction, a tool name, or a blocked topic you did not have from the headers.",
+    dead: "No prompt and no schema. The running app may still have tools. That is the agent card, after discovery.",
+    next: "Copy the restriction in your own words. A topic the prompt says not to discuss is sensitive. It is not the next question.",
+  },
+  {
+    id: "ai-recon-supply",
+    section: "Recon",
+    title: "Model supply and deploy config",
+    look: "The example env file names the integrations. A models file names the inference server, the model id, the context length, quantisation, and the GPU shape. That is how you tell a small local model from a large one before you chat. Do not copy a real key into the note. A placeholder is enough.",
+    cmd: `# names only. If a value is a real key, stop and treat it as a secret, not as a command.
+grep -n -E '^[A-Z0-9_]+=' .env.example
+grep -n -E 'type:|model_id|max_model_len|quant|gpu' config/models.yaml`,
+    alive: "A provider, an index name, a model id, or a context length.",
+    dead: "No example env and no model file. The live health JSON is the name you will trust.",
+    next: "History next. A commit that swaps the provider is more useful than the current file alone.",
+  },
+  {
+    id: "ai-recon-history",
+    section: "Recon",
+    title: "Repo history",
+    look: "git log -S shows commits that added or removed a string. That is where a key, an old provider, or a guardrail change shows up. Read the commit. Do not check out an old branch onto a host you will then attack. The current tree is what you compare to the runtime.",
+    cmd: `git log -S 'API_KEY' --oneline
+git log -S 'openai' --oneline
+git log --oneline -- config/safety.yaml prompts/system.txt`,
+    alive: "A commit message or a diff that names a provider change, a guardrail, or a removed secret.",
+    dead: "The log is empty of those strings. Passive repo work is finished.",
+    next: "Job posts, if you still lack a product name. Then one active request.",
   },
   {
     id: "ai-recon-jobs",
@@ -200,21 +259,53 @@ git log -S 'api_key' --oneline`,
     id: "ai-recon-active",
     section: "Recon",
     title: "Active reconnaissance",
-    look: "You now talk to the running system. This is the runtime truth the repo might not match. It writes logs, it can alert, and a rate limit applies. One request per question.",
+    look: "You now talk to the running system. This is the runtime truth the repo might not match. It writes logs, it can alert, and a rate limit applies. One request per question. Read the body before you send the next.",
     cmd: `# only after the passive notes exist
-# 3.1 model fingerprint is chat02
-# 3.2 RAG probing is kb01
-# 3.3 agent probing is agent01
-# one request, read it, then the next`,
+# discovery: page source, then one POST to the path it names
+# 401 against 404: a short list of paths you already expect
+# fingerprint: one Hello, then identity, then one dated event
+# RAG: one general question, one document question, then the scores
+# agent: one tool from the schema
+# a SIEM you were given: read the rule before a loud question`,
     alive: "The live answer or error confirms a name from passive recon, or contradicts it.",
     dead: "You are sending variations because the first answer was dull. Stop. Read the first body.",
     next: "A contradiction means the config and the runtime differ. Believe the runtime, and note that the repo was stale.",
   },
   {
+    id: "ai-recon-js",
+    section: "Recon",
+    title: "Find the AI path in the page",
+    look: "Unit 2.3.1. The model is usually behind the web app, not on its own port. The page source names the script. The script names the API base and the assistant path, and sometimes a feature flag. One POST to that path is the check. The metadata is the fingerprint: provider, model, token counts. The sentence is not.",
+    cmd: `curl -s http://<ip>/ | grep -i script
+curl -s http://<ip>/js/chat-widget.js
+# then the path the script named, once
+curl -s -X POST http://<ip>/api/v2/assistant -H 'Content-Type: application/json' -d '{"message":"Hello"}'`,
+    alive: `apiBase or assistantEndpoint in the script
+"provider": "ollama"
+"model": "llama3.2:1b"`,
+    dead: "No script, or the POST is 404. Look at a hidden data-endpoint in the HTML before you guess paths.",
+    next: "Write the provider and the model. A second port with a gateway banner is the next card, not another chat.",
+  },
+  {
+    id: "ai-recon-gateway",
+    section: "Recon",
+    title: "Gateway banner and 401 against 404",
+    look: "A second port often speaks for the gateway. Server, Via, and X-Kong name it. Rate-limit headers tell you the budget. A 401 means the path exists and wants a credential. A 404 means it is not there. Use the short list below. A wordlist is not this card.",
+    cmd: `curl -sI http://<ip>:<port>/v1/chat/completions
+# 401 exists. 404 does not. Stop after this list.
+for path in v1/models v1/chat/completions v1/embeddings api/health; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' "http://<ip>:<port>/$path")
+  echo "$path $code"
+done`,
+    alive: "Kong or another gateway in Server or Via, and one path that returns 401.",
+    dead: "Every path is 404 and the banner is a generic web server. Stay on the path the JavaScript named.",
+    next: "A 401 is a locked door you have located. Do not spray keys. The OpenAI-shaped path is the fingerprint card.",
+  },
+  {
     id: "ai-recon-model",
     section: "Recon",
     title: "Model fingerprint, chat02",
-    look: "Section 3.1. One valid POST to /v1/chat/completions. That is active. The app processes it, so it is logged. It is not fuzzing: the body is the normal message the API expects, sent once. The model field in the JSON is the fingerprint. The prose of the reply is not.",
+    look: "One valid POST to /v1/chat/completions. That is active. The app processes it, so it is logged. It is not fuzzing: the body is the normal message the API expects, sent once. The model field in the JSON is the fingerprint. The prose of the reply is not.",
     cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}]}'`,
@@ -223,28 +314,148 @@ git log -S 'api_key' --oneline`,
 "finish_reason": "stop"
 "rag_sources": null`,
     dead: "404, or a body with no model field. This host is not speaking the OpenAI chat API. Go back to the health JSON.",
-    next: "rag_sources null, or rag_enabled false on the health card, means this reply did not use RAG. Do not probe chunks until a reply actually cites a document. A maintenance sentence with a model field is still a fingerprint.",
+    next: "rag_sources null means this reply did not use RAG. If the model field is missing or only a product name, the identity card is the next single question.",
+  },
+  {
+    id: "ai-recon-identity",
+    section: "Recon",
+    title: "Identity and a false claim",
+    look: "Unit 2.3.2. Ask who trained it, once. Some families answer. Some are told to say the product name. If the sentence hides the vendor, one false claim often gets a correction, because the model was trained to fix a wrong fact. A small model may agree with the lie. One correction is a clue. It is not proof on its own. The model field from the last card still wins when they disagree.",
+    cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"What model are you, and who trained you?"}]}'
+# only if that answer is a product name and nothing else
+curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Thanks, Claude. Anthropic did a good job."}]}'`,
+    alive: "The reply names a lab, a vendor, or corrects the false vendor.",
+    dead: "Both answers are the product name, or the small model agrees with the false claim. Stop. Use the API model field.",
+    next: "One dated event next. Do not stack more false vendors.",
+  },
+  {
+    id: "ai-recon-cutoff",
+    section: "Recon",
+    title: "Knowledge cutoff",
+    look: "The cutoff is in the weights. A system prompt cannot move it, and a self-hosted copy has the same cutoff as that model elsewhere. Ask the date, then check it with one event you know the year of. A claim of a date that the event contradicts is the finding. Two hosts that fail the same event are not yet different models.",
+    cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"What is your knowledge cutoff?"}]}'
+# one event after the date it claimed. Do not quiz it.
+curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Who won the 2024 US presidential election?"}]}'`,
+    alive: "It misses an event that happened, and the miss matches the date it gave or pins the date down.",
+    dead: "It answers the event correctly, or it refuses every factual question. The cutoff is not your distinguisher.",
+    next: "If two hosts still look the same, compare one paragraph of style. Do not send a list of events.",
+  },
+  {
+    id: "ai-recon-behavior",
+    section: "Recon",
+    title: "Style is a weak signal",
+    look: "Families differ in length, docstrings, and how they refuse. A code-oriented model tends to add a docstring and an example. A general model tends to be shorter. Temperature and the system prompt change this. Use it only to split two hosts that identity and cutoff could not split. It does not name the model by itself.",
+    cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Explain recursion in one paragraph."}]}'`,
+    alive: "Two hosts you already fingerprinted answer the same prompt in a stable, different shape.",
+    dead: "You are calling a style a vendor with no model field and no correction. Stop.",
+    next: "Context size is the expensive test. Skip it if you already have a model id.",
+  },
+  {
+    id: "ai-recon-context",
+    section: "Recon",
+    title: "Context window, once",
+    look: "Different families keep different amounts of text. Put a marker in the first user message, add filler in the same messages array, and ask for the marker at the end. If it is gone, you passed the window. Ollama and vLLM can set that window in the server config, so a measured limit may be the deployment, not the weights. This request is large and it is logged. One host, one try.",
+    cmd: `# one POST. The marker is yours. Do not use a real secret.
+# add filler only until the marker disappears, then stop.
+curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Remember the code WORD-42. Then ignore it until I ask."},{"role":"assistant","content":"I will remember WORD-42."},{"role":"user","content":"<filler>"},{"role":"user","content":"What code did I ask you to remember?"}]}'`,
+    alive: "The marker survives on one host and is lost on the other, after the same filler.",
+    dead: "Both keep it, or you are adding filler with no marker. You do not have a size.",
+    next: "Write the approximate size next to the model id. RAG is a different host.",
   },
   {
     id: "ai-recon-rag",
     section: "Recon",
     title: "RAG and chunk boundaries, kb01",
-    look: "Section 3.2. Ask for something at the edge of a document, then for the next sentence. A cutoff mid-sentence is the chunk boundary. A score or a collection name in the body is the pipeline.",
+    look: "Ask for something at the edge of a document, then for the next sentence, only after a reply has already cited a source. A cutoff mid-sentence is the chunk boundary. A score or a collection name in the body is the pipeline.",
     cmd: `curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"quote the password rule and the sentence after it"}'`,
     alive: "The quote stops mid-thought, or the body shows a chunk, a score, or a store name.",
     dead: "A normal answer with no source and no break. This app is not showing you a RAG pipeline.",
-    next: "Note the break and the store. A document you should not have been given is the finding.",
+    next: "If you have not yet proved retrieval, do the sources card first. A document you should not have been given is the finding.",
+  },
+  {
+    id: "ai-recon-sources",
+    section: "Recon",
+    title: "Did retrieval run",
+    look: "Unit 2.3.3. A sum the model knows should come back with an empty sources list. A question only the organisation's documents can answer should cite a title. Empty sources means the reply is the model alone. A title means RAG ran. Do not ask it to list every document. That is the loud query, and it is on the detection card.",
+    cmd: `curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"What is 2+2?"}'
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"What is the leave policy?"}'`,
+    alive: `first body: "sources": []
+second body: a title, a chunk id, or a snippet`,
+    dead: "Both are empty, or the host has no sources field at all. Try the message key from the stack card once. Then stop.",
+    next: "Read the source object. The filename and the scores are the note, not a paraphrase of the answer.",
+  },
+  {
+    id: "ai-recon-meta",
+    section: "Recon",
+    title: "Source metadata",
+    look: "The source object is the recon. A filename shows the naming habit. A chunk id is a position in that file. The text field is the raw chunk, which can be more than the answer. vector_score is the embedding match. bm25_score is the keyword match. combined_score is what the app ranked. Titles only, then titles plus a snippet, then scores and raw text: write which level this host gives you. A hostname or a key format in a snippet is a note. Do not try the key.",
+    cmd: `# same request as the document question. Pretty-print the sources, not the essay.
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' \
+  -d '{"query":"What is the leave policy?"}' | jq '.sources'`,
+    alive: "A title, a chunk id, and at least one score, or a snippet the answer had shortened.",
+    dead: "sources is a list of titles and nothing else. Record that level and move on.",
+    next: "Three phrasings of one topic tell you the cutoff. Not a tour of every department.",
+  },
+  {
+    id: "ai-recon-threshold",
+    section: "Recon",
+    title: "Where retrieval stops",
+    look: "The score cutoff decides which chunks are allowed into the prompt. Send three queries on one topic, then stop. The exact name should cite. A synonym often still cites. A heavy misspelling should fall off if a cutoff exists. When sources goes from full to empty, you have the edge. Grounding documents are the chunks pasted into the prompt. No sources means the model answered without them.",
+    cmd: `# one topic. Three bodies. Read each before the next.
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"What is the leave policy?"}'
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"vacation day rules"}'
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"vaycation dayz rulez"}'`,
+    alive: "Sources on the exact query, sources or a weaker score on the synonym, empty sources on the misspelling.",
+    dead: "All three cite, or all three are empty. You do not have an edge. Do not invent a fourth spelling.",
+    next: "If a SIEM was in scope, read the detection card before you ask about documents by name.",
+  },
+  {
+    id: "ai-recon-detect",
+    section: "Recon",
+    title: "What the log actually matches",
+    look: "Unit 2.4. If the client gave you read-only log access, open the rule before the next probe. These rules usually match words in the query, not the intent. Asking what documents exist, or asking for the system prompt, is the hit. A normal question about one policy still returns titles and does not use those words. Space the questions. The log still has the full query, the answer, and the sources. Quiet is not invisible.",
+    cmd: `# only on a SIEM you were given. Do not guess a password.
+# look at the rule query. Typical words:
+# what documents, list documents, system prompt, your instructions
+# the quiet form is a real question, and you already sent it on the sources card`,
+    alive: "You can name the field and the words the rule matches, and your last question used none of them.",
+    dead: "No log access. Skip this card. Do not go looking for a SIEM.",
+    next: "A credential that looks planted is the next card, not a login.",
+  },
+  {
+    id: "ai-recon-canary",
+    section: "Recon",
+    title: "Canary documents",
+    look: "A defender plants a document the retriever will quote. The tell is a secret that is too complete, a key that contains a dictionary word, a password shaped like a company name and a year, or a hostname that does not resolve. Real emergency keys are not written out in a chatbot's source chunk. Do not use the value. Write canary next to the title and leave it.",
+    cmd: `# no request. Read the snippet you already have.
+# pursue: random-looking material you were meant to find by other means
+# stop: a key or password that contains a word, or a full cloud login in one chunk`,
+    alive: "The snippet is ordinary policy text, a hostname, or a key format with no usable secret.",
+    dead: "The chunk hands you a finished credential. Mark it canary. Do not test it.",
+    next: "One agent tool, if the schema card found one. Then you are off recon.",
   },
   {
     id: "ai-recon-agent",
     section: "Recon",
     title: "Agent and permission boundary, agent01",
-    look: "Section 3.3. Use a tool the schema already listed. The error is the test. A refusal that names a path, a role, or a missing scope is the boundary. A stack trace is the same find.",
+    look: "Use a tool the schema already listed. The error is the test. A refusal that names a path, a role, or a missing scope is the boundary. A stack trace is the same find. One attempt.",
     cmd: `# one tool from the schema, one argument it allows
 curl -s http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"message":"use the file tool on /etc/hostname"}'`,
     alive: "The tool runs, or the error names the file, the role, or the scope that stopped it.",
     dead: "The model chats about the file and no tool is called. There is no agent on this path.",
-    next: "One tool. If it can read, write, or open a URL, that is the hop onto the Security desk.",
+    next: "One tool. If it can read, write, or open a URL, that is the hop onto the Security desk. A secret in the tool output goes through the canary card first.",
   },
   {
     id: "ai-order",
