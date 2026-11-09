@@ -71,9 +71,10 @@ export function transferPlan(input: {
 const WINDOWS_EXT = new Set(["exe", "ps1", "dll", "bat"]);
 const LINUX_EXT = new Set(["sh", "py", "elf"]);
 
-/** Linux for a script, an ELF, or no extension. Windows for exe, ps1, dll, and bat. Unknown extensions are left alone. */
+/** An empty name is left alone. Linux for a script, an ELF, or no extension. Windows for exe, ps1, dll, and bat. Unknown extensions are left alone. */
 export function transferOsForFile(file: string): TransferOs | null {
   const base = file.trim().split("/").filter((part) => part.length > 0).pop() ?? "";
+  if (!base) return null;
   const dot = base.lastIndexOf(".");
   const ext = dot <= 0 ? "" : base.slice(dot + 1).toLowerCase();
   if (ext === "" || LINUX_EXT.has(ext)) return "linux";

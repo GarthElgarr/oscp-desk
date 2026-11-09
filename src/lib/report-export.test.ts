@@ -92,7 +92,8 @@ test("filled proofs are not exported as not compromised unless REACHED was chose
   host.localFlag = "localflag";
   host.proofFlag = "proofflag";
   assert.ok(reachedWarning(host));
-  assert.ok(reportGaps(report).some((gap) => gap.text.includes("REACHED is still the default")));
+  assert.ok(reportGaps(report).some((gap) => gap.text.includes("The export uses the filled proofs until you set REACHED.")));
+  assert.equal(reachedWarning(host)?.includes("will not say not compromised"), false);
   const md = reportMarkdown(report);
   assert.match(md, /Reached: local\.txt and proof\.txt\./);
   assert.equal(md.includes("not compromised"), false);

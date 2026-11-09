@@ -11,4 +11,5 @@ test("a transfer file picks the target operating system from its extension", () 
   assert.equal(transferOsForFile("seatbelt.dll"), "windows");
   assert.equal(transferOsForFile("run.bat"), "windows");
   assert.equal(transferOsForFile("notes.dat"), null);
+  assert.equal(transferOsForFile(""), null);
 });

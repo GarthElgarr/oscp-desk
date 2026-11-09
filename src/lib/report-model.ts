@@ -228,7 +228,7 @@ export function effectiveAccess(host: HostReport): Access {
 }
 
 export const REACHED_DEFAULT_WARNING =
-  "local.txt or proof.txt is filled, but REACHED is still the default. Set it, or the export will not say not compromised.";
+  "local.txt or proof.txt is filled, but REACHED is still the default. The export uses the filled proofs until you set REACHED.";
 
 /** The export line. Filled proofs do not stay "not compromised" unless the user picked that. */
 export function reachedLabel(host: HostReport): string {

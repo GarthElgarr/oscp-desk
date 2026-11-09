@@ -58,7 +58,11 @@ export function nxcInputError(input: { target: string; user: string }): string |
     const ip = target.slice(0, slash);
     const maskText = target.slice(slash + 1);
     if (leadingZeroIp(ip)) return "A leading zero is not an address.";
-    if (/^\d{1,2}$/.test(maskText) && Number(maskText) < 24) return "A subnet wider than /24 is refused.";
+    if (/^\d{1,2}$/.test(maskText)) {
+      const mask = Number(maskText);
+      if (mask < 24) return "A subnet wider than /24 is refused.";
+      if (mask > 32) return "That subnet mask is not valid.";
+    }
   } else if (leadingZeroIp(target)) {
     return "A leading zero is not an address.";
   }
