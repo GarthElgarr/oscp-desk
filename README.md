@@ -11,7 +11,7 @@
 - The Vite dev server returns 404 for scans, uploads, data, git, env, json, and loot files. `/files/` still serves uploads.
 - `npm run lint` is clean and `npm test` runs every test under `src/lib`.
 - Builder tests cover thread caps, wordlist roots, a `/16`, a leading zero, and a quote in a password. An unknown SQL step returns an error instead of throwing.
-- A shell port must be 1–65535. A missing page says it is not on this desk and links home. An upload over 210 MB is refused before it is read, more than 10 files are refused, and an existing file is kept unless `overwrite=1`. `OPTIONS /api/*` returns 403.
+- A shell port must be 1–65535. A missing page says it is not on this desk and links home. An upload over 210 MB is refused before it is read, and an upload with no Content-Length is refused with 411. More than 10 files are refused, and an existing file is kept unless `overwrite=1`. `OPTIONS /api/*` returns 403.
 - After a Meterpreter attempt, scope cannot be narrowed. A list of hosts can still gain a machine. A subnet scope cannot take an extra host. The scope Remove button uses the same exam-attempt check as the server: a row recorded while the lock was on. Lab rows do not count.
 - Turning exam lock on is refused while lab Metasploit rows are still on the ledger. Clear them first. A lab row is not copied into the Meterpreter machine.
 - Every AD hour step has a Copy button.

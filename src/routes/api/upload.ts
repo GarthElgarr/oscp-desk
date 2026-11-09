@@ -4,10 +4,10 @@ export const Route = createFileRoute("/api/upload")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { saveUpload, uploadRequestTooLarge, UPLOAD_BATCH_CAP } = await import("@/lib/uploads.server");
-        if (uploadRequestTooLarge(request.headers.get("content-length"))) {
-          return new Response("That upload is over 210 MB.\n", { status: 413 });
-        }
+        const { saveUpload, uploadLengthStatus, UPLOAD_BATCH_CAP } = await import("@/lib/uploads.server");
+        const lengthStatus = uploadLengthStatus(request.headers.get("content-length"));
+        if (lengthStatus === 411) return new Response("Send the upload with a length.\n", { status: 411 });
+        if (lengthStatus === 413) return new Response("That upload is over 210 MB.\n", { status: 413 });
         let form: FormData;
         try {
           form = await request.formData();

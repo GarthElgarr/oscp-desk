@@ -11,11 +11,18 @@ const MAX_BYTES = 200 * 1024 * 1024;
 export const UPLOAD_REQUEST_CAP = 210 * 1024 * 1024;
 export const UPLOAD_BATCH_CAP = 10;
 
-/** True when Content-Length is over 210 MB. Missing means the body cap still applies per file. */
+/** True when Content-Length is over 210 MB. A missing length is refused separately. */
 export function uploadRequestTooLarge(lengthHeader: string | null): boolean {
   if (lengthHeader == null || lengthHeader === "") return false;
   if (!/^\d+$/.test(lengthHeader)) return true;
   return Number(lengthHeader) > UPLOAD_REQUEST_CAP;
+}
+
+/** 411 when the length is missing, 413 when it is over the cap, otherwise the body may be read. */
+export function uploadLengthStatus(lengthHeader: string | null): 411 | 413 | null {
+  if (lengthHeader == null || lengthHeader.trim() === "") return 411;
+  if (uploadRequestTooLarge(lengthHeader)) return 413;
+  return null;
 }
 
 export function uploadsRoot(): string {

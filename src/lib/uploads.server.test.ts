@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { saveUpload, removeUpload, uploadName, uploadRequestTooLarge, UPLOAD_BATCH_CAP, UPLOAD_REQUEST_CAP } from "./uploads.server.ts";
+import { saveUpload, removeUpload, uploadName, uploadLengthStatus, uploadRequestTooLarge, UPLOAD_BATCH_CAP, UPLOAD_REQUEST_CAP } from "./uploads.server.ts";
 import { transferPlan } from "./transfer-plan.ts";
 
 test("an upload name is the file, not a path", () => {
@@ -38,6 +38,10 @@ test("an upload bigger than 210 MB is refused before the body is read", () => {
   assert.equal(uploadRequestTooLarge(String(UPLOAD_REQUEST_CAP)), false);
   assert.equal(uploadRequestTooLarge(String(UPLOAD_REQUEST_CAP + 1)), true);
   assert.equal(UPLOAD_BATCH_CAP, 10);
+  assert.equal(uploadLengthStatus(null), 411);
+  assert.equal(uploadLengthStatus(""), 411);
+  assert.equal(uploadLengthStatus(String(UPLOAD_REQUEST_CAP + 1)), 413);
+  assert.equal(uploadLengthStatus("12"), null);
 });
 
 test("the transfer command uses port 80 and the file name", () => {
