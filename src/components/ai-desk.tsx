@@ -4,6 +4,7 @@ import { AI_SECTIONS, AI_TECHNIQUES } from "@/data/pen300";
 import { AI_WHY } from "@/data/pen300-why";
 import type { Technique } from "@/data/methodology";
 import { MatrixRain } from "@/components/matrix-rain";
+import { AiEnergy } from "@/components/ai-energy";
 import { RainColor } from "@/components/rain-color";
 import { CoverImage } from "@/components/cover-image";
 import { AiStack } from "@/components/ai-stack";
@@ -98,7 +99,7 @@ export function AiDesk() {
 
   if (exam.on) {
     return (
-      <div className="relative min-h-screen text-fg">
+      <div className="ai-desk relative min-h-screen text-fg">
         <div className="mx-auto max-w-2xl px-4 py-16">
           <p className="font-mono text-xs tracking-widest text-primary">EXAM LOCK</p>
           <h1 className="mt-2 text-2xl font-semibold">The AI desk is off</h1>
@@ -114,15 +115,16 @@ export function AiDesk() {
   }
 
   return (
-    <div className="relative min-h-screen text-fg">
-      <MatrixRain />
+    <div className="ai-desk relative min-h-screen text-fg">
+      <AiEnergy />
+      <MatrixRain tint="#39f3ff" />
       <div className="relative z-10">
         <header className="border-b border-border">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 bg-bg px-4 py-5 sm:px-6">
             <CoverImage />
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-mono text-xs tracking-widest text-primary">PEN-300</p>
+                <p className="ai-kicker font-mono text-xs tracking-widest text-primary">PEN-300 · NEURAL CORE</p>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Kerberos AI Desk</h1>
                 <p className="mt-1 max-w-2xl text-sm text-muted">
                   The lab method. On an AI target, passive recon comes before a chat message. Then name the control, make one change, and write the hop. Reset clears the ticks on this desk only. The Security desk is left alone. This page does not build the payload. The other desk has the builders.

@@ -1,11 +1,11 @@
 export function AiRecon() {
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-[#f4f6f8] p-4 text-[#1c2430] sm:p-5">
-      <p className="text-center text-sm text-[#5c6b7a]">Two complementary approaches to information gathering</p>
-      <h2 className="mt-2 rounded-md bg-[#1b2430] px-3 py-3 text-center text-lg font-semibold tracking-wide text-white">Reconnaissance methods</h2>
+    <section className="overflow-hidden rounded-lg border border-primary/50 bg-bg/80 p-4 text-fg sm:p-5">
+      <p className="text-center font-mono text-xs tracking-[0.22em] text-primary">TWO SIGNALS · ONE TARGET</p>
+      <h2 className="mt-2 rounded-md border border-primary/40 bg-raised px-3 py-3 text-center text-lg font-semibold tracking-wide text-fg">Reconnaissance methods</h2>
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <Panel
-          tone="bg-[#3d7ec4]"
+          tone="border border-[#3df0ff]/50 bg-[#062833]"
           title="Passive reconnaissance"
           subtitle="No direct interaction with the AI system"
           techniques={["HTTP headers and response metadata", "Public API documentation", "Repo files: dependencies, RAG config, prompts, history", "Job posts for the stack"]}
@@ -14,7 +14,7 @@ export function AiRecon() {
           labs={["2.2.1 HTTP fingerprint (chat01)", "2.2.2 Code repository (git01)"]}
         />
         <Panel
-          tone="bg-[#d4543c]"
+          tone="border border-[#ff4d9a]/50 bg-[#2a1024]"
           title="Active reconnaissance"
           subtitle="Direct interaction with the AI system"
           techniques={["The assistant path in the page source", "401 against 404 on paths you already expect", "Identity, cutoff, and one style check", "RAG sources, scores, and the cutoff", "One tool, then the log rule if you have it"]}
@@ -23,7 +23,7 @@ export function AiRecon() {
           labs={["2.3.1 Service discovery", "2.3.2 Model fingerprint (chat02)", "2.3.3 RAG sources (kb01, kb02)", "2.4 Logs, if you were given them"]}
         />
       </div>
-      <p className="mt-3 text-center text-sm text-[#5c6b7a]">Use both. Passive first, then one active request at a time.</p>
+      <p className="mt-3 text-center font-mono text-xs tracking-wide text-muted">Use both. Passive first, then one active request at a time.</p>
     </section>
   );
 }
@@ -58,7 +58,7 @@ function Panel({
         </ul>
       </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-md bg-[#2f7a62] p-2 text-xs">
+        <div className="rounded-md border border-alive/40 bg-alive-bg p-2 text-xs text-fg">
           <p className="font-semibold">Advantages</p>
           <ul className="mt-1 space-y-1">
             {advantages.map((item) => (
@@ -66,7 +66,7 @@ function Panel({
             ))}
           </ul>
         </div>
-        <div className="rounded-md bg-[#4d5d73] p-2 text-xs">
+        <div className="rounded-md border border-primary/30 bg-raised p-2 text-xs text-fg">
           <p className="font-semibold">Limitations</p>
           <ul className="mt-1 space-y-1">
             {limits.map((item) => (

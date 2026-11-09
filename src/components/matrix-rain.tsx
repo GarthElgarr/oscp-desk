@@ -6,10 +6,10 @@ const FONT = 16;
 const COLUMN = 72 * 16;
 
 /** Falling glyphs in the empty margins. The centre column is left clear. */
-export function MatrixRain() {
+export function MatrixRain({ tint }: { tint?: string }) {
   const chosen = useSyncExternalStore(subscribeMatrixColor, getMatrixColor, getMatrixColorServer);
-  const color = useRef(chosen || DESK_RAIN);
-  color.current = chosen || DESK_RAIN;
+  const color = useRef(tint || chosen || DESK_RAIN);
+  color.current = tint || chosen || DESK_RAIN;
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
