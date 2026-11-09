@@ -12,7 +12,7 @@ export function legacyLedgerFile(root = process.cwd()): string {
 
 let queue: Promise<void> = Promise.resolve();
 
-function migrateLedger(root: string) {
+export function migrateLedger(root: string) {
   const next = ledgerFile(root);
   const old = legacyLedgerFile(root);
   if (existsSync(next) || !existsSync(old)) return;
