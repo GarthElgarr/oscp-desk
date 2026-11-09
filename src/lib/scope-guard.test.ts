@@ -69,6 +69,21 @@ test("a target outside the exam scope is refused before hydra or nmap starts", a
   assert.equal(allowed, true);
 });
 
+test("an in-scope hydra target is started once", () => {
+  const root = scopedRoot();
+  let started = 0;
+  const hydra = hydraHttp(
+    { id: "hydra-in", args: ["-l", "admin", "-p", "NOTREAL", "10.10.10.5", "ssh"] },
+    () => {
+      started += 1;
+      return true;
+    },
+    root,
+  );
+  assert.equal(hydra.status, 200);
+  assert.equal(started, 1);
+});
+
 test("hydra refuses an output path outside the desk and still allows a wordlist", () => {
   assert.equal(hydraArgsOk(["-o", "/tmp/x", "-l", "admin", "-p", "NOTREAL", "10.10.10.5", "ssh"]), false);
   assert.equal(hydraArgsOk(["-L", "/etc/passwd", "10.10.10.5", "ssh"]), false);
