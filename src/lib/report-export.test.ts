@@ -65,6 +65,24 @@ test("the scoring note follows the exam date", () => {
   assert.match(reportHtml(after, new Map()), /scaled score, 400 out of 500/);
   const afterPdf = Buffer.from(buildReportPdf(after, new Map())).toString("latin1");
   assert.match(afterPdf, /400 out of 500/);
+  const nov = blankReport();
+  nov.examDate = "2026-11-30";
+  assert.match(reportMarkdown(nov), /70 raw points/);
+  assert.equal(reportMarkdown(nov).includes("400 out of 500"), false);
+  const day = blankReport();
+  day.examDate = "2026-12-01";
+  for (const body of [reportMarkdown(day), reportHtml(day, new Map()), Buffer.from(buildReportPdf(day, new Map())).toString("latin1")]) {
+    assert.match(body, /70 raw points/);
+    assert.match(body, /400 out of 500/);
+    assert.match(body, /08:00 GMT/);
+  }
+  assert.ok(reportGaps(day).some((gap) => gap.text === "Exam date is 1 Dec 2026. Confirm whether the sitting started before 08:00 GMT."));
+  const dec2 = blankReport();
+  dec2.examDate = "2026-12-02";
+  for (const body of [reportMarkdown(dec2), reportHtml(dec2, new Map()), Buffer.from(buildReportPdf(dec2, new Map())).toString("latin1")]) {
+    assert.match(body, /400 out of 500/);
+    assert.equal(body.includes("70 raw points"), false);
+  }
 });
 
 test("filled proofs are not exported as not compromised unless REACHED was chosen", () => {

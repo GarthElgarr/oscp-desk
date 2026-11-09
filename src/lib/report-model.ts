@@ -290,6 +290,9 @@ export function examWhen(examDate: string): number {
 }
 
 export function scoreCaveat(examDate: string): string {
+  if (examDate.trim() === "2026-12-01") {
+    return `Exam date is 1 Dec 2026 with no start time. Before 08:00 GMT the pass mark is ${POINTS.passRawBeforeScale} raw points. From 08:00 GMT it is a scaled ${POINTS.scaledPass} out of ${POINTS.scaledMax}. Confirm the start time. This number is not the score on the result letter. Confirm the live exam guide on the day.`;
+  }
   const rule = passRule(examWhen(examDate));
   if (rule.scaled) {
     return `The tally above is a raw point count. This sitting is a scaled score, ${POINTS.scaledPass} out of ${POINTS.scaledMax}. OffSec scales that total before it publishes a result. This number is not the score on the result letter. Confirm the live exam guide on the day.`;
@@ -305,6 +308,9 @@ export function reportGaps(report: ExamReport, loadedShotIds?: ReadonlySet<strin
   const gaps: Gap[] = [];
   if (!report.osid.trim()) gaps.push({ level: "miss", text: "OSID is empty. The file OffSec expects is OSCP-OS-XXXXX-Exam-Report.pdf." });
   else if (!/^OS-\d{3,}$/i.test(report.osid.trim())) gaps.push({ level: "warn", text: "OSID usually looks like OS-12345." });
+  if (report.examDate.trim() === "2026-12-01") {
+    gaps.push({ level: "warn", text: "Exam date is 1 Dec 2026. Confirm whether the sitting started before 08:00 GMT." });
+  }
   if (!report.summary.trim()) gaps.push({ level: "warn", text: "High-level summary is empty. Two or three sentences on what fell, then the table carries the hosts." });
   if (!report.methodologies.trim()) gaps.push({ level: "warn", text: "Methodologies is empty. OffSec expects the process you used, not only the commands that worked." });
   const started = report.hosts.filter(hostStarted);
