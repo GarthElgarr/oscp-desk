@@ -20,6 +20,7 @@ export function UploadsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [host, setHost] = useGlobalField(globals.localIp);
   const [port, setPort] = useState("80");
+  const [portTouched, setPortTouched] = useState(false);
   const [file, setFile] = useState("");
   const [os, setOs] = useState<TransferOs>("windows");
   const [client, setClient] = useState<TransferClient>("certutil");
@@ -52,6 +53,11 @@ export function UploadsPanel() {
       gone = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!listing || portTouched) return;
+    setPort(String(listing.hostPort));
+  }, [listing, portTouched]);
 
   const plan = useMemo(() => transferPlan({ host, port, file, os, client }), [host, port, file, os, client]);
   const bundle = useMemo(() => transferBundle({ host, port, file }), [host, port, file]);
@@ -193,8 +199,10 @@ export function UploadsPanel() {
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-mono text-xs tracking-wide text-muted">PORT</span>
-            <input className={control} value={port} onChange={(event) => setPort(event.target.value.trim())} spellCheck={false} />
-            {transferPortWarning(port) ? <span className="text-sm text-fg">{transferPortWarning(port)}</span> : null}
+            <input className={control} value={port} onChange={(event) => { setPortTouched(true); setPort(event.target.value.trim()); }} spellCheck={false} />
+            {listing && transferPortWarning(port, { port: listing.hostPort, listening: listing.hostOk }) ? (
+              <span className="text-sm text-fg">{transferPortWarning(port, { port: listing.hostPort, listening: listing.hostOk })}</span>
+            ) : null}
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-mono text-xs tracking-wide text-muted">TARGET</span>

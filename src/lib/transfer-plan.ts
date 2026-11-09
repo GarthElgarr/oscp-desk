@@ -81,13 +81,21 @@ export function transferOsForFile(file: string): TransferOs | null {
   return null;
 }
 
-/** Port 80 needs root. A higher port does not. */
-export function transferPortWarning(port: string): string | null {
+export type FileHostNotice = { port: number; listening: boolean };
+
+/** The desk serves one uploads port. Another port is a separate python server. A low port warns only when this host is not listening. */
+export function transferPortWarning(port: string, host: FileHostNotice = { port: 80, listening: false }): string | null {
   const text = port.trim();
   if (!/^\d{1,5}$/.test(text)) return null;
   const n = Number(text);
-  if (n < 1 || n > 65535 || n >= 1024) return null;
-  return "A port below 1024 only works if this desk is running as root. Otherwise the file host cannot bind it, and the target will not get the file.";
+  if (n < 1 || n > 65535) return null;
+  if (n !== host.port) {
+    return `This desk serves the uploads folder on port ${host.port} only. For port ${n}, run \`python3 -m http.server ${n}\` in the uploads folder.`;
+  }
+  if (n < 1024 && !host.listening) {
+    return "A port below 1024 only works if this desk is running as root. Otherwise the file host cannot bind it, and the target will not get the file.";
+  }
+  return null;
 }
 
 export const TRANSFER_PRESETS = [

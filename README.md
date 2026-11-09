@@ -19,7 +19,7 @@
 - nxc says whether the problem is a subnet wider than /24, a leading zero, or the user name.
 - The report scoring note says 70 raw points before 1 Dec 2026 08:00 GMT, and the scaled score after that.
 - Filled local.txt and proof.txt are not exported as "not compromised" unless REACHED was set to that on purpose.
-- A transfer file picks Linux or Windows from its extension. The user can still change it. A port below 1024 warns that the file host needs root.
+- A transfer file picks Linux or Windows from its extension. The user can still change it. The uploads listing says which port the file host is on and whether it is listening. A different port tells you to run python3 -m http.server. A port below 1024 warns only when that host is not listening. OSCP_FILE_PORT changes the listener, and the default is 80.
 - The builder tabs say dirs and bof. The tool ids are unchanged.
 - The AI desk recon now covers repository files, page-source discovery, a short 401-against-404 list, model identity and cutoff, RAG source metadata, keyword log rules, and canary documents.
 

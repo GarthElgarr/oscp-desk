@@ -7,6 +7,16 @@ const HEADER = "x-oscp-files";
 let server: Server | null = null;
 let listenError = "";
 
+/** OSCP_FILE_PORT overrides the uploads listener. The default is 80. */
+export function fileHostPort(): number {
+  const raw = process.env.OSCP_FILE_PORT?.trim() ?? "";
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw);
+    if (n >= 1 && n <= 65535) return n;
+  }
+  return FILE_HOST_PORT;
+}
+
 function escape(value: string): string {
   return value
     .replaceAll("&", "\u0026amp;")
@@ -17,14 +27,15 @@ function escape(value: string): string {
 
 export function startFileHost(): void {
   if (server) return;
+  const port = fileHostPort();
   server = createServer((req, res) => {
     void handle(req, res);
   });
   server.on("error", (err: NodeJS.ErrnoException) => {
-    listenError = err.code === "EADDRINUSE" ? "Something else is already listening on port 80. On Kali that is often Apache. Run: systemctl stop apache2" : err.code === "EACCES" ? "Port 80 needs the desk to be started as root." : err.message;
+    listenError = err.code === "EADDRINUSE" ? `Something else is already listening on port ${port}. On Kali that is often Apache. Run: systemctl stop apache2` : err.code === "EACCES" ? `Port ${port} needs the desk to be started as root.` : err.message;
     console.error("[file-host]", listenError);
   });
-  server.listen(FILE_HOST_PORT, "0.0.0.0");
+  server.listen(port, "0.0.0.0");
 }
 
 async function handle(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
@@ -77,13 +88,14 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   }
 }
 
-export async function fileHostStatus(): Promise<{ ok: boolean; error: string }> {
-  if (listenError) return { ok: false, error: listenError };
+export async function fileHostStatus(): Promise<{ ok: boolean; error: string; port: number }> {
+  const port = fileHostPort();
+  if (listenError) return { ok: false, error: listenError, port };
   try {
-    const response = await fetch(`http://127.0.0.1:${FILE_HOST_PORT}/`, { signal: AbortSignal.timeout(800) });
-    if (response.headers.get(HEADER) === "1") return { ok: true, error: "" };
-    return { ok: false, error: "Port 80 answered, but it is not this uploads folder." };
+    const response = await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(800) });
+    if (response.headers.get(HEADER) === "1") return { ok: true, error: "", port };
+    return { ok: false, error: `Port ${port} answered, but it is not this uploads folder.`, port };
   } catch {
-    return { ok: false, error: listenError || "Port 80 is not listening yet." };
+    return { ok: false, error: listenError || `Port ${port} is not listening yet.`, port };
   }
 }

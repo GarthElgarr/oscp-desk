@@ -7,6 +7,7 @@ export type UploadsListing = {
   note: string;
   hostOk: boolean;
   hostError: string;
+  hostPort: number;
 };
 
 export const listUploadFiles = createServerFn({ method: "GET" }).handler(async (): Promise<UploadsListing> => {
@@ -19,7 +20,7 @@ export const listUploadFiles = createServerFn({ method: "GET" }).handler(async (
   const failed = peas.lines.filter((line) => !/: (already|saved )/.test(line));
   const saved = peas.lines.filter((line) => /: saved /.test(line));
   const note = failed.length ? failed.join(" ") : saved.length ? saved.join(" ") : "";
-  return { ...listing, note, hostOk: host.ok, hostError: host.error };
+  return { ...listing, note, hostOk: host.ok, hostError: host.error, hostPort: host.port };
 });
 
 export const updateStandardPeas = createServerFn({ method: "POST" }).handler(async (): Promise<UploadsListing> => {
@@ -29,5 +30,5 @@ export const updateStandardPeas = createServerFn({ method: "POST" }).handler(asy
   const peas = await ensureStandardUploads(true);
   const listing = await listUploads();
   const host = await fileHostStatus();
-  return { ...listing, note: peas.lines.join(" "), hostOk: host.ok, hostError: host.error };
+  return { ...listing, note: peas.lines.join(" "), hostOk: host.ok, hostError: host.error, hostPort: host.port };
 });
