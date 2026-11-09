@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { examBlock } from "./exam-block.ts";
 import { hydraArgsOk } from "./hydra-args.ts";
 import { hydraHttp } from "./hydra.server.ts";
 import { nmapHttp } from "./nmap-scan.server.ts";
 import { commandAllowed, targetAllowed } from "./scope-guard.server.ts";
+import { testTmp } from "./test-tmp.ts";
 
-function scopedRoot(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "oscp-scope-"));
+function scopedRoot(t: TestContext): string {
+  const root = testTmp(t, "oscp-scope-");
   mkdirSync(path.join(root, "data"));
   writeFileSync(
     path.join(root, "data", "exam-ledger.json"),
@@ -27,8 +27,8 @@ function scopedRoot(): string {
   return root;
 }
 
-test("a target outside the exam scope is refused before hydra or nmap starts", async () => {
-  const root = scopedRoot();
+test("a target outside the exam scope is refused before hydra or nmap starts", async (t) => {
+  const root = scopedRoot(t);
   assert.equal(targetAllowed("10.10.11.5", root), "That target is outside the exam scope.");
   assert.equal(targetAllowed("10.10.10.5", root), null);
   let nmapStarted = false;
@@ -69,8 +69,8 @@ test("a target outside the exam scope is refused before hydra or nmap starts", a
   assert.equal(allowed, true);
 });
 
-test("an in-scope hydra target is started once", () => {
-  const root = scopedRoot();
+test("an in-scope hydra target is started once", (t) => {
+  const root = scopedRoot(t);
   let started = 0;
   const hydra = hydraHttp(
     { id: "hydra-in", args: ["-l", "admin", "-p", "NOTREAL", "10.10.10.5", "ssh"] },
@@ -99,10 +99,10 @@ test("hydra refuses an output path outside the desk and still allows a wordlist"
   );
 });
 
-test("a banned command is refused only while the exam lock is on", () => {
+test("a banned command is refused only while the exam lock is on", (t) => {
   const locked = examBlock({ on: true, scope: [] }, ["10.10.10.5"], "sqlmap -u http://10.10.10.5");
   assert.match(locked ?? "", /sqlmap/);
   assert.equal(examBlock({ on: false, scope: [] }, ["10.10.10.5"], "sqlmap -u http://10.10.10.5"), null);
-  const root = scopedRoot();
+  const root = scopedRoot(t);
   assert.match(commandAllowed("sqlmap -u http://10.10.10.5", root) ?? "", /sqlmap/);
 });

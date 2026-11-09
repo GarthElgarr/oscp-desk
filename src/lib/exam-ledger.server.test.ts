@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { ledgerFile, legacyLedgerFile, migrateLedger } from "./exam-ledger.server.ts";
+import { testTmp } from "./test-tmp.ts";
 
 const MOVED = '{"on":false,"scope":["10.10.10.5"]}\n';
 const KEPT = '{"on":true,"scope":["10.10.10.0/24"]}\n';
 
-function tempRoot(): string {
-  return mkdtempSync(path.join(tmpdir(), "oscp-ledger-"));
+function tempRoot(t: TestContext): string {
+  return testTmp(t, "oscp-ledger-");
 }
 
-test("a legacy exam ledger moves into data and stays there", () => {
-  const dir = tempRoot();
+test("a legacy exam ledger moves into data and stays there", (t) => {
+  const dir = tempRoot(t);
   mkdirSync(path.join(dir, "scans"));
   writeFileSync(legacyLedgerFile(dir), MOVED);
 
@@ -27,7 +27,7 @@ test("a legacy exam ledger moves into data and stays there", () => {
   assert.equal(existsSync(legacyLedgerFile(dir)), false);
   assert.equal(statSync(ledgerFile(dir)).mtimeMs, stamp);
 
-  const both = tempRoot();
+  const both = tempRoot(t);
   mkdirSync(path.join(both, "scans"));
   mkdirSync(path.join(both, "data"));
   writeFileSync(legacyLedgerFile(both), MOVED);
