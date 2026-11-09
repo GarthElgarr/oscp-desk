@@ -1,4 +1,4 @@
-import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
+import { effectiveAccess, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type ShotFile = { dataUrl: string; w: number; h: number };
 
@@ -62,7 +62,7 @@ function hostSection(host: HostReport, number: string, hosts: HostReport[], shot
       <h4>${number}.3 Initial access</h4>
       ${block(host.foothold, "Not recorded.")}
       <h4>${number}.4 Privilege escalation</h4>
-      ${block(host.privesc, host.access === "full" ? "Not recorded." : "Privilege escalation was not reached.")}
+      ${block(host.privesc, effectiveAccess(host) === "full" ? "Not recorded." : "Privilege escalation was not reached.")}
       <h4>${number}.5 Exploit code</h4>
       ${block([host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim() && `Modified code:\n${host.exploitCode.trim()}`, host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n"), "Not recorded.")}
       <h4>${number}.6 Fix</h4>

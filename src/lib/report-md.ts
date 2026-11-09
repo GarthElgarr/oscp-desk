@@ -1,4 +1,4 @@
-import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
+import { effectiveAccess, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 function body(text: string, empty = "Not recorded."): string {
   const value = text.trim();
@@ -29,7 +29,7 @@ function hostPart(report: ExamReport, host: HostReport, number: string): string 
     "",
     `#### ${number}.4 Privilege escalation`,
     "",
-    body(host.privesc, host.access === "full" ? "Not recorded." : "Privilege escalation was not reached."),
+    body(host.privesc, effectiveAccess(host) === "full" ? "Not recorded." : "Privilege escalation was not reached."),
     "",
     `#### ${number}.5 Exploit code`,
     "",

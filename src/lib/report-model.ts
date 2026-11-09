@@ -195,7 +195,7 @@ export function saveReport(report: ExamReport) {
 
 export function hostStarted(host: HostReport): boolean {
   return (
-    host.access !== "none" ||
+    effectiveAccess(host) !== "none" ||
     host.shots.length > 0 ||
     [host.hostname, host.ip, host.os, host.localFlag, host.proofFlag, host.enumeration, host.foothold, host.privesc, host.fix, host.vulnName, host.vulnExplanation, host.severity, host.exploitUrl, host.exploitCode, host.exploitChanges].some(
       (value) => value.trim(),
@@ -217,6 +217,14 @@ export function accessLabel(access: Access): string {
 
 export function proofsPresent(host: HostReport): boolean {
   return Boolean(host.localFlag.trim() || host.proofFlag.trim());
+}
+
+/** The access the export should treat as true. An explicit REACHED wins. Otherwise both proofs, or proof.txt alone, are full, and local.txt alone is local. */
+export function effectiveAccess(host: HostReport): Access {
+  if (host.accessSet === true || host.access !== "none") return host.access;
+  if (host.proofFlag.trim()) return "full";
+  if (host.localFlag.trim()) return "local";
+  return "none";
 }
 
 export const REACHED_DEFAULT_WARNING =
@@ -307,12 +315,13 @@ export function reportGaps(report: ExamReport, loadedShotIds?: ReadonlySet<strin
     const name = hostLabel(host, hostKindIndex(report.hosts, host));
     if (!host.ip.trim()) gaps.push({ level: "miss", text: `${name}: no IP address.` });
     if (!host.enumeration.trim()) gaps.push({ level: "warn", text: `${name}: service enumeration is empty. The scan command and the ports that mattered.` });
-    if (host.access !== "none" && !host.vulnName.trim()) gaps.push({ level: "warn", text: `${name}: vulnerability name is empty.` });
-    if (host.access !== "none" && !host.foothold.trim()) gaps.push({ level: "miss", text: `${name}: access is marked, but initial access has no command.` });
-    if (host.access === "full" && !host.privesc.trim()) gaps.push({ level: "miss", text: `${name}: proof.txt is claimed, but privilege escalation is empty.` });
-    if (host.access !== "none" && !host.localFlag.trim()) gaps.push({ level: "warn", text: `${name}: local.txt value is empty.` });
-    if (host.access === "full" && !host.proofFlag.trim()) gaps.push({ level: "warn", text: `${name}: proof.txt value is empty.` });
-    if (host.access !== "none" && host.shots.length === 0) {
+    const access = effectiveAccess(host);
+    if (access !== "none" && !host.vulnName.trim()) gaps.push({ level: "warn", text: `${name}: vulnerability name is empty.` });
+    if (access !== "none" && !host.foothold.trim()) gaps.push({ level: "miss", text: `${name}: access is marked, but initial access has no command.` });
+    if (access === "full" && !host.privesc.trim()) gaps.push({ level: "miss", text: `${name}: proof.txt is claimed, but privilege escalation is empty.` });
+    if (access !== "none" && !host.localFlag.trim()) gaps.push({ level: "warn", text: `${name}: local.txt value is empty.` });
+    if (access === "full" && !host.proofFlag.trim()) gaps.push({ level: "warn", text: `${name}: proof.txt value is empty.` });
+    if (access !== "none" && host.shots.length === 0) {
       gaps.push({ level: "warn", text: `${name}: no screenshot. One frame needs the flag, id or whoami, and the IP.` });
     }
     if (reachedWarning(host)) gaps.push({ level: "warn", text: `${name}: ${REACHED_DEFAULT_WARNING}` });

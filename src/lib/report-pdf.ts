@@ -1,4 +1,4 @@
-import { hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
+import { effectiveAccess, hostKindIndex, hostLabel, hostStarted, hostTitle, normaliseOsid, reachedLabel, scoreCaveat, type ExamReport, type HostReport } from "./report-model.ts";
 
 export type JpegShot = { jpeg: Uint8Array; w: number; h: number };
 
@@ -296,7 +296,7 @@ export function buildReportPdf(report: ExamReport, shots: Map<string, JpegShot>)
     heading(`${number}.3 Initial access`, 12, 8);
     prose(host.foothold, "Not recorded.");
     heading(`${number}.4 Privilege escalation`, 12, 8);
-    prose(host.privesc, host.access === "full" ? "Not recorded." : "Privilege escalation was not reached.");
+    prose(host.privesc, effectiveAccess(host) === "full" ? "Not recorded." : "Privilege escalation was not reached.");
     heading(`${number}.5 Exploit code`, 12, 8);
     prose(
       [host.exploitUrl.trim() && `Original: ${host.exploitUrl.trim()}`, host.exploitCode.trim() && `Modified code:\n${host.exploitCode.trim()}`, host.exploitChanges.trim() && `Changes: ${host.exploitChanges.trim()}`].filter(Boolean).join("\n\n"),

@@ -89,6 +89,29 @@ test("filled proofs are not exported as not compromised unless REACHED was chose
   assert.match(reportMarkdown(report), /Reached: local\.txt only\./);
 });
 
+test("filled proofs count as reached when privilege escalation is still empty", () => {
+  const report = blankReport();
+  const host = report.hosts[0];
+  host.ip = "10.10.10.5";
+  host.localFlag = "localflag";
+  host.proofFlag = "proofflag";
+  const gaps = reportGaps(report).map((gap) => gap.text);
+  assert.ok(gaps.some((text) => text.includes("proof.txt is claimed, but privilege escalation is empty")));
+  assert.ok(gaps.some((text) => text.includes("no screenshot")));
+  for (const body of [reportMarkdown(report), reportHtml(report, new Map()), Buffer.from(buildReportPdf(report, new Map())).toString("latin1")]) {
+    assert.equal(body.includes("Privilege escalation was not reached."), false);
+  }
+  host.accessSet = true;
+  host.access = "none";
+  assert.match(reportMarkdown(report), /Privilege escalation was not reached\./);
+  assert.match(reportHtml(report, new Map()), /Privilege escalation was not reached\./);
+  assert.match(Buffer.from(buildReportPdf(report, new Map())).toString("latin1"), /Privilege escalation was not reached\./);
+  assert.equal(
+    reportGaps(report).some((gap) => gap.text.includes("proof.txt is claimed")),
+    false,
+  );
+});
+
 test("markdown carries the methodologies, the set, and the score caveat", () => {
   const report = blankReport();
   report.hosts[0].ip = "10.10.10.10";
