@@ -12,4 +12,9 @@ test("the transfer warning follows the file host, not every low port", () => {
   const panel = readFileSync(new URL("../components/uploads-panel.tsx", import.meta.url), "utf8");
   assert.match(panel, /transferPortWarning\(port, \{ port: listing\.hostPort, listening: listing\.hostOk \}\)/);
   assert.match(panel, /hostPort/);
+  const tunnel = readFileSync(new URL("../components/tunnel-builder.tsx", import.meta.url), "utf8");
+  assert.match(tunnel, /if \(!listing \|\| portTouched\) return;/);
+  assert.match(tunnel, /setFilePort\(String\(listing\.hostPort\)\)/);
+  assert.match(tunnel, /setPortTouched\(true\)/);
+  assert.match(tunnel, /transferPortWarning\(filePort, \{ port: listing\.hostPort, listening: listing\.hostOk \}\)/);
 });

@@ -1,6 +1,8 @@
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { tunnelPlan, type ChiselMode, type PivotOs, type TunnelGraph, type TunnelTool } from "@/lib/tunnel-plan";
+import { transferPortWarning } from "@/lib/transfer-plan";
+import { listUploadFiles, type UploadsListing } from "@/lib/uploads";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { useGlobalField } from "@/lib/use-global-field";
 
@@ -144,7 +146,9 @@ export function TunnelBuilder() {
   const [os, setOs] = useState<PivotOs>("linux");
   const [kali, setKali] = useGlobalField(globals.localIp);
   const [pivot, setPivot] = useGlobalField(globals.target);
+  const [listing, setListing] = useState<UploadsListing | null>(null);
   const [filePort, setFilePort] = useState("80");
+  const [portTouched, setPortTouched] = useState(false);
   const [chiselMode, setChiselMode] = useState<ChiselMode>("socks");
   const [chiselPort, setChiselPort] = useState("8000");
   const [localPort, setLocalPort] = useState("8081");
@@ -158,6 +162,23 @@ export function TunnelBuilder() {
   const [penelopePort, setPenelopePort] = useState("443");
   const [loopback, setLoopback] = useState(false);
   const [loopPort, setLoopPort] = useState("");
+
+  useEffect(() => {
+    let gone = false;
+    listUploadFiles()
+      .then((data) => {
+        if (!gone) setListing(data);
+      })
+      .catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!listing || portTouched) return;
+    setFilePort(String(listing.hostPort));
+  }, [listing, portTouched]);
 
   const plan = useMemo(
     () =>
@@ -251,7 +272,19 @@ export function TunnelBuilder() {
           </select>
         </Field>
         <Field label="FILE SERVER ON KALI" hint="python http.server binds this port on Kali. The pivot downloads the binary from http://KALI:this. It is not a port on the pivot, and it must not be the Chisel or Ligolo listen port.">
-          <input className={control} value={filePort} onChange={(e) => setFilePort(e.target.value)} inputMode="numeric" spellCheck={false} />
+          <input
+            className={control}
+            value={filePort}
+            onChange={(e) => {
+              setPortTouched(true);
+              setFilePort(e.target.value);
+            }}
+            inputMode="numeric"
+            spellCheck={false}
+          />
+          {listing && transferPortWarning(filePort, { port: listing.hostPort, listening: listing.hostOk }) ? (
+            <span className="text-sm text-fg">{transferPortWarning(filePort, { port: listing.hostPort, listening: listing.hostOk })}</span>
+          ) : null}
         </Field>
         {tool === "chisel" ? (
           <>
