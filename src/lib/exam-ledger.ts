@@ -239,6 +239,9 @@ export function applyLedger(current: ExamLedger, action: unknown, now = Date.now
   if (row.action === "replace") {
     const parsed = parseLedger(row.ledger, now);
     if (!parsed) return { ledger: current, error: "That backup is not a valid exam ledger." };
+    if (parsed.on && parsed.msf.some((row) => !row.examLocked)) {
+      return { ledger: current, error: "Clear the lab Metasploit rows from that backup before you restore it with exam lock on." };
+    }
     if (!keepsMsfHistory(current, parsed)) {
       return { ledger: current, error: "A restore cannot drop Meterpreter history during the exam." };
     }

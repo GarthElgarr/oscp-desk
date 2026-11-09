@@ -180,6 +180,22 @@ test("a restore cannot narrow scope after a meterpreter attempt", () => {
   assert.deepEqual(opened.ledger.scope, []);
 });
 
+test("a restore with exam lock on cannot bring lab metasploit rows", () => {
+  const current = emptyLedger();
+  const off = applyLedger(current, { action: "patch", on: false }, NOW).ledger;
+  const lab = applyLedger(off, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  assert.equal(lab.msf[0]?.examLocked, false);
+  const backup = { ...lab, on: true };
+  const refused = applyLedger(current, { action: "replace", ledger: backup }, NOW);
+  assert.match(refused.error ?? "", /Clear the lab Metasploit rows from that backup before you restore it with exam lock on\./);
+  assert.equal(refused.ledger, current);
+  const accepted = applyLedger(current, { action: "replace", ledger: { ...backup, on: false } }, NOW);
+  assert.equal(accepted.error, undefined);
+  assert.equal(accepted.ledger.on, false);
+  assert.equal(accepted.ledger.msf[0]?.examLocked, false);
+  assert.equal(accepted.ledger.msf[0]?.host, "10.10.10.5");
+});
+
 test("backup restore keeps the ledger and appends an audit line", () => {
   const saved = applyLedger(emptyLedger(), { action: "host", ip: "10.10.10.10", flagLocal: true }, NOW).ledger;
   const bad = applyLedger(saved, { action: "replace", ledger: { on: true } }, NOW);

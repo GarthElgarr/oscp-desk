@@ -13,7 +13,7 @@
 - Builder tests cover thread caps, wordlist roots, a `/16`, a leading zero, and a quote in a password. An unknown SQL step returns an error instead of throwing.
 - A shell port must be 1–65535. A missing page says it is not on this desk and links home. An upload over 210 MB is refused before it is read, and an upload with no Content-Length is refused with 411. More than 10 files are refused, and an existing file is kept unless `overwrite=1`. `OPTIONS /api/*` returns 403.
 - After a Meterpreter attempt, scope cannot be narrowed. A list of hosts can still gain a machine. A subnet scope cannot take an extra host. The scope Remove button uses the same exam-attempt check as the server: a row recorded while the lock was on. Lab rows do not count.
-- Turning exam lock on is refused while lab Metasploit rows are still on the ledger. Clear them first. A lab row is not copied into the Meterpreter machine.
+- Turning exam lock on is refused while lab Metasploit rows are still on the ledger. Clear them first. A lab row is not copied into the Meterpreter machine. A backup that still has those rows cannot be restored with exam lock on.
 - Every AD hour step has a Copy button.
 - An exam ledger error sits at the top of the lock box and clears on the next success.
 - nxc says whether the problem is a subnet wider than /24, a mask above /32, a leading zero, or the user name.
