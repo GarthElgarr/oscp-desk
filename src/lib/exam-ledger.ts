@@ -242,6 +242,9 @@ export function applyLedger(current: ExamLedger, action: unknown, now = Date.now
     if (!keepsMsfHistory(current, parsed)) {
       return { ledger: current, error: "A restore cannot drop Meterpreter history during the exam." };
     }
+    if (examAttemptLocked(current) && scopeNarrowed(current.scope, parsed.scope)) {
+      return { ledger: current, error: "A restore cannot narrow scope after a Meterpreter attempt." };
+    }
     return { ledger: withAudit(parsed, now, "restore", "restored from a backup") };
   }
   if (row.action === "patch") return applyPatch(current, row, now);

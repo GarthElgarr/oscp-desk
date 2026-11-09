@@ -139,6 +139,28 @@ test("a restore during the exam cannot drop meterpreter history", () => {
   assert.equal(kept.ledger.audit.at(-1)?.kind, "restore");
 });
 
+test("a restore cannot narrow scope after a meterpreter attempt", () => {
+  const scoped = applyLedger(emptyLedger(), { action: "patch", scope: ["10.10.10.0/24"] }, NOW).ledger;
+  const locked = applyLedger(scoped, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  const cleared = applyLedger(locked, { action: "replace", ledger: { ...locked, scope: [] } }, NOW);
+  assert.match(cleared.error ?? "", /A restore cannot narrow scope after a Meterpreter attempt/);
+  assert.equal(cleared.ledger, locked);
+  const hostOnly = applyLedger(locked, { action: "replace", ledger: { ...locked, scope: ["10.10.10.5"] } }, NOW);
+  assert.match(hostOnly.error ?? "", /A restore cannot narrow scope after a Meterpreter attempt/);
+  assert.equal(hostOnly.ledger, locked);
+  const extra = { ...locked, audit: locked.audit.concat([{ at: NOW, kind: "note", detail: "same scope" }]) };
+  const kept = applyLedger(locked, { action: "replace", ledger: extra }, NOW);
+  assert.equal(kept.error, undefined);
+  assert.deepEqual(kept.ledger.scope, ["10.10.10.0/24"]);
+  assert.equal(kept.ledger.audit.some((row) => row.detail === "same scope"), true);
+  const off = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
+  const labScope = applyLedger(off, { action: "patch", scope: ["10.10.10.0/24"] }, NOW).ledger;
+  const lab = applyLedger(labScope, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  const opened = applyLedger(lab, { action: "replace", ledger: { ...lab, scope: [] } }, NOW);
+  assert.equal(opened.error, undefined);
+  assert.deepEqual(opened.ledger.scope, []);
+});
+
 test("backup restore keeps the ledger and appends an audit line", () => {
   const saved = applyLedger(emptyLedger(), { action: "host", ip: "10.10.10.10", flagLocal: true }, NOW).ledger;
   const bad = applyLedger(saved, { action: "replace", ledger: { on: true } }, NOW);
