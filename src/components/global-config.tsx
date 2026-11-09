@@ -3,7 +3,7 @@ import { deskFetch } from "@/lib/desk-fetch";
 import { getGlobals, getGlobalsServer, setGlobals, subscribeGlobals } from "@/lib/desk-globals";
 import { postExam } from "@/lib/exam-client";
 import { getExam, getExamServer, setExam, subscribeExam } from "@/lib/exam-lock";
-import { ipInScope, ledgerPristine, type ExamLedger } from "@/lib/exam-ledger";
+import { examAttemptLocked, ipInScope, ledgerPristine, type ExamLedger } from "@/lib/exam-ledger";
 import { examClock, formatLeft, passRule } from "@/lib/exam-rules";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 import { hostOrIp } from "@/lib/scope-target";
@@ -191,7 +191,7 @@ export function GlobalConfig() {
               {ledger.scope.map((entry) => (
                 <li key={entry} className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-mono text-fg">{entry}</span>
-                  {exam.on && ledger.msf.length > 0 ? null : (
+                  {examAttemptLocked(ledger) ? null : (
                     <button type="button" className="text-sm text-muted underline" onClick={() => void push({ action: "patch", scope: ledger.scope.filter((item) => item !== entry) })}>
                       Remove
                     </button>
@@ -200,7 +200,7 @@ export function GlobalConfig() {
               ))}
             </ul>
           ) : null}
-          {exam.on && ledger && ledger.msf.length > 0 && ledger.scope.length > 0 ? (
+          {ledger && examAttemptLocked(ledger) && ledger.scope.length > 0 ? (
             <p className="mt-1 text-sm text-muted">
               {ledger.scope.some((entry) => entry.includes("/"))
                 ? "Scope is one subnet and cannot be narrowed after a Meterpreter attempt."

@@ -162,7 +162,7 @@ function consistent(ledger: ExamLedger): string | null {
 
 function normaliseMsfLock(ledger: ExamLedger): ExamLedger | { error: string } {
   if (!ledger.on) return ledger;
-  const hosts = [...new Set(ledger.msf.map((row) => row.host))];
+  const hosts = [...new Set(ledger.msf.filter((row) => row.examLocked).map((row) => row.host))];
   if (!ledger.meterpreterHost && hosts.length === 1) return { ...ledger, meterpreterHost: hosts[0] };
   const problem = consistent(ledger);
   if (problem) return { error: problem };
@@ -253,7 +253,7 @@ export function applyLedger(current: ExamLedger, action: unknown, now = Date.now
   return { ledger: current, error: "That exam action is not valid." };
 }
 
-function examAttemptLocked(ledger: ExamLedger): boolean {
+export function examAttemptLocked(ledger: ExamLedger): boolean {
   return ledger.msf.some((row) => row.examLocked);
 }
 
@@ -277,6 +277,9 @@ function applyPatch(current: ExamLedger, row: Record<string, unknown>, now: numb
     }
   }
   if (typeof row.on === "boolean" && row.on !== next.on) {
+    if (row.on && next.msf.some((entry) => !entry.examLocked)) {
+      return { ledger: current, error: "Clear the lab Metasploit ledger before you turn exam lock on." };
+    }
     next = { ...next, on: row.on };
     notes.push(row.on ? "exam lock on" : "exam lock off, lab only");
   }

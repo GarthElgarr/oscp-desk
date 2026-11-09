@@ -45,7 +45,7 @@ test("scope cannot be narrowed after a meterpreter attempt", () => {
   assert.equal(cleared.error, undefined);
   assert.deepEqual(cleared.ledger.scope, []);
   const ui = readFileSync(new URL("../components/global-config.tsx", import.meta.url), "utf8");
-  assert.match(ui, /exam\.on && ledger\.msf\.length > 0 \? null/);
+  assert.match(ui, /examAttemptLocked\(ledger\) \? null/);
   assert.match(ui, /entry\.includes\("\/"\)/);
   assert.match(ui, /Scope is one subnet and cannot be narrowed after a Meterpreter attempt\./);
   assert.match(ui, /You can still add a machine\./);
@@ -87,13 +87,27 @@ test("a failed meterpreter attempt locks the machine and a second machine is ref
   assert.equal(same.ledger.msf.length, 2);
 });
 
+test("a lab meterpreter row is not the exam machine when the lock turns on", () => {
+  const off = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
+  const lab = applyLedger(off, { action: "msf", host: "10.10.10.5", payload: "meterpreter", ok: false }, NOW).ledger;
+  assert.equal(lab.msf[0].examLocked, false);
+  assert.equal(lab.meterpreterHost, "");
+  const on = applyLedger(lab, { action: "patch", on: true }, NOW);
+  assert.match(on.error ?? "", /Clear the lab Metasploit ledger before you turn exam lock on/);
+  assert.equal(on.ledger, lab);
+  assert.notEqual(on.ledger.meterpreterHost, "10.10.10.5");
+  const ui = readFileSync(new URL("../components/global-config.tsx", import.meta.url), "utf8");
+  assert.match(ui, /examAttemptLocked\(ledger\)/);
+  assert.equal(ui.includes("ledger.msf.length > 0 ? null"), false);
+});
+
 test("lab attempts on two machines cannot be turned into an exam lock", () => {
   const off = applyLedger(emptyLedger(), { action: "patch", on: false }, NOW).ledger;
   const first = applyLedger(off, { action: "msf", host: "10.10.10.10", payload: "meterpreter", ok: true }, NOW).ledger;
   const second = applyLedger(first, { action: "msf", host: "10.10.10.11", payload: "meterpreter", ok: false }, NOW).ledger;
   assert.equal(second.meterpreterHost, "");
   const locked = applyLedger(second, { action: "patch", on: true }, NOW);
-  assert.match(locked.error ?? "", /only one/);
+  assert.match(locked.error ?? "", /Clear the lab Metasploit ledger/);
   const cleared = applyLedger(second, { action: "patch", clearMsf: true }, NOW);
   assert.equal(cleared.error, undefined);
   assert.equal(cleared.ledger.msf.length, 0);
