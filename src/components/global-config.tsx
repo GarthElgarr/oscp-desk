@@ -201,7 +201,11 @@ export function GlobalConfig() {
             </ul>
           ) : null}
           {exam.on && ledger && ledger.msf.length > 0 && ledger.scope.length > 0 ? (
-            <p className="mt-1 text-sm text-muted">Scope cannot be narrowed after a Meterpreter attempt. You can still add a machine.</p>
+            <p className="mt-1 text-sm text-muted">
+              {ledger.scope.some((entry) => entry.includes("/"))
+                ? "Scope is one subnet and cannot be narrowed after a Meterpreter attempt."
+                : "Scope cannot be narrowed after a Meterpreter attempt. You can still add a machine."}
+            </p>
           ) : null}
           <form
             className="mt-2 flex flex-wrap gap-2"

@@ -12,7 +12,7 @@
 - `npm run lint` is clean and `npm test` runs every test under `src/lib`.
 - Builder tests cover thread caps, wordlist roots, a `/16`, a leading zero, and a quote in a password. An unknown SQL step returns an error instead of throwing.
 - A shell port must be 1–65535. A missing page says it is not on this desk and links home. An upload over 210 MB is refused before it is read, more than 10 files are refused, and an existing file is kept unless `overwrite=1`. `OPTIONS /api/*` returns 403.
-- After a Meterpreter attempt, scope cannot be narrowed. Adding a subnet is still allowed, and the scope Remove button is hidden.
+- After a Meterpreter attempt, scope cannot be narrowed. A list of hosts can still gain a machine. A subnet scope cannot take an extra host. The scope Remove button is hidden.
 - Every AD hour step has a Copy button.
 - An exam ledger error sits at the top of the lock box and clears on the next success.
 - nxc says whether the problem is a subnet wider than /24, a leading zero, or the user name.

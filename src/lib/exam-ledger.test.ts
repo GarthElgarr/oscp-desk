@@ -46,6 +46,11 @@ test("scope cannot be narrowed after a meterpreter attempt", () => {
   assert.deepEqual(cleared.ledger.scope, []);
   const ui = readFileSync(new URL("../components/global-config.tsx", import.meta.url), "utf8");
   assert.match(ui, /exam\.on && ledger\.msf\.length > 0 \? null/);
+  assert.match(ui, /entry\.includes\("\/"\)/);
+  assert.match(ui, /Scope is one subnet and cannot be narrowed after a Meterpreter attempt\./);
+  assert.match(ui, /You can still add a machine\./);
+  const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
+  assert.equal(readme.includes("Adding a subnet is still allowed"), false);
 });
 
 test("a host is kept only inside the declared scope", () => {
