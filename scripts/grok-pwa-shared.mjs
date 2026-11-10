@@ -202,8 +202,16 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
 
 export const GROK_EXTENSIONS_SCRIPT_SRC = "https://grok.com/grok-app-builder/extensions.js";
 
-/** Same-origin scripts only. Inline is the desk token and the Vite dev bootstrap. */
-export const DESK_CSP = "script-src 'self' 'unsafe-inline'; connect-src 'self'";
+/** Same-origin scripts, plus the opt-in extensions host only when that flag is exactly "1". */
+export function deskContentSecurityPolicy(env) {
+  const script = readGrokExtensionsEnabled(env)
+    ? "script-src 'self' 'unsafe-inline' https://grok.com"
+    : "script-src 'self' 'unsafe-inline'";
+  return `${script}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; connect-src 'self'`;
+}
+
+/** Default policy with extensions off. The live header calls deskContentSecurityPolicy(). */
+export const DESK_CSP = "script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; connect-src 'self'";
 
 export function readGrokProjectId() {
   const fromProcess = typeof process !== "undefined" ? process.env?.VITE_PROJECT_ID : "";
@@ -466,7 +474,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
   );
 
   if (!next.includes("Content-Security-Policy")) {
-    missing.push(`<meta http-equiv="Content-Security-Policy" content="${DESK_CSP}">`);
+    missing.push(`<meta http-equiv="Content-Security-Policy" content="${deskContentSecurityPolicy()}">`);
   }
 
   if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {

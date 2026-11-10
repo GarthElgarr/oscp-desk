@@ -13,6 +13,7 @@ import {
   isInstallQuery,
   publicAppHost,
   readGrokExtensionsEnabled,
+  deskContentSecurityPolicy,
   renderWebManifest,
   resolveOgCardAsset,
   snapshotOgIdentity,
@@ -455,11 +456,20 @@ test("extensions stay off unless the desk env is exactly 1", () => {
     assert.equal(out.includes("grok.com"), false);
     assert.match(out, /Content-Security-Policy/);
     assert.match(out, /script-src 'self'/);
+    assert.match(out, /object-src 'none'/);
+    assert.match(out, /base-uri 'self'/);
+    assert.match(out, /frame-ancestors 'none'/);
     assert.match(out, /connect-src 'self'/);
+    assert.equal(deskContentSecurityPolicy({}).includes("grok.com"), false);
     process.env.VITE_GROK_EXTENSIONS = "1";
     assert.equal(readGrokExtensionsEnabled(), true);
     const on = injectGrokPwaHead("<html><head></head></html>", { projectId: "proj-123" });
     assert.match(on, /src="https:\/\/grok\.com\/grok-app-builder\/extensions\.js"/);
+    const policy = deskContentSecurityPolicy();
+    assert.match(policy, /script-src 'self' 'unsafe-inline' https:\/\/grok\.com/);
+    assert.doesNotMatch(policy, /connect-src [^;]*grok\.com/);
+    const meta = on.match(/Content-Security-Policy" content="([^"]+)"/);
+    assert.equal(meta?.[1], policy);
   } finally {
     if (previous === undefined) delete process.env.VITE_GROK_EXTENSIONS;
     else process.env.VITE_GROK_EXTENSIONS = previous;

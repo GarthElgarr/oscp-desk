@@ -16,6 +16,8 @@ export declare function renderInstallPageHtml(
 export declare function renderWebManifest(hostHeader: string | null | undefined): string;
 export declare function grokPwaHeadTags(appName?: string): Array<[string, string]>;
 export declare const GROK_EXTENSIONS_SCRIPT_SRC: string;
+export declare function deskContentSecurityPolicy(env?: { VITE_GROK_EXTENSIONS?: string }): string;
+export declare const DESK_CSP: string;
 export declare function readGrokProjectId(): string;
 export declare function readGrokExtensionsEnabled(): boolean;
 export declare function readXCreator(): string;
