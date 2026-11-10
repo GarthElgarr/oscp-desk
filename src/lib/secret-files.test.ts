@@ -67,6 +67,13 @@ test("stored commands keep scan details and hide the secret", () => {
   assert.equal(redactStoredCommand("kerbrute passwordspray -d corp.local"), "kerbrute passwordspray -d corp.local");
   assert.match(redactStoredCommand("chisel server -p 8000 --reverse"), /-p 8000/);
   assert.match(redactStoredCommand("penelope -O -c 10.10.10.5 -p 4444"), /-c 10\.10\.10\.5 -p 4444/);
+  assert.equal(redactStoredCommand("impacket-GetUserSPNs corp.local/alice:NOTREAL -dc-ip 10.10.10.5 -request").includes("NOTREAL"), false);
+  assert.match(redactStoredCommand("impacket-GetUserSPNs corp.local/alice:NOTREAL -dc-ip 10.10.10.5 -request"), /corp\.local\/alice:\*\*\*\*/);
+  assert.match(redactStoredCommand("impacket-secretsdump corp/user:NOTREAL@10.10.10.5"), /corp\/user:\*\*\*\*@10\.10\.10\.5/);
+  assert.equal(redactStoredCommand("impacket-ticketer -nthash " + hash + " -domain-sid S-1-5-21-1-2-3 -domain corp.local alice").includes(hash), false);
+  assert.match(redactStoredCommand("impacket-ticketer -nthash " + hash + " -domain-sid S-1-5-21-1-2-3 -domain corp.local alice"), /-nthash \*\*\*\*/);
+  assert.equal(redactStoredCommand("chisel client 10.10.10.5:8000 R:1080:socks"), "chisel client 10.10.10.5:8000 R:1080:socks");
+  assert.equal(redactStoredCommand("curl http://10.10.10.5:80/"), "curl http://10.10.10.5:80/");
 });
 
 test("the clear action leaves the readme and the exam ledger and removes the rest", (t) => {

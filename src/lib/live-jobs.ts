@@ -66,11 +66,17 @@ export async function launchJob(
   const id = `${pending.tool}-${Date.now().toString(36)}-${++seq}`;
   publish([{ id, tool: pending.tool, title: pending.title, command: pending.command, name: pending.name ?? "", output: "", running: true }, ...jobs]);
   if (!timer) timer = setInterval(() => void syncJobs(), 700);
-  const response = await deskFetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...body, id, tool: pending.tool }),
-  });
+  let response: Response;
+  try {
+    response = await deskFetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, id, tool: pending.tool }),
+    });
+  } catch {
+    publish(jobs.map((job) => (job.id === id ? { ...job, output: "The desk did not answer. Try again.\n", running: false, local: true } : job)));
+    return;
+  }
   if (!response.ok) {
     const text = await response.text();
     publish(jobs.map((job) => (job.id === id ? { ...job, output: text, running: false, local: true } : job)));

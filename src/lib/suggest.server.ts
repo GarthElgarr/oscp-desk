@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createTerminalFeed, openJob } from "./live-jobs.server";
 import { scansDir } from "./nmap-scan.server";
+import { writePrivateFile } from "./private-file";
 import { suggestPlan, type SuggestPlan } from "./suggest";
 
 const LES = [
@@ -104,9 +105,8 @@ export function startSuggest(id: string, plan: SuggestPlan): boolean {
       const bin = firstExisting(WES);
       if (!bin) handle.push("wes was not found. On Kali: pipx install wesng, then wes --update. The desk does not run a Windows suggester it cannot see.\n");
       else {
-        mkdirSync(scansDir(), { recursive: true });
         const file = path.join(scansDir(), `systeminfo-${id.replace(/[^a-z0-9-]/g, "").slice(0, 40)}.txt`);
-        writeFileSync(file, plan.windowsText);
+        writePrivateFile(file, plan.windowsText);
         const code = await run(bin, [file], handle, 90_000);
         handle.push(`[wes exit ${code ?? "unknown"}]\n`);
         ran = true;

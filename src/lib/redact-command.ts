@@ -24,8 +24,10 @@ const HASH_H = new Set(["nxc", "netexec", "crackmapexec", "cme", "evil-winrm"]);
 
 const SECRET_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key"]);
 
-const SECRET_FLAG = /(?:^|\s)(--password|-password|--hashes|-hashes|-H|-c|-p)(?:=|\s+)(?:"[^"]*"|'(?:[^']|'\\'')*'|\S+)/g;
+const SECRET_FLAG = /(?:^|\s)(--password|-password|--hashes|-hashes|-nthash|-H|-c|-p)(?:=|\s+)(?:"[^"]*"|'(?:[^']|'\\'')*'|\S+)/g;
 const USER_PASS = /(^|[\s'"=/])((?:[^\s'":@/\\]+[/\\])?[^\s'":@]+):([^\s'":@]+)@/g;
+/** Impacket kerberoast, getTGT, and getST store domain/user:password with no @host. */
+const USER_SECRET = /(^|[\s'"=])((?:[^\s'":@/\\]+[/\\])[^\s'":@/\\]+):([^\s'":@]+)(?=[\s'"]|$)/g;
 const USER_PCT = /(^|[\s'"=/])([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^\s'"%]+)/g;
 
 function unquote(value: string): string {
@@ -129,7 +131,8 @@ export function redactStoredCommand(command: string): string {
   const comments = stripOnesixtyComment(command);
   const sprayed = redactSpray(comments);
   const users = sprayed.replace(USER_PASS, (_match, lead: string, user: string) => `${lead}${user}:****@`);
-  const pct = users.replace(USER_PCT, (_match, lead: string, user: string) => `${lead}${user}%****`);
+  const bare = users.replace(USER_SECRET, (_match, lead: string, user: string) => `${lead}${user}:****`);
+  const pct = bare.replace(USER_PCT, (_match, lead: string, user: string) => `${lead}${user}%****`);
   return redactFlags(pct);
 }
 
