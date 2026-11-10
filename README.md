@@ -6,6 +6,8 @@ The security desk is the field notes for a box. Each card says what to look for,
 
 Exam lock is the exam. Meterpreter stays on one machine, and a failed attempt still counts. sqlmap, mass scanners, spoofing, and auto-exploitation stay off. The scoring note is 70 raw points before 1 December 2026 08:00 GMT, and the scaled score after that. The AI desk is hidden while the lock is on.
 
+A finished run stores the tool output as the tool printed it, including a hydra line that says password:. Those files are mode 0600. Clear run log removes them.
+
 The AI desk is the lab method for an AI target. Passive recon comes before a chat message. It is not part of the exam.
 
 ```bash

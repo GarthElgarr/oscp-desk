@@ -633,7 +633,7 @@ export function MethodDesk() {
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
                   Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one, and a finished run stays after you restart the desk.
-                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Clear run log removes the saved run log, the hydra and crack files, and SNMP community files. It does not remove the Loot list, the readme, or the exam ledger, and it waits while a run is still going.
+                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Tool output is stored as the tool printed it, including a hydra line that says password:, in 0600 files. Clear run log removes that output, the saved run log, the hydra and crack files, and SNMP community files. It does not remove the Loot list, the readme, or the exam ledger, and it waits while a run is still going.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
