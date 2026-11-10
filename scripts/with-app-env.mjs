@@ -60,9 +60,15 @@ export function readAppEnv(root) {
   }
 }
 
-/** File values under the process environment: an explicit override wins. */
+/** File values under the process environment: an explicit override wins. Extensions stay off unless that override is exactly "1". */
 export function mergeAppEnv(appEnv, processEnv) {
-  return { ...appEnv, ...processEnv };
+  const merged = { ...appEnv, ...processEnv };
+  const chosen =
+    processEnv.VITE_GROK_EXTENSIONS !== undefined
+      ? processEnv.VITE_GROK_EXTENSIONS
+      : appEnv.VITE_GROK_EXTENSIONS;
+  merged.VITE_GROK_EXTENSIONS = String(chosen ?? "").trim() === "1" ? "1" : "0";
+  return merged;
 }
 
 /**

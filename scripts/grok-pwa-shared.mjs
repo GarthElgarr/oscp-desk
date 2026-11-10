@@ -202,14 +202,18 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
 
 export const GROK_EXTENSIONS_SCRIPT_SRC = "https://grok.com/grok-app-builder/extensions.js";
 
+/** Same-origin scripts only. Inline is the desk token and the Vite dev bootstrap. */
+export const DESK_CSP = "script-src 'self' 'unsafe-inline'; connect-src 'self'";
+
 export function readGrokProjectId() {
   const fromProcess = typeof process !== "undefined" ? process.env?.VITE_PROJECT_ID : "";
   return String(fromProcess ?? "").trim();
 }
 
-export function readGrokExtensionsEnabled() {
-  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
-  return String(fromProcess ?? "").trim() !== "0";
+/** On only when the desk env is exactly "1". Unset, "0", and anything else stay off. */
+export function readGrokExtensionsEnabled(env) {
+  const source = env ?? (typeof process !== "undefined" ? process.env : undefined);
+  return String(source?.VITE_GROK_EXTENSIONS ?? "").trim() === "1";
 }
 
 export function readXCreator() {
@@ -460,6 +464,10 @@ export function injectGrokPwaHead(html, ctx = {}) {
     next,
     grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
   );
+
+  if (!next.includes("Content-Security-Policy")) {
+    missing.push(`<meta http-equiv="Content-Security-Policy" content="${DESK_CSP}">`);
+  }
 
   if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));

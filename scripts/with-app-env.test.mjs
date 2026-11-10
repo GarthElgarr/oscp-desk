@@ -63,6 +63,19 @@ test("the template ships auth off", () => {
   assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
 });
 
+test("extensions stay off unless the app env or the process sets exactly 1", () => {
+  assert.equal(mergeAppEnv(readAppEnv(projectRoot()), {}).VITE_GROK_EXTENSIONS, "0");
+  assert.equal(mergeAppEnv({}, {}).VITE_GROK_EXTENSIONS, "0");
+  assert.equal(mergeAppEnv({ VITE_GROK_EXTENSIONS: "0" }, {}).VITE_GROK_EXTENSIONS, "0");
+  assert.equal(mergeAppEnv({ VITE_GROK_EXTENSIONS: "yes" }, {}).VITE_GROK_EXTENSIONS, "0");
+  assert.equal(mergeAppEnv({ VITE_GROK_EXTENSIONS: "1" }, {}).VITE_GROK_EXTENSIONS, "1");
+  assert.equal(
+    mergeAppEnv({ VITE_GROK_EXTENSIONS: "1" }, { VITE_GROK_EXTENSIONS: "0" }).VITE_GROK_EXTENSIONS,
+    "0",
+  );
+  assert.equal(mergeAppEnv({}, { VITE_GROK_EXTENSIONS: "1" }).VITE_GROK_EXTENSIONS, "1");
+});
+
 test("vite loadEnv resolves the wrapped value", () => {
   // What `import.meta.env.VITE_AUTH_ENABLED` becomes: loadEnv prefix-matches
   // process.env, so the wrapper's merge has to land before Vite starts.
