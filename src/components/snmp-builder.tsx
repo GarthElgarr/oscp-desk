@@ -152,7 +152,7 @@ export function SnmpBuilder() {
     await launchJob(
       "/api/snmp",
       { mode: "onesixty", target: host, quick, communities },
-      { tool: "snmp", title: `${plan.command}  # ${plan.communities.join(", ")}`, command: plan.command },
+      { tool: "snmp", title: plan.command, command: plan.command },
     );
   }
 

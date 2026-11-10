@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { spawnLiveJob } from "./live-jobs.server";
-import { communityList, onesixtyPlan, snmpCommunity, snmpOid, snmpTarget, walkPlan } from "./snmp-plan";
+import { spawnLiveJob } from "./live-jobs.server.ts";
+import { writePrivateFile } from "./private-file.ts";
+import { communityList, onesixtyPlan, snmpCommunity, snmpOid, snmpTarget, walkPlan } from "./snmp-plan.ts";
 
 export function snmpRequest(body: unknown): { command: string; args: string[]; communities?: string[]; bin: "onesixtyone" | "snmpwalk" } | { error: string } {
   if (!body || typeof body !== "object") return { error: "The request was not JSON." };
@@ -25,17 +25,23 @@ export function snmpRequest(body: unknown): { command: string; args: string[]; c
   return { ...plan, bin: "snmpwalk" };
 }
 
+/** Community strings stay in this file, not in the stored command. */
+export function writeCommunityFile(id: string, communities: string[], root = process.cwd()): string {
+  if (!/^[a-z][a-z0-9-]{0,40}$/.test(id)) return "";
+  const file = path.join(path.resolve(root, "scans"), `${id}.communities`);
+  writePrivateFile(file, `${communities.join("\n")}\n`);
+  return file;
+}
+
 export function startSnmp(id: string, job: { command: string; args: string[]; communities?: string[]; bin: "onesixtyone" | "snmpwalk" }): boolean {
   const args = [...job.args];
   let command = job.command;
   if (job.bin === "onesixtyone" && job.communities) {
-    const dir = path.resolve(process.cwd(), "scans");
-    mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `${id}.communities`);
-    writeFileSync(file, `${job.communities.join("\n")}\n`);
+    const file = writeCommunityFile(id, job.communities);
+    if (!file) return false;
     const at = args.indexOf("communities.txt");
     if (at >= 0) args[at] = file;
-    command = `onesixtyone -c ${file} ${args[args.length - 1]}  # ${job.communities.join(", ")}`;
+    command = `onesixtyone -c ${file} ${args[args.length - 1] ?? ""}`;
   }
   return spawnLiveJob({
     id,

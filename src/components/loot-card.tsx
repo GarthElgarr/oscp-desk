@@ -142,6 +142,10 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
   }
 
   useEffect(() => {
+    if (items.length === 0) setConfirmClear(false);
+  }, [items.length]);
+
+  useEffect(() => {
     if (!focusId) return;
     document.getElementById(`loot-item-${focusId}`)?.scrollIntoView({ block: "center" });
   }, [focusId]);
@@ -162,22 +166,35 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
         <p className="font-mono text-xs text-primary">Loot</p>
         <h2 className="text-lg font-semibold">Users, passwords, hashes</h2>
         <p className="mt-1 text-sm text-muted">
-          Write it down once. A box in Notes can be where you found it, or a host it might still work on. Open on a note jumps to that item, including a private key. Hydra can try every saved user and every saved password. Hashcat can take every hash of one type. Reset desk does not delete this list. Remove all loot does.
+          Write it down once. A box in Notes can be where you found it, or a host it might still work on. Open on a note jumps to that item, including a private key. Hydra can try every saved user and every saved password. Hashcat can take every hash of one type. Reset desk does not delete this list. Clear run log does not either. Remove all loot does.
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            if (!confirmClear) {
-              setConfirmClear(true);
-              return;
-            }
-            clearLoot();
-            setConfirmClear(false);
-          }}
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
-        >
-          {confirmClear ? "Confirm remove all loot" : "Remove all loot"}
-        </button>
+        {items.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (!confirmClear) {
+                  setConfirmClear(true);
+                  return;
+                }
+                clearLoot();
+                setConfirmClear(false);
+              }}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+            >
+              {confirmClear ? "Confirm remove all loot" : "Remove all loot"}
+            </button>
+            {confirmClear ? (
+              <button
+                type="button"
+                onClick={() => setConfirmClear(false)}
+                className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
         <p className="font-mono text-xs tracking-wide text-muted">SAVED LISTS</p>

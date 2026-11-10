@@ -217,7 +217,9 @@ export function MethodDesk() {
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmRuns, setConfirmRuns] = useState(false);
+  const [runsBusy, setRunsBusy] = useState(false);
   const [runsNote, setRunsNote] = useState("");
+  const [runsBad, setRunsBad] = useState(false);
   const [builderTab, setBuilderTab] = useState<ToolId | null>(null);
   const [jump, setJump] = useState<{ anchor: string; n: number } | null>(null);
   const runs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
@@ -476,6 +478,15 @@ export function MethodDesk() {
               >
                 {confirmClear ? "Confirm reset" : "Reset desk"}
               </button>
+              {confirmClear ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmClear(false)}
+                  className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+                >
+                  Cancel
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="relative flex flex-col gap-2 sm:flex-row">
@@ -622,27 +633,52 @@ export function MethodDesk() {
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
                   Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one, and a finished run stays after you restart the desk.
-                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Clear runs and loot files removes the saved run log and the hydra and crack files. It leaves the readme and the exam ledger, and it waits while a run is still going.
+                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Clear run log removes the saved run log, the hydra and crack files, and SNMP community files. It does not remove the Loot list, the readme, or the exam ledger, and it waits while a run is still going.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!confirmRuns) {
-                      setConfirmRuns(true);
-                      setRunsNote("");
-                      return;
-                    }
-                    setConfirmRuns(false);
-                    void clearRunsAndLoot().then((note) => setRunsNote(note ?? ""));
-                  }}
-                  className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
-                >
-                  {confirmRuns ? "Confirm clear runs" : "Clear runs and loot files"}
-                </button>
-                {runsNote ? <p className="mt-2 text-sm text-dead">{runsNote}</p> : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={runsBusy}
+                    onClick={() => {
+                      if (!confirmRuns) {
+                        setConfirmRuns(true);
+                        setRunsNote("");
+                        return;
+                      }
+                      setConfirmRuns(false);
+                      setRunsBusy(true);
+                      void clearRunsAndLoot()
+                        .then((note) => {
+                          setRunsBad(Boolean(note));
+                          setRunsNote(note ?? "Run log cleared.");
+                        })
+                        .catch(() => {
+                          setRunsBad(true);
+                          setRunsNote("The run log was not cleared. Try again.");
+                        })
+                        .finally(() => setRunsBusy(false));
+                    }}
+                    className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted disabled:opacity-40"
+                  >
+                    {confirmRuns ? "Confirm clear run log" : "Clear run log"}
+                  </button>
+                  {confirmRuns ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmRuns(false);
+                        setRunsNote("");
+                      }}
+                      className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                </div>
+                {runsNote ? <p className={"mt-2 text-sm " + (runsBad ? "text-dead" : "text-muted")}>{runsNote}</p> : null}
               </div>
               <div className="px-4 py-4">
-                <JobList empty="Nothing here yet. A finished run stays until you remove that one, or press Reset desk." />
+                <JobList empty="Nothing here yet. A finished run stays until you remove that one, or clear the run log. Reset desk also clears runs." />
               </div>
             </article>
           ) : null}
