@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import path from "node:path";
+import { writePrivateFile } from "./private-file.ts";
+import { redactStoredCommand, redactStoredOutput } from "./redact-command.ts";
 import { createTerminalFeed } from "./terminal-feed.ts";
 
 export { createTerminalFeed } from "./terminal-feed.ts";
@@ -38,9 +40,13 @@ function writeRunsNow() {
     saveTimer = null;
   }
   try {
-    mkdirSync(path.dirname(RUNS_FILE), { recursive: true });
-    const body = jobs.map((job) => ({ ...job, output: job.output.slice(-120_000) }));
-    writeFileSync(RUNS_FILE, JSON.stringify(body));
+    const body = jobs.map((job) => ({
+      ...job,
+      title: redactStoredCommand(job.title).slice(0, 500),
+      command: redactStoredCommand(job.command).slice(0, 500),
+      output: redactStoredOutput(job.output).slice(-120_000),
+    }));
+    writePrivateFile(RUNS_FILE, JSON.stringify(body));
   } catch {
     /* the next change tries again */
   }
@@ -51,22 +57,31 @@ function loadRuns() {
     const raw = JSON.parse(readFileSync(RUNS_FILE, "utf8")) as unknown;
     if (!Array.isArray(raw)) return;
     const loaded: LiveJob[] = [];
+    let dirty = false;
     for (const row of raw) {
       if (!row || typeof row !== "object") continue;
       const job = row as Partial<LiveJob>;
       if (typeof job.id !== "string" || !jobId(job.id) || typeof job.tool !== "string") continue;
-      const output = typeof job.output === "string" ? job.output.slice(-120_000) : "";
+      const rawTitle = typeof job.title === "string" ? job.title.slice(0, 500) : "";
+      const rawCommand = typeof job.command === "string" ? job.command.slice(0, 500) : "";
+      const rawOutput = typeof job.output === "string" ? job.output.slice(-120_000) : "";
+      const title = redactStoredCommand(rawTitle).slice(0, 500);
+      const command = redactStoredCommand(rawCommand).slice(0, 500);
+      const output = redactStoredOutput(rawOutput);
+      const storedOutput = job.running ? `${output}\n[desk restarted before this finished]\n` : output;
+      if (title !== rawTitle || command !== rawCommand || storedOutput !== rawOutput) dirty = true;
       loaded.push({
         id: job.id,
         tool: job.tool.slice(0, 24),
-        title: typeof job.title === "string" ? job.title.slice(0, 500) : "",
-        command: typeof job.command === "string" ? job.command.slice(0, 500) : "",
+        title,
+        command,
         name: typeof job.name === "string" ? job.name.slice(0, 48) : "",
-        output: job.running ? `${output}\n[desk restarted before this finished]\n` : output,
+        output: storedOutput,
         running: false,
       });
     }
     jobs.splice(0, jobs.length, ...loaded.slice(0, KEEP));
+    if (dirty) writeRunsNow();
   } catch {
     /* no saved runs yet */
   }
@@ -78,7 +93,12 @@ export function jobId(value: unknown): string | null {
 }
 
 export function listJobs(): LiveJob[] {
-  return jobs.map((job) => ({ ...job }));
+  return jobs.map((job) => ({
+    ...job,
+    title: redactStoredCommand(job.title).slice(0, 500),
+    command: redactStoredCommand(job.command).slice(0, 500),
+    output: redactStoredOutput(job.output),
+  }));
 }
 
 function remember(job: LiveJob) {
@@ -105,8 +125,8 @@ export function openJob(input: {
   const job: LiveJob = {
     id: input.id,
     tool: input.tool,
-    title: input.title.slice(0, 500),
-    command: input.command.slice(0, 500),
+    title: redactStoredCommand(input.title).slice(0, 500),
+    command: redactStoredCommand(input.command).slice(0, 500),
     name: (input.name ?? "").slice(0, 48),
     output: "",
     running: true,
@@ -182,7 +202,7 @@ export function spawnLiveJob(input: {
 }): boolean {
   const handle = openJob(input);
   if (!handle) return false;
-  handle.push(`$ ${input.command}\n`);
+  handle.push(`$ ${redactStoredCommand(input.command)}\n`);
   const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(input.env ?? {}) };
   const child = input.tty
     ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
@@ -289,6 +309,32 @@ export function clearJobs(): void {
   writers.clear();
   jobs.splice(0, jobs.length);
   writeRunsNow();
+}
+
+function unlinkTree(dir: string) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) unlinkTree(full);
+    else unlinkSync(full);
+  }
+}
+
+/** Delete the run log and hydra/crack loot. Leave the readme and the exam ledger. Refuses while a job is running. */
+export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) => job.running)): boolean {
+  if (busy) return false;
+  if (path.resolve(root) === path.resolve(process.cwd())) {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    jobs.splice(0, jobs.length);
+  }
+  const runs = path.resolve(root, "scans", "runs.json");
+  if (existsSync(runs)) unlinkSync(runs);
+  unlinkTree(path.resolve(root, "scans", "hydra"));
+  unlinkTree(path.resolve(root, "scans", "crack"));
+  return true;
 }
 
 export function clearScanFiles(root = process.cwd()): void {

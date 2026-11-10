@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { createTerminalFeed, openJob } from "./live-jobs.server.ts";
+import { writePrivateFileAsync } from "./private-file.ts";
 import { wordlistPath } from "./scope-target.ts";
 
 const BINS = new Set([
@@ -59,8 +59,7 @@ export function crackFile(name: string, root = process.cwd()): string | null {
 export async function writeCrackFile(name: string, text: string, root = process.cwd()): Promise<string | null> {
   const dest = crackFile(name, root);
   if (!dest) return null;
-  mkdirSync(path.dirname(dest), { recursive: true });
-  await writeFile(dest, text);
+  await writePrivateFileAsync(dest, text);
   return dest;
 }
 

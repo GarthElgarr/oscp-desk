@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, renameSync } from "node:fs";
 import path from "node:path";
 import { applyLedger, emptyLedger, parseLedger, type ExamLedger } from "./exam-ledger.ts";
+import { ensurePrivateDir, writePrivateFile } from "./private-file.ts";
 
 export function ledgerFile(root = process.cwd()): string {
   return path.join(root, "data", "exam-ledger.json");
@@ -16,8 +17,9 @@ export function migrateLedger(root: string) {
   const next = ledgerFile(root);
   const old = legacyLedgerFile(root);
   if (existsSync(next) || !existsSync(old)) return;
-  mkdirSync(path.dirname(next), { recursive: true });
+  ensurePrivateDir(path.dirname(next));
   renameSync(old, next);
+  chmodSync(next, 0o600);
 }
 
 function load(root: string): { ledger: ExamLedger; corrupt: boolean } {
@@ -40,10 +42,10 @@ export function readLedger(root = process.cwd()): ExamLedger | null {
 
 function writeLedger(root: string, ledger: ExamLedger) {
   const file = ledgerFile(root);
-  mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(ledger));
+  writePrivateFile(tmp, JSON.stringify(ledger));
   renameSync(tmp, file);
+  chmodSync(file, 0o600);
 }
 
 function updateNow(action: unknown, now: number, root: string): { ledger: ExamLedger; error?: string } {

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writePrivateFile } from "./private-file.ts";
 import path from "node:path";
 import { ipv4Targets } from "./exam-block.ts";
 import { hydraArgsOk } from "./hydra-args.ts";
@@ -62,15 +62,13 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
     const file = listFile(lists?.users);
     const dest = lootDest(root, userFile);
     if (!file || !dest) return new Response("There are no saved users to try.\n", { status: 400 });
-    mkdirSync(path.dirname(dest), { recursive: true });
-    writeFileSync(dest, file);
+    writePrivateFile(dest, file);
   }
   if (passFile) {
     const file = listFile(lists?.passwords);
     const dest = lootDest(root, passFile);
     if (!file || !dest) return new Response("There are no saved passwords to try.\n", { status: 400 });
-    mkdirSync(path.dirname(dest), { recursive: true });
-    writeFileSync(dest, file);
+    writePrivateFile(dest, file);
   }
   const started = start({ id, command, args });
   if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });

@@ -101,3 +101,18 @@ export function clearJobs() {
   publish([]);
   return post({ clear: true });
 }
+
+export async function clearRunsAndLoot(): Promise<string | null> {
+  const response = await deskFetch("/api/jobs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ clearRuns: true }),
+  });
+  if (response.status === 409) {
+    const text = (await response.text()).trim();
+    await syncJobs();
+    return text || "A run is still going. Stop it before clearing runs and loot files.";
+  }
+  await syncJobs();
+  return null;
+}

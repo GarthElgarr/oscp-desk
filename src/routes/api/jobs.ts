@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { clearJobs, clearScanFiles, jobId, listJobs, removeJob, stopJob, writeJob } from "@/lib/live-jobs.server";
+import { clearJobs, clearRunsAndLoot, clearScanFiles, jobId, listJobs, removeJob, stopJob, writeJob } from "@/lib/live-jobs.server";
 
 export const Route = createFileRoute("/api/jobs")({
   server: {
@@ -12,7 +12,11 @@ export const Route = createFileRoute("/api/jobs")({
         } catch {
           return new Response("The request was not JSON.\n", { status: 400 });
         }
-        const row = body as { stop?: unknown; remove?: unknown; clear?: unknown; write?: unknown; text?: unknown; silent?: unknown };
+        const row = body as { stop?: unknown; remove?: unknown; clear?: unknown; clearRuns?: unknown; write?: unknown; text?: unknown; silent?: unknown };
+        if (row.clearRuns === true) {
+          if (!clearRunsAndLoot()) return new Response("A run is still going. Stop it before clearing runs and loot files.\n", { status: 409 });
+          return Response.json({ jobs: listJobs() });
+        }
         if (row.clear === true) {
           clearJobs();
           clearScanFiles();

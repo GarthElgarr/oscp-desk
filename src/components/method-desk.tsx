@@ -23,7 +23,7 @@ import { NmapReports } from "@/components/nmap-reports";
 import { JobList } from "@/components/job-list";
 import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
-import { clearJobs, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
+import { clearJobs, clearRunsAndLoot, getJobs, getJobsServer, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 
 const WHY: Record<string, string> = { ...BASE_WHY, ...SERVICE_WHY, ...API_WHY };
 
@@ -216,6 +216,8 @@ export function MethodDesk() {
   const exam = useSyncExternalStore(subscribeExam, getExam, getExamServer);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmRuns, setConfirmRuns] = useState(false);
+  const [runsNote, setRunsNote] = useState("");
   const [builderTab, setBuilderTab] = useState<ToolId | null>(null);
   const [jump, setJump] = useState<{ anchor: string; n: number } | null>(null);
   const runs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
@@ -620,8 +622,24 @@ export function MethodDesk() {
                 <h2 className="text-lg font-semibold">Scans and tools</h2>
                 <p className="mt-1 text-sm text-muted">
                   Nmap, the UDP scanner, searchsploit, the kernel and sudo suggester, hydra, wfuzz, hashcat, john, impacket, and the install. Leaving a page does not stop one, and a finished run stays after you restart the desk.
-                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Reset desk is the only way to clear every run. It does not touch notes, loot, or the report.
+                  Kill ends that process and keeps the output. Remove drops that one, and for nmap it also deletes the saved files. Clear runs and loot files removes the saved run log and the hydra and crack files. It leaves the readme and the exam ledger, and it waits while a run is still going.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!confirmRuns) {
+                      setConfirmRuns(true);
+                      setRunsNote("");
+                      return;
+                    }
+                    setConfirmRuns(false);
+                    void clearRunsAndLoot().then((note) => setRunsNote(note ?? ""));
+                  }}
+                  className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+                >
+                  {confirmRuns ? "Confirm clear runs" : "Clear runs and loot files"}
+                </button>
+                {runsNote ? <p className="mt-2 text-sm text-dead">{runsNote}</p> : null}
               </div>
               <div className="px-4 py-4">
                 <JobList empty="Nothing here yet. A finished run stays until you remove that one, or press Reset desk." />
