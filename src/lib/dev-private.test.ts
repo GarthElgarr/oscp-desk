@@ -22,9 +22,16 @@ test("the dev server hides the repo and still serves the uploads route", () => {
     "/src/lib/auth/preview.ts",
     "/src/lib/auth/preview.ts?raw",
     "/src/lib/auth/preview.ts?import",
+    "/src//lib/auth/preview.ts",
+    "/src/lib/auth/./preview.ts",
+    "/src/lib/auth/preview",
+    "/src/lib/auth/preview?raw",
     "/src/lib/auth/server.ts",
     "/src/lib/auth/server.ts?raw",
     "/src/lib/auth/server.ts?import",
+    "/src/lib//auth/server.ts?raw",
+    "/src/./lib/auth/server",
+    "/src/lib/auth/server?raw",
     "/src/lib/live-jobs.server.ts",
     "/src/lib/live-jobs.server.ts?raw",
     "/src/lib/api-guard.server.ts?import",
@@ -34,6 +41,7 @@ test("the dev server hides the repo and still serves the uploads route", () => {
   assert.equal(devPathDenied("/files/README.txt"), false);
   assert.equal(devPathDenied("/@fs/workspace/node_modules/react/index.js"), false);
   assert.equal(devPathDenied("/src/router.tsx"), false);
+  assert.equal(devPathDenied("/src/lib/auth/provider.tsx"), false);
   assert.equal(devPathDenied("/src/routes/__root.tsx"), false);
 });
 

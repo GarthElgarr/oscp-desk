@@ -21,8 +21,17 @@ export function devPathDenied(url: string): boolean {
 function serverSource(path: string): boolean {
   const lower = path.toLowerCase();
   if (!lower.startsWith("/src/")) return false;
-  if (lower === "/src/lib/auth/preview.ts" || lower === "/src/lib/auth/server.ts") return true;
+  if (/^\/src\/lib\/auth\/(?:preview|server)(?:\.[a-z]+)?$/.test(lower)) return true;
   return /\/[^/]+\.server\.[a-z0-9]+$/.test(lower);
+}
+
+function normalizePath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (part === "" || part === ".") continue;
+    parts.push(part);
+  }
+  return `/${parts.join("/")}`;
 }
 
 function decodePath(url: string): string | null {
@@ -36,7 +45,8 @@ function decodePath(url: string): string | null {
     }
     if (next.includes("\0")) return null;
     const clean = (next.split("?")[0] ?? "/").split("#")[0] ?? "/";
-    return clean.startsWith("/") ? clean : `/${clean}`;
+    const rooted = clean.startsWith("/") ? clean : `/${clean}`;
+    return normalizePath(rooted);
   } catch {
     return null;
   }
