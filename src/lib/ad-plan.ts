@@ -1,4 +1,5 @@
 import { quoteHydraArg } from "./hydra-args.ts";
+import { displayCommand } from "./redact-command.ts";
 
 export const AD_MODES = [
   "bh-all",
@@ -38,6 +39,7 @@ export type AdPlan = {
   bin: string;
   args: string[];
   command: string;
+  display: string;
   why: string;
   note: string;
 };
@@ -81,8 +83,12 @@ function hashOk(value: string): string | null {
   return null;
 }
 
-function finish(bin: string, args: string[], why: string, note: string): AdPlan {
-  return { bin, args, command: [bin, ...args.map(quoteHydraArg)].join(" "), why, note };
+function pack(input: AdInput, bin: string, args: string[], why: string, note: string): AdPlan {
+  return finish(bin, args, why, note, [input.password, input.pfxPass, input.hash]);
+}
+
+function finish(bin: string, args: string[], why: string, note: string, secrets: string[] = []): AdPlan {
+  return { bin, args, command: [bin, ...args.map(quoteHydraArg)].join(" "), display: displayCommand(bin, args, secrets), why, note };
 }
 
 function secret(input: AdInput): { flags: string[] } | { error: string } {
@@ -109,7 +115,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     const auth = secret(input);
     if ("error" in auth) return auth;
     const passFlag = auth.flags[0] === "-p" ? ["-p", auth.flags[1] ?? ""] : auth.flags;
-    return finish(
+    return pack(input, 
       "bloodhound-python",
       ["-u", input.user, ...passFlag, "-d", input.domain, "-ns", input.dc, "-c", COLLECTIONS[input.mode], "--zip"],
       input.mode === "bh-all"
@@ -128,7 +134,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     const ident = `${input.user}@${input.domain}`;
     const base = ["-u", ident, ...auth.flags, "-dc-ip", input.dc];
     if (input.mode === "cert-find" || input.mode === "cert-bh") {
-      return finish(
+      return pack(input, 
         "certipy-ad",
         ["find", ...base, "-vulnerable", input.mode === "cert-bh" ? "-bloodhound" : "-stdout"],
         input.mode === "cert-find"
@@ -140,7 +146,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     if (input.mode === "cert-req") {
       if (!labelOk(input.ca) || !labelOk(input.template)) return { error: "The CA and the template are the names Certipy printed." };
       if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+$/.test(input.upn)) return { error: "The UPN is the name you want on the certificate, such as administrator@corp.local." };
-      return finish(
+      return pack(input, 
         "certipy-ad",
         ["req", ...base, "-ca", input.ca, "-template", input.template, "-upn", input.upn],
         "This asks the CA to issue a certificate for that UPN. A pfx in the output is pursue. Access denied or template not found is stop. Do not try every template.",
@@ -148,7 +154,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       );
     }
     if (!nameOk(input.account)) return { error: "The account is the one whose certificate you want, without @domain." };
-    return finish(
+    return pack(input, 
       "certipy-ad",
       ["shadow", "auto", ...base, "-account", input.account],
       "Shadow auto adds a key credential to that account and asks for a certificate. A saved pfx is pursue. Insufficient access means this user cannot write that account. Stop and pick another account.",
@@ -163,7 +169,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       if (input.pfxPass.length > 128 || /[\r\n\0]/.test(input.pfxPass)) return { error: "The pfx password is too long, or it contains a new line." };
       args.push("-password", input.pfxPass);
     }
-    return finish(
+    return pack(input, 
       "certipy-ad",
       args,
       "Auth turns the pfx into an NT hash, and a TGT if the account can get one. A hash is pursue: pass it to Impacket or NetExec. A wrong password or a revoked certificate is stop.",
@@ -174,7 +180,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
   if (input.mode === "kb-users" || input.mode === "kb-spray" || input.mode === "kb-user") {
     if (input.mode !== "kb-user" && !pathOk(input.usersFile)) return { error: "The user list is a file on Kali, one name per line." };
     if (input.mode === "kb-users") {
-      return finish(
+      return pack(input, 
         "kerbrute",
         ["userenum", "-d", input.domain, "--dc", input.dc, input.usersFile],
         "A VALID USER line is a name that exists. Put those names in loot. A list of KDC errors is a bad DC IP or the wrong domain, not a list of users.",
@@ -185,7 +191,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
       if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password) || input.password.startsWith("-")) {
         return { error: "The spray is one password. It cannot start with a dash, or Kerbrute treats it as a flag." };
       }
-      return finish(
+      return pack(input, 
         "kerbrute",
         ["passwordspray", "-d", input.domain, "--dc", input.dc, input.usersFile, input.password],
         "One password across the names you already validated. A [+] line is a login. Lockout is the stop. If you do not know the policy, do not spray a second password.",
@@ -194,7 +200,7 @@ export function adPlan(input: AdInput): AdPlan | { error: string } {
     }
     if (!pathOk(input.passwordFile)) return { error: "The password list is a file on Kali, one password per line." };
     if (!nameOk(input.user)) return { error: "The user is one account. This mode tries many passwords against that one name." };
-    return finish(
+    return pack(input, 
       "kerbrute",
       ["bruteuser", "-d", input.domain, "--dc", input.dc, input.passwordFile, input.user],
       "This tries a password list against one user. A [+] line is the password. Lockout stops you. Do this only when the policy allows it, or the account does not matter.",

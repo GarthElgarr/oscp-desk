@@ -1,6 +1,7 @@
-import { spawnLiveJob } from "./live-jobs.server";
-import { quoteHydraArg } from "./hydra-args";
-import { impacketArgsOk, impacketPlan, type ImpacketInput, type ImpacketMode, IMPACKET_MODES } from "./impacket-plan";
+import { spawnLiveJob } from "./live-jobs.server.ts";
+import { quoteHydraArg } from "./hydra-args.ts";
+import { displayCommand } from "./redact-command.ts";
+import { impacketArgsOk, impacketPlan, type ImpacketInput, type ImpacketMode, IMPACKET_MODES } from "./impacket-plan.ts";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -10,7 +11,7 @@ function mode(value: unknown): ImpacketMode {
   return typeof value === "string" && (IMPACKET_MODES as readonly string[]).includes(value) ? (value as ImpacketMode) : "secrets-remote";
 }
 
-export function impacketRequest(body: unknown): { bin: string; args: string[]; command: string } | { error: string } {
+export function impacketRequest(body: unknown): { bin: string; args: string[]; command: string; display: string } | { error: string } {
   if (!body || typeof body !== "object") return { error: "The request was not JSON." };
   const row = body as Partial<ImpacketInput> & { extra?: unknown };
   const plan = impacketPlan({
@@ -45,7 +46,9 @@ export function impacketRequest(body: unknown): { bin: string; args: string[]; c
   const args = [...plan.args, ...extra];
   if (!impacketArgsOk(plan.bin, args)) return { error: "Those arguments are not an Impacket command this desk will run." };
   const command = extra.length ? `${plan.command} ${extra.map(quoteHydraArg).join(" ")}` : plan.command;
-  return { bin: plan.bin, args, command };
+  const secrets = [typeof row.password === "string" ? row.password : "", typeof row.newPass === "string" ? row.newPass : "", text(row.hash)];
+  const display = displayCommand(plan.bin, args, secrets);
+  return { bin: plan.bin, args, command, display };
 }
 
 export function startImpacket(id: string, bin: string, args: string[], command: string): boolean {

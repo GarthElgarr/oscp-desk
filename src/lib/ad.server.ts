@@ -1,6 +1,7 @@
-import { spawnLiveJob } from "./live-jobs.server";
-import { quoteHydraArg } from "./hydra-args";
-import { AD_MODES, adArgsOk, adPlan, type AdInput, type AdMode } from "./ad-plan";
+import { spawnLiveJob } from "./live-jobs.server.ts";
+import { quoteHydraArg } from "./hydra-args.ts";
+import { displayCommand } from "./redact-command.ts";
+import { AD_MODES, adArgsOk, adPlan, type AdInput, type AdMode } from "./ad-plan.ts";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -24,7 +25,7 @@ const TIMEOUT: Record<AdMode, number> = {
   "kb-user": 15 * 60 * 1000,
 };
 
-export function adRequest(body: unknown): { bin: string; args: string[]; command: string; mode: AdMode } | { error: string } {
+export function adRequest(body: unknown): { bin: string; args: string[]; command: string; display: string; mode: AdMode } | { error: string } {
   if (!body || typeof body !== "object") return { error: "The request was not JSON." };
   const row = body as Partial<AdInput> & { extra?: unknown };
   const picked = mode(row.mode);
@@ -49,8 +50,10 @@ export function adRequest(body: unknown): { bin: string; args: string[]; command
   const extra = Array.isArray(row.extra) ? row.extra : [];
   const args = [...plan.args, ...extra];
   if (!adArgsOk(plan.bin, args)) return { error: "Those arguments are not a command this desk will run." };
-  const command = extra.length ? `${plan.command} ${extra.map(quoteHydraArg).join(" ")}` : plan.command;
-  return { bin: plan.bin, args, command, mode: picked };
+  const command = [plan.bin, ...args.map((arg) => quoteHydraArg(arg))].join(" ");
+  const secrets = [typeof row.password === "string" ? row.password : "", typeof row.pfxPass === "string" ? row.pfxPass : "", text(row.hash)];
+  const display = displayCommand(plan.bin, args, secrets);
+  return { bin: plan.bin, args, command, display, mode: picked };
 }
 
 export function startAd(id: string, bin: string, args: string[], command: string, picked: AdMode): boolean {

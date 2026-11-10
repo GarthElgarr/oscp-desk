@@ -1,3 +1,4 @@
+import { quoteHydraArg } from "./hydra-args.ts";
 import { UDP_PROBES } from "./udp-scan.ts";
 
 const PROBES = new Set<string>(UDP_PROBES);
@@ -24,10 +25,9 @@ const HASH_H = new Set(["nxc", "netexec", "crackmapexec", "cme", "evil-winrm"]);
 
 const SECRET_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key"]);
 
-const SECRET_FLAG = /(?:^|\s)(--password|-password|--hashes|-hashes|-nthash|-H|-c|-p)(?:=|\s+)(?:"[^"]*"|'(?:[^']|'\\'')*'|\S+)/g;
+const SECRET_FLAG = /(?:^|\s)(--password|-password|--hashes|-hashes|-nthash|-computer-pass|-new-pass|-newpass|-aesKey|-H|-c|-p)(?:=|\s+)(?:"[^"]*"|'(?:[^']|'\\'')*'|\S+)/g;
 const USER_PASS = /(^|[\s'"=/])((?:[^\s'":@/\\]+[/\\])?[^\s'":@]+):([^\s'":@]+)@/g;
-/** Impacket kerberoast, getTGT, and getST store domain/user:password with no @host. */
-const USER_SECRET = /(^|[\s'"=])((?:[^\s'":@/\\]+[/\\])[^\s'":@/\\]+):([^\s'":@]+)(?=[\s'"]|$)/g;
+const SECRET_NAMES = new Set(["-password", "--password", "-hashes", "--hashes", "-nthash", "-newpass", "-new-pass", "-aeskey", "-computer-pass"]);
 const USER_PCT = /(^|[\s'"=/])([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^\s'"%]+)/g;
 
 function unquote(value: string): string {
@@ -99,16 +99,101 @@ function stripOnesixtyComment(command: string): string {
   return command.replace(/\s+#\s+[A-Za-z0-9_.:@-]{1,32}(?:,\s*[A-Za-z0-9_.:@-]{1,32})*\s*$/, "");
 }
 
+function scrub(arg: string, secrets: string[]): string {
+  let next = arg;
+  for (const secret of secrets) {
+    if (next === secret) return "****";
+    if (next.includes(`:${secret}`)) next = next.split(`:${secret}`).join(":****");
+    if (next.includes(`%${secret}`)) next = next.split(`%${secret}`).join("%****");
+  }
+  return next;
+}
+
+/** Stars are the mask, not a glob. Quote only when something else still needs a quote. */
+function quoteDisplay(arg: string): string {
+  const plain = arg.replaceAll("****", "");
+  if (/^[A-Za-z0-9_./:@^+%=,~-]*$/.test(plain)) return arg;
+  return quoteHydraArg(arg);
+}
+
+function toolName(bin: string): string {
+  return (bin.split(/[/\\]/).pop() ?? bin).replace(/\.exe$/i, "").toLowerCase();
+}
+
+function isSecretFlag(tool: string, flag: string): boolean {
+  const name = flag.toLowerCase();
+  if (SECRET_NAMES.has(name)) return true;
+  return name === "-p" && PASSWORD_P.has(tool);
+}
+
+/** [domain/]user[:password][@host]. The password may contain :, space, @, or %. */
+function maskIdent(ident: string): string {
+  if (!ident || ident.startsWith("-") || /^(?:ldaps?|https?|tcp):\/\//i.test(ident)) return ident;
+  const at = ident.lastIndexOf("@");
+  const host = at >= 0 ? ident.slice(at) : "";
+  const body = at >= 0 ? ident.slice(0, at) : ident;
+  const slash = Math.max(body.lastIndexOf("/"), body.lastIndexOf("\\"));
+  const head = slash >= 0 ? body.slice(0, slash + 1) : "";
+  const userAndPass = slash >= 0 ? body.slice(slash + 1) : body;
+  const colon = userAndPass.indexOf(":");
+  if (colon <= 0) return ident;
+  return `${head}${userAndPass.slice(0, colon)}:****${host}`;
+}
+
+/** The command stored in the run log. args stay real for the process. secrets are the passwords the plan already knows. */
+export function displayArgs(bin: string, args: string[], secrets: string[] = []): string[] {
+  const hidden = secrets.filter((secret) => secret.length > 0).sort((a, b) => b.length - a.length);
+  const tool = toolName(bin);
+  const spray = tool === "kerbrute" && args[0] === "passwordspray";
+  return args.map((raw, index) => {
+    const arg = scrub(raw, hidden);
+    const eq = arg.indexOf("=");
+    if (eq > 0 && isSecretFlag(tool, arg.slice(0, eq))) return `${arg.slice(0, eq)}=****`;
+    const prev = index > 0 ? (args[index - 1] ?? "") : "";
+    const prevName = prev.split("=")[0] ?? "";
+    if (prevName && isSecretFlag(tool, prevName) && !prev.includes("=")) return "****";
+    if (tool.startsWith("impacket-")) return maskIdent(arg);
+    if (spray && index === args.length - 1 && !arg.startsWith("-")) {
+      const file = args[index - 1] ?? "";
+      if (!file.startsWith("-") && (file.includes("/") || file.endsWith(".txt"))) return "****";
+    }
+    return arg;
+  });
+}
+
+export function displayCommand(bin: string, args: string[], secrets: string[] = []): string {
+  return [bin, ...displayArgs(bin, args, secrets).map(quoteDisplay)].join(" ");
+}
+
 /** Kerbrute spray puts the one password in the last argument, after the name list. */
 function redactSpray(command: string): string {
   if (toolOf(command) !== "kerbrute" || !/\bpasswordspray\b/.test(command)) return command;
-  const match = /^(.*\s)(\S+)(\s+)('[^']*'|"[^"]*"|\S+)\s*$/.exec(command);
-  if (!match) return command;
-  const prev = unquote(match[2]);
-  const token = match[4];
-  if (token.startsWith("-") || match[2].startsWith("-")) return command;
-  if (!prev.includes("/") && !prev.endsWith(".txt")) return command;
-  return `${match[1]}${match[2]}${match[3]}${mask(token)}`;
+  const match = /(\s)('[^']*'|"[^"]*"|\S+)\s*$/.exec(command);
+  if (!match || match.index === undefined) return command;
+  const token = match[2];
+  if (token.startsWith("-")) return command;
+  const head = command.slice(0, match.index);
+  const prev = /('[^']*'|"[^"]*"|\S+)\s*$/.exec(head);
+  if (!prev || prev[1].startsWith("-")) return command;
+  const prevBare = unquote(prev[1]);
+  if (!prevBare.includes("/") && !prevBare.endsWith(".txt")) return command;
+  return `${head}${match[1]}${mask(token)}`;
+}
+
+function redactPct(command: string): string {
+  const quoted = command
+    .replace(/'([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^']+)'/g, "'$1%****'")
+    .replace(/"([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^"]+)"/g, '"$1%****"');
+  return quoted.replace(USER_PCT, (_match, lead: string, user: string) => `${lead}${user}%****`);
+}
+
+function redactImpacket(command: string): string | null {
+  if (!toolOf(command).startsWith("impacket-")) return null;
+  const tokens = command.match(/'[^']*'|"[^"]*"|\S+/g);
+  if (!tokens || tokens.length < 1) return null;
+  const bin = unquote(tokens[0] ?? "");
+  const args = tokens.slice(1).map(unquote);
+  return displayCommand(bin, args);
 }
 
 function redactFlags(command: string): string {
@@ -129,10 +214,11 @@ function redactFlags(command: string): string {
 /** Hide passwords and hashes before a command is stored or shown. The process still gets the real args. */
 export function redactStoredCommand(command: string): string {
   const comments = stripOnesixtyComment(command);
+  const impacket = redactImpacket(comments);
+  if (impacket !== null) return impacket;
   const sprayed = redactSpray(comments);
   const users = sprayed.replace(USER_PASS, (_match, lead: string, user: string) => `${lead}${user}:****@`);
-  const bare = users.replace(USER_SECRET, (_match, lead: string, user: string) => `${lead}${user}:****`);
-  const pct = bare.replace(USER_PCT, (_match, lead: string, user: string) => `${lead}${user}%****`);
+  const pct = redactPct(users);
   return redactFlags(pct);
 }
 

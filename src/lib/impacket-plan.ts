@@ -1,4 +1,5 @@
-import { quoteHydraArg } from "./hydra-args";
+import { quoteHydraArg } from "./hydra-args.ts";
+import { displayCommand } from "./redact-command.ts";
 
 export const IMPACKET_MODES = [
   "secrets-remote",
@@ -63,6 +64,7 @@ export type ImpacketPlan = {
   bin: string;
   args: string[];
   command: string;
+  display: string;
   why: string;
   note: string;
   run: boolean;
@@ -127,8 +129,12 @@ function commandOk(value: string): boolean {
   return value.length > 0 && value.length <= 200 && !/[\r\n\0]/.test(value);
 }
 
-function finish(bin: string, args: string[], why: string, note: string, run: boolean): ImpacketPlan {
-  return { bin, args, command: [bin, ...args.map(quoteHydraArg)].join(" "), why, note, run };
+function pack(input: ImpacketInput, bin: string, args: string[], why: string, note: string, run: boolean): ImpacketPlan {
+  return finish(bin, args, why, note, run, [input.password, input.newPass, input.hash]);
+}
+
+function finish(bin: string, args: string[], why: string, note: string, run: boolean, secrets: string[] = []): ImpacketPlan {
+  return { bin, args, command: [bin, ...args.map(quoteHydraArg)].join(" "), display: displayCommand(bin, args, secrets), why, note, run };
 }
 
 function auth(input: ImpacketInput, host: string): { ident: string; flags: string[] } | { error: string } {
@@ -142,8 +148,8 @@ function auth(input: ImpacketInput, host: string): { ident: string; flags: strin
     if (!shaped) return { error: "The hash is 32 hex characters, or LM:NT." };
     return { ident: host ? `${who}@${host}` : who, flags: ["-hashes", shaped] };
   }
-  if (!input.password || input.password.length > 128 || /[\r\n\0@]/.test(input.password)) {
-    return { error: "The password is required, unless you give a hash or Kerberos. An @ in the password breaks the target syntax. Use the hash instead." };
+  if (!input.password || input.password.length > 128 || /[\r\n\0]/.test(input.password)) {
+    return { error: "The password is required, unless you give a hash or Kerberos. It cannot contain a new line." };
   }
   return { ident: host ? `${who}:${input.password}@${host}` : `${who}:${input.password}`, flags: [] };
 }
@@ -166,7 +172,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
       args.push("-security", input.file3);
     }
     args.push("LOCAL");
-    return finish(
+    return pack(input, 
       "impacket-secretsdump",
       args,
       input.mode === "secrets-sam"
@@ -180,7 +186,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   if (input.mode === "smbserver") {
     if (!/^[A-Za-z0-9]{1,16}$/.test(input.share)) return { error: "The share name is a short word, such as share." };
     if (!pathOk(input.file)) return { error: "The folder is a path on Kali. No .. in the path." };
-    return finish(
+    return pack(input, 
       "impacket-smbserver",
       [input.share, input.file],
       "This listens on Kali, port 445, and serves that folder. The target then copies from \\\\your-tun0-ip\\SHARE. It is not a login to the target.",
@@ -191,7 +197,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "ticket") {
     if (!pathOk(input.file)) return { error: "The ticket is a .ccache or .kirbi path on Kali." };
-    return finish(
+    return pack(input, 
       "impacket-describeTicket",
       [input.file],
       "Prints who the ticket is for, the domain, and when it expires. Read this before you export KRB5CCNAME and try the ticket.",
@@ -202,7 +208,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "relay") {
     if (!pathOk(input.usersFile)) return { error: "The target file is one host per line, a path on Kali." };
-    return finish(
+    return pack(input, 
       "impacket-ntlmrelayx",
       ["-tf", input.usersFile, "-smb2support", "-socks"],
       "-tf is the list of hosts to relay into, on Kali. -socks holds the session so you can point other tools at it. This does not run a command on the far side.",
@@ -227,7 +233,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
       if (!nameOk(input.computer)) return { error: "That account name is letters, numbers, dot, underscore, or $." };
       args.push("-just-dc-user", input.computer);
     }
-    return finish(
+    return pack(input, 
       "impacket-secretsdump",
       args,
       "One login to the DC, or to a host where you are already an admin. It prints NT hashes. -just-dc-ntlm skips the extra noise. -just-dc-user dumps one account when you already know the name.",
@@ -240,7 +246,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     const bins = { psexec: "impacket-psexec", smbexec: "impacket-smbexec", wmiexec: "impacket-wmiexec", atexec: "impacket-atexec" } as const;
     const command = input.command.trim();
     if (!command) {
-      return finish(
+      return pack(input, 
         bins[input.mode],
         [signed.ident, ...dcFlags],
         `${bins[input.mode]} with no command opens a shell and waits. The desk closes stdin, so that shell would die. Copy this into your own terminal.`,
@@ -249,7 +255,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
       );
     }
     if (!commandOk(command)) return { error: "The command is one line, under 200 characters." };
-    return finish(
+    return pack(input, 
       bins[input.mode],
       [signed.ident, ...dcFlags, command],
       "The command is one shot. The tool runs it and exits. whoami is the check that the shell would have been yours. Do not start with a payload.",
@@ -261,7 +267,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   if (input.mode === "mssql") {
     const args = [signed.ident, ...signed.flags];
     if (input.domain) args.push("-windows-auth");
-    return finish(
+    return pack(input, 
       "impacket-mssqlclient",
       args,
       "A SQL shell, not an OS shell. -windows-auth is a domain account. Without it, the account is a SQL login such as sa. Copy this into a terminal. The desk cannot type the SQL for you.",
@@ -274,7 +280,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     const args = [signed.ident, ...dcFlags];
     if (input.share && !nameOk(input.share)) return { error: "The share name is letters and numbers, such as C$ or share." };
     if (input.share) args.push(input.share);
-    return finish(
+    return pack(input, 
       "impacket-smbclient",
       args,
       "An SMB shell on that host. shares lists the names. use C$ then ls is the admin check. Copy this into a terminal.",
@@ -289,7 +295,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     const flags = withDc(["-usersfile", input.usersFile, "-no-pass"], input.dc);
     if ("error" in flags) return flags;
     if (input.hashcat) flags.push("-format", "hashcat");
-    return finish(
+    return pack(input, 
       "impacket-GetNPUsers",
       [`${input.domain}/`, ...flags],
       "Asks the DC which of those users will hand out an AS-REP hash without a password. -no-pass is required for that. -format hashcat matches the hashcat mode you already use.",
@@ -302,7 +308,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     if (!input.domain) return { error: "Kerberoast needs the domain name." };
     const flags = [...dcFlags, "-request"];
     if (input.hashcat) flags.push("-outputfile", "kerberoast.txt");
-    return finish(
+    return pack(input, 
       "impacket-GetUserSPNs",
       [signed.ident, ...flags],
       "Any domain user can ask for service tickets. -request writes the crackable hash. The password you pass is the user's password, not the service account's.",
@@ -314,7 +320,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   if (input.mode === "gettgt") {
     if (!/^[A-Za-z0-9][A-Za-z0-9.-]{0,80}$/.test(input.domain)) return { error: "A TGT needs the domain name." };
     if (input.kerberos) return { error: "getTGT writes the ccache. Use a password or a hash, not a ccache you already have." };
-    return finish(
+    return pack(input, 
       "impacket-getTGT",
       [signed.ident, ...dcFlags],
       "Writes a .ccache for that account. The next tools use it with -k -no-pass after you export KRB5CCNAME to that file.",
@@ -328,7 +334,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$/.test(input.spn)) return { error: "The SPN looks like cifs/dc.corp.local." };
     if (!nameOk(input.impersonate)) return { error: "Impersonate is an account name, usually Administrator." };
     const flags = [...dcFlags, "-spn", input.spn, "-impersonate", input.impersonate];
-    return finish(
+    return pack(input, 
       "impacket-getST",
       [signed.ident, ...flags],
       "Asks for a service ticket as the account you impersonate. The account you authenticate as must already be allowed to delegate to that SPN. This is the last step of RBCD, not the first.",
@@ -349,7 +355,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
       args.push("-spn", input.spn);
     }
     args.push(input.user);
-    return finish(
+    return pack(input, 
       "impacket-ticketer",
       args,
       input.spn
@@ -362,7 +368,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "lookupsid" || input.mode === "rpcdump" || input.mode === "samrdump") {
     const bins = { lookupsid: "impacket-lookupsid", rpcdump: "impacket-rpcdump", samrdump: "impacket-samrdump" } as const;
-    return finish(
+    return pack(input, 
       bins[input.mode],
       [signed.ident, ...dcFlags],
       input.mode === "lookupsid"
@@ -378,7 +384,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   if (input.mode === "adusers") {
     if (!input.domain) return { error: "GetADUsers needs the domain name." };
     const flags = [...dcFlags, "-all"];
-    return finish(
+    return pack(input, 
       "impacket-GetADUsers",
       [signed.ident, ...flags],
       "-all lists domain users. You want names that are not machine accounts, and any description that contains a password.",
@@ -389,7 +395,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "delegation") {
     if (!input.domain) return { error: "findDelegation needs the domain name." };
-    return finish(
+    return pack(input, 
       "impacket-findDelegation",
       [signed.ident, ...dcFlags],
       "Shows accounts that are trusted to delegate. Unconstrained is the dangerous one. Constrained tells you the SPN. RBCD does not always show here.",
@@ -399,7 +405,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   }
 
   if (input.mode === "services") {
-    return finish(
+    return pack(input, 
       "impacket-services",
       [signed.ident, ...dcFlags, "list"],
       "Lists services on that one host. You are looking for a path with a space and no quotes, or a binary you can replace.",
@@ -410,7 +416,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "reg") {
     if (!/^[A-Za-z0-9\\_. -]{1,140}$/.test(input.keyName)) return { error: "The key is a registry path, such as HKLM\\SOFTWARE." };
-    return finish(
+    return pack(input, 
       "impacket-reg",
       [signed.ident, ...dcFlags, "query", "-keyName", input.keyName],
       "Reads one registry key over the admin share. query does not write. The usual keys are Run and Winlogon.",
@@ -425,7 +431,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     const target = input.dc || input.host;
     const who = auth(input, target);
     if ("error" in who) return who;
-    return finish(
+    return pack(input, 
       "impacket-changepasswd",
       [who.ident, ...who.flags, "-newpass", input.newPass],
       "Changes that account's password. The DC will accept it if you know the current password, or if you are resetting it as an admin. This is a write. The old password stops working.",
@@ -439,7 +445,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
     if (!/^[A-Za-z0-9-]{1,15}$/.test(input.computer)) return { error: "The computer name is 15 characters, letters, numbers, and hyphens." };
     if (!commandOk(input.newPass)) return { error: "The computer password is one line." };
     const flags = [...dcFlags, "-computer-name", input.computer, "-computer-pass", input.newPass];
-    return finish(
+    return pack(input, 
       "impacket-addcomputer",
       [signed.ident, ...flags],
       "Creates a machine account you control. The default domain policy allows a normal user a small number of these. The password is one you choose.",
@@ -454,7 +460,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
       return { error: "Both computer names end with $, such as HELP$ and DC$." };
     }
     const flags = [...dcFlags, "-delegate-from", input.computer, "-delegate-to", input.delegateTo, "-action", input.action];
-    return finish(
+    return pack(input, 
       "impacket-rbcd",
       [signed.ident, ...flags],
       input.action === "read"

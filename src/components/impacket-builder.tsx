@@ -304,7 +304,7 @@ export function ImpacketBuilder() {
             disabled={false}
             placeholder="-debug"
             onFlags={setExtra}
-            buildBody={(flags) => ({ ...form, extra: flags, command: [plan.command, ...flags.map(quoteHydraArg)].join(" ") })}
+            buildBody={(flags) => ({ ...form, extra: flags, command: [plan.display, ...flags.map(quoteHydraArg)].join(" ") })}
           />
         ) : ready ? (
           <p className="text-sm text-muted">Copy the command. This one waits for you to type, and a run from the desk would close that.</p>

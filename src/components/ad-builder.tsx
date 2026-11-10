@@ -200,7 +200,7 @@ export function AdBuilder() {
             disabled={false}
             placeholder="-debug"
             onFlags={setExtra}
-            buildBody={(flags) => ({ ...form, extra: flags })}
+            buildBody={(flags) => ({ ...form, extra: flags, command: [plan.display, ...flags.map(quoteHydraArg)].join(" ") })}
           />
         ) : null}
         <p className="text-sm text-muted">Copy stays available if you would rather paste it into your own terminal.</p>

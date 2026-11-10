@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/impacket")({
         const row = body as { host?: unknown; dc?: unknown };
         const blocked = examGuard([...namedTargets(row.host, row.dc), ...ipv4Targets(plan.args)], plan.command);
         if (blocked) return new Response(`${blocked}\n`, { status: 403 });
-        if (!startImpacket(id, plan.bin, plan.args, plan.command)) {
+        if (!startImpacket(id, plan.bin, plan.args, plan.display)) {
           return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
         }
         return Response.json({ ok: true });
