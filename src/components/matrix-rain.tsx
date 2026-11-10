@@ -46,7 +46,7 @@ export function MatrixRain({ tint }: { tint?: string }) {
       ctx!.fillStyle = paint.fade;
       ctx!.fillRect(0, 0, left, height);
       ctx!.fillRect(right, 0, width - right, height);
-      ctx!.font = `${FONT}px "IBM Plex Mono", ui-monospace, monospace`;
+      ctx!.font = `${FONT}px ui-monospace, monospace`;
       for (let i = 0; i < drops.length; i++) {
         const x = i * FONT;
         if (x + FONT > left && x < right) continue;
