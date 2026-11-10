@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { JobList } from "@/components/job-list";
-import { addLoot, getLoot, getLootServer, lootLabel, lootLines, LOOT_KINDS, removeLoot, setLootLocked, setLootPass, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
+import { addLoot, clearLoot, getLoot, getLootServer, lootLabel, lootLines, LOOT_KINDS, removeLoot, setLootLocked, setLootPass, sshCrackSteps, sshKeyScript, subscribeLoot, unlinkLoot, type LootItem, type LootKind } from "@/lib/loot";
 import { launchJob } from "@/lib/live-jobs";
 import { getNotes, getNotesServer, subscribeNotes } from "@/lib/notes";
 
@@ -126,6 +126,7 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
   const [boxId, setBoxId] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
 
   function add() {
     const result = addLoot({ user, secret, kind, note: where, boxes: boxId ? [boxId] : [], pass, locked });
@@ -161,8 +162,22 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
         <p className="font-mono text-xs text-primary">Loot</p>
         <h2 className="text-lg font-semibold">Users, passwords, hashes</h2>
         <p className="mt-1 text-sm text-muted">
-          Write it down once. A box in Notes can be where you found it, or a host it might still work on. Open on a note jumps to that item, including a private key. Hydra can try every saved user and every saved password. Hashcat can take every hash of one type. Reset desk does not delete this list.
+          Write it down once. A box in Notes can be where you found it, or a host it might still work on. Open on a note jumps to that item, including a private key. Hydra can try every saved user and every saved password. Hashcat can take every hash of one type. Reset desk does not delete this list. Remove all loot does.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (!confirmClear) {
+              setConfirmClear(true);
+              return;
+            }
+            clearLoot();
+            setConfirmClear(false);
+          }}
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm text-muted"
+        >
+          {confirmClear ? "Confirm remove all loot" : "Remove all loot"}
+        </button>
       </div>
       <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
         <p className="font-mono text-xs tracking-wide text-muted">SAVED LISTS</p>

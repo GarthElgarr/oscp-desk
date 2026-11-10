@@ -200,6 +200,11 @@ export function removeLoot(id: string) {
   save(getLoot().filter((item) => item.id !== id));
 }
 
+export function clearLoot() {
+  ensure();
+  save([]);
+}
+
 export function linkLoot(id: string, boxId: string) {
   ensure();
   save(getLoot().map((item) => (item.id === id && !item.boxes.includes(boxId) ? { ...item, boxes: [...item.boxes, boxId] } : item)));
