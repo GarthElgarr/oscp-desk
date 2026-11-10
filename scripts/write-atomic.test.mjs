@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +20,7 @@ const SCRIPT = join(TEMPLATE_ROOT, "scripts/write-atomic.mjs");
 
 function makeWorkspace() {
   const root = mkdtempSync(join(tmpdir(), "write-atomic-"));
+  test.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "public"), { recursive: true });
   mkdirSync(join(root, ".grok"), { recursive: true });
   return root;

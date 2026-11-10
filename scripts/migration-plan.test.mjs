@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -76,6 +77,7 @@ test("this workspace's auth schema copy is byte-identical to its source", () => 
 
 test("the copy check reads both files and catches an edit", () => {
   const root = mkdtempSync(join(tmpdir(), "auth-schema-"));
+  test.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "migrations/auth"), { recursive: true });
   writeFileSync(join(root, "migrations/auth", AUTH_MIGRATION), "create table t ();\n");
   assert.equal(authSchemaCopy(root), null);

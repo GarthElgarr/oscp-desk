@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtempSync, symlinkSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -98,7 +98,9 @@ test("the build side resolves the template's shipped app-env", () => {
 test("the CLI reports rather than silently passing when run via a symlink", async () => {
   // A check whose exit code is the whole signal must never no-op to 0 because
   // process.argv[1] came in through a symlinked path.
-  const link = join(mkdtempSync(join(tmpdir(), "auth-invariant-link-")), "scripts");
+  const dir = mkdtempSync(join(tmpdir(), "auth-invariant-link-"));
+  test.after(() => rmSync(dir, { recursive: true, force: true }));
+  const link = join(dir, "scripts");
   symlinkSync(join(projectRoot(), "scripts"), link);
   const error = await promisify(execFile)(process.execPath, [
     join(link, "check-auth-invariant.mjs"),

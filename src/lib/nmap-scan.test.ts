@@ -5,7 +5,7 @@ import { nmapEditedCommand, nmapExtra, nmapPlan } from "./nmap-scan.ts";
 test("an unedited deep command is the one that runs", () => {
   const plan = nmapPlan({
     profile: "deep",
-    target: "192.168.174.191",
+    target: "10.10.10.5",
     name: "deep",
     ports: "80,135,139,445,3389,5985,5986,47001",
     extra: ["-T4", "--reason"],
@@ -14,7 +14,7 @@ test("an unedited deep command is the one that runs", () => {
   const edited = nmapEditedCommand(plan.command, "deep");
   assert.ok(!("error" in edited));
   assert.deepEqual(edited.args, plan.args);
-  assert.equal(edited.target, "192.168.174.191");
+  assert.equal(edited.target, "10.10.10.5");
 });
 
 test("an edited command keeps the new flag and still saves under the output name", () => {
