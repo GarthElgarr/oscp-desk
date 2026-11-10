@@ -146,6 +146,12 @@ export function LootCard({ focusId = "" }: { focusId?: string }) {
   }, [items.length]);
 
   useEffect(() => {
+    if (!confirmClear) return;
+    const timer = window.setTimeout(() => setConfirmClear(false), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [confirmClear]);
+
+  useEffect(() => {
     if (!focusId) return;
     document.getElementById(`loot-item-${focusId}`)?.scrollIntoView({ block: "center" });
   }, [focusId]);
