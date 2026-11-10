@@ -6,6 +6,7 @@ export function devPathDenied(url: string): boolean {
   if (path.includes("..")) return true;
   if (path.startsWith("/files/")) return false;
   if (path.startsWith("/@fs/")) return !path.includes("/node_modules/");
+  if (serverSource(path)) return true;
   const blocked = ["/scans", "/uploads", "/data", "/.grok", "/.git"];
   for (const root of blocked) {
     if (path === root || path.startsWith(`${root}/`)) return true;
@@ -14,6 +15,14 @@ export function devPathDenied(url: string): boolean {
   const lower = path.toLowerCase();
   if (lower.endsWith(".json") || lower.includes(".env")) return true;
   return false;
+}
+
+/** Server modules and the preview auth client are not part of the browser graph. */
+function serverSource(path: string): boolean {
+  const lower = path.toLowerCase();
+  if (!lower.startsWith("/src/")) return false;
+  if (lower === "/src/lib/auth/preview.ts" || lower === "/src/lib/auth/server.ts") return true;
+  return /\/[^/]+\.server\.[a-z0-9]+$/.test(lower);
 }
 
 function decodePath(url: string): string | null {
@@ -26,7 +35,8 @@ function decodePath(url: string): string | null {
       next = decoded;
     }
     if (next.includes("\0")) return null;
-    return next.startsWith("/") ? next : `/${next}`;
+    const clean = (next.split("?")[0] ?? "/").split("#")[0] ?? "/";
+    return clean.startsWith("/") ? clean : `/${clean}`;
   } catch {
     return null;
   }
