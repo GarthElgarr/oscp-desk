@@ -196,6 +196,77 @@ function redactImpacket(command: string): string | null {
   return displayCommand(bin, args);
 }
 
+function isFuzz(value: string): boolean {
+  return /FUZ\d*Z/.test(value);
+}
+
+function maskWfuzzCookie(token: string): string {
+  const bare = unquote(token);
+  const value = bare.startsWith("-b=") ? bare.slice(3) : bare;
+  if (isFuzz(value)) return token;
+  if (bare.startsWith("-b=")) return "-b=****";
+  return mask(token);
+}
+
+function maskWfuzzAuth(token: string): string {
+  const quote = token.length >= 2 && (token[0] === "'" || token[0] === '"') && token.endsWith(token[0]) ? token[0] : "";
+  const bare = unquote(token);
+  const eq = bare.startsWith("--") ? bare.indexOf("=") : -1;
+  const flag = eq > 0 ? bare.slice(0, eq) : "";
+  const value = eq > 0 ? bare.slice(eq + 1) : bare;
+  const colon = value.indexOf(":");
+  const masked = colon < 0 ? "****" : `${value.slice(0, colon + 1)}****`;
+  const next = flag ? `${flag}=${masked}` : masked;
+  return quote ? `${quote}${next}${quote}` : next;
+}
+
+/** Hide body values whose key looks like a password, secret, or token. A FUZZ marker stays. */
+function maskWfuzzBody(token: string): string {
+  const quote = token.length >= 2 && (token[0] === "'" || token[0] === '"') && token.endsWith(token[0]) ? token[0] : "";
+  const bare = unquote(token);
+  const prefixed = bare.startsWith("-d=");
+  const body = prefixed ? bare.slice(3) : bare;
+  const next = body
+    .split("&")
+    .map((pair) => {
+      const eq = pair.indexOf("=");
+      if (eq < 0) return pair;
+      const key = pair.slice(0, eq);
+      const value = pair.slice(eq + 1);
+      if (!/pass|pwd|secret|token/i.test(key) || isFuzz(value)) return pair;
+      return `${key}=****`;
+    })
+    .join("&");
+  const joined = prefixed ? `-d=${next}` : next;
+  return quote ? `${quote}${joined}${quote}` : joined;
+}
+
+function redactWfuzz(command: string): string {
+  if (toolOf(command) !== "wfuzz") return command;
+  const tokens = command.match(/'[^']*'|"[^"]*"|\S+/g);
+  if (!tokens) return command;
+  const out: string[] = [];
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index] ?? "";
+    const bare = unquote(token);
+    const prev = index > 0 ? unquote(tokens[index - 1] ?? "") : "";
+    if (prev === "-b" || bare.startsWith("-b=")) {
+      out.push(maskWfuzzCookie(token));
+      continue;
+    }
+    if (prev === "--basic" || prev === "--ntlm" || prev === "--digest" || /^(?:--basic|--ntlm|--digest)=/.test(bare)) {
+      out.push(maskWfuzzAuth(token));
+      continue;
+    }
+    if (prev === "-d" || bare.startsWith("-d=")) {
+      out.push(maskWfuzzBody(token));
+      continue;
+    }
+    out.push(token);
+  }
+  return out.join(" ");
+}
+
 function redactFlags(command: string): string {
   const tool = toolOf(command);
   return command.replace(SECRET_FLAG, (full, flag: string) => {
@@ -219,7 +290,7 @@ export function redactStoredCommand(command: string): string {
   const sprayed = redactSpray(comments);
   const users = sprayed.replace(USER_PASS, (_match, lead: string, user: string) => `${lead}${user}:****@`);
   const pct = redactPct(users);
-  return redactFlags(pct);
+  return redactWfuzz(redactFlags(pct));
 }
 
 /** The echoed `$ command` line is stored with the run. Tool output after it stays as the tool printed it. */
