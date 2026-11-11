@@ -1,4 +1,5 @@
-import { deskFetch } from "./desk-fetch";
+import { deskFetch } from "./desk-fetch.ts";
+import { redactStoredCommand } from "./redact-command.ts";
 
 export type LiveJob = {
   id: string;
@@ -64,7 +65,9 @@ export async function launchJob(
   pending: { tool: string; title: string; command: string; name?: string },
 ): Promise<void> {
   const id = `${pending.tool}-${Date.now().toString(36)}-${++seq}`;
-  publish([{ id, tool: pending.tool, title: pending.title, command: pending.command, name: pending.name ?? "", output: "", running: true }, ...jobs]);
+  const title = redactStoredCommand(pending.title).slice(0, 500);
+  const command = redactStoredCommand(pending.command).slice(0, 500);
+  publish([{ id, tool: pending.tool, title, command, name: pending.name ?? "", output: "", running: true }, ...jobs]);
   if (!timer) timer = setInterval(() => void syncJobs(), 700);
   let response: Response;
   try {
