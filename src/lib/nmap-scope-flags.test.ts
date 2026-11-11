@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { nmapExtra } from "./nmap-scan.ts";
+import { nmapEditedCommand, nmapExtra } from "./nmap-scan.ts";
 import { nmapHttp } from "./nmap-scan.server.ts";
 import { testTmp } from "./test-tmp.ts";
 
@@ -126,6 +126,61 @@ test("normal nmap timing, scan, and script-glob flags still run", (t) => {
   }
   assert.equal(nmapExtra("--script foo.nse").ok, false);
   assert.equal(nmapExtra("--script /tmp/x").ok, false);
+});
+
+test("a pre-wrapped nmap script expression cannot add categories", (t) => {
+  const root = scoped(t);
+  const wrap = "and not (broadcast or dos or external)";
+  const refused = [
+    `--script '(http-title) ${wrap} or broadcast'`,
+    `--script '(all) ${wrap}'`,
+    `--script '(dos) ${wrap}'`,
+    `--script '(external) ${wrap}'`,
+    `--script '(broadcast-dhcp-discover) ${wrap}'`,
+    `--script '(http-title) ${wrap} or all'`,
+    `--script='(http-title) ${wrap} or broadcast'`,
+    `--script='(all) ${wrap}'`,
+    `--script='(dos) ${wrap}'`,
+    `--script='(external) ${wrap}'`,
+    `--script='(broadcast-dhcp-discover) ${wrap}'`,
+    `--script='(http-title) ${wrap} or all'`,
+  ];
+  for (const extra of refused) {
+    let started = false;
+    const response = nmapHttp(
+      { id: "nmap-wrap", profile: "custom", target: "10.10.10.5", name: "box", extra },
+      () => {
+        started = true;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 400, extra);
+    assert.equal(started, false, extra);
+    const edited = nmapEditedCommand(`nmap ${extra} 10.10.10.5`, "box");
+    assert.ok("error" in edited, extra);
+  }
+  for (const [extra, name] of [
+    ["--script http-title", "http-title"],
+    ["--script smb-vuln*", "smb-vuln*"],
+    ["--script brute", "brute"],
+  ] as const) {
+    let args: string[] = [];
+    const response = nmapHttp(
+      { id: "nmap-name", profile: "custom", target: "10.10.10.5", name: "box", extra },
+      (_command, _bin, seen) => {
+        args = seen;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 200, extra);
+    assert.ok(args.includes(`(${name}) ${wrap}`), extra);
+    assert.equal(args.includes(extra.replace("--script ", "")), false, extra);
+  }
+  const kept = nmapEditedCommand(`nmap --script '(http-title) ${wrap}' 10.10.10.5`, "box");
+  assert.ok(!("error" in kept));
+  assert.ok(kept.args.includes(`(http-title) ${wrap}`));
 });
 
 test("nmap refuses script categories that run broadcast, dos, or external scripts", (t) => {

@@ -134,25 +134,36 @@ function matchLong(name: string): LongOpt | "ambiguous" | null {
 }
 
 const SCRIPT_WRAP = "and not (broadcast or dos or external)";
+const SCRIPT_CATEGORY = "That script category runs broadcast, dos, or external scripts. Leave it out.";
+const SCRIPT_DISCOVER = "That script discovers hosts or adds targets. Leave it out.";
+const SCRIPT_NAME = "A script name is letters, numbers, commas, and dashes. Not a file path.";
+const DESK_SCRIPT = /^\(([a-z0-9,_*-]+)\) and not \(broadcast or dos or external\)$/i;
+
+/** A comma-separated name or glob list. The desk's own wrap is accepted and checked again. Anything with parentheses, and/or/not, quotes, or spaces has to be exactly that wrap. */
+function scriptList(value: string): { names: string[] } | { error: string } {
+  let list = value;
+  if (/[()\s'"]/.test(value) || /\b(?:and|or|not)\b/i.test(value)) {
+    const exact = DESK_SCRIPT.exec(value);
+    if (!exact?.[1]) return { error: SCRIPT_NAME };
+    list = exact[1];
+  }
+  if (list.includes("/") || list.includes(".") || list.includes("\\") || !/^[a-z0-9,_*-]+$/i.test(list)) return { error: SCRIPT_NAME };
+  const names = list.split(",").filter(Boolean);
+  if (names.length === 0 || names.some((name) => name !== name.trim())) return { error: SCRIPT_NAME };
+  if (names.some((name) => /^(?:all|dos|external)$/i.test(name))) return { error: SCRIPT_CATEGORY };
+  if (names.some((name) => /^(?:broadcast|targets)/i.test(name))) return { error: SCRIPT_DISCOVER };
+  return { names };
+}
 
 function scriptNameError(value: string): string | null {
-  if (value.includes(SCRIPT_WRAP)) return null;
-  const names = value.split(",").map((part) => part.trim()).filter(Boolean);
-  if (names.some((name) => /^(?:all|dos|external)$/i.test(name))) {
-    return "That script category runs broadcast, dos, or external scripts. Leave it out.";
-  }
-  if (names.some((name) => /^(?:broadcast|targets)/i.test(name))) {
-    return "That script discovers hosts or adds targets. Leave it out.";
-  }
-  if (value.includes("/") || value.includes(".") || value.includes("\\")) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
-  if (!/^[a-z0-9,_*-]+$/i.test(value)) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
-  return null;
+  const parsed = scriptList(value);
+  return "error" in parsed ? parsed.error : null;
 }
 
 function wrapScript(value: string): string {
-  if (value.includes(SCRIPT_WRAP)) return value;
-  const names = value.split(",").map((part) => part.trim()).filter(Boolean);
-  return `(${names.join(",")}) ${SCRIPT_WRAP}`;
+  const parsed = scriptList(value);
+  if ("error" in parsed) return value;
+  return `(${parsed.names.join(",")}) ${SCRIPT_WRAP}`;
 }
 
 const SCRIPT_FILE_KEYS = new Set([
