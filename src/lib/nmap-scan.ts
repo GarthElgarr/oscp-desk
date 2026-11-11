@@ -59,7 +59,7 @@ const LONG_OPTS: LongOpt[] = [
   { name: "decoy", arg: "required", why: "spoof" },
   { name: "decoys", arg: "required", why: "spoof" },
   { name: "interface", arg: "required", why: "spoof" },
-  { name: "osscan-guess", arg: "none", why: "no" },
+  { name: "osscan-guess", arg: "none", why: "safe" },
   { name: "osscan-limit", arg: "none", why: "no" },
   { name: "send-eth", arg: "none", why: "no" },
   { name: "send-ip", arg: "none", why: "no" },
@@ -67,9 +67,9 @@ const LONG_OPTS: LongOpt[] = [
   { name: "unprivileged", arg: "none", why: "no" },
   { name: "system-dns", arg: "none", why: "no" },
   { name: "dns-servers", arg: "required", why: "no" },
-  { name: "traceroute", arg: "none", why: "no" },
+  { name: "traceroute", arg: "none", why: "safe" },
   { name: "packet-trace", arg: "none", why: "no" },
-  { name: "max-rate", arg: "required", why: "no" },
+  { name: "max-rate", arg: "required", why: "safe" },
   { name: "max-hostgroup", arg: "required", why: "no" },
   { name: "min-hostgroup", arg: "required", why: "no" },
   { name: "max-parallelism", arg: "required", why: "no" },
@@ -77,8 +77,9 @@ const LONG_OPTS: LongOpt[] = [
   { name: "max-rtt-timeout", arg: "required", why: "no" },
   { name: "min-rtt-timeout", arg: "required", why: "no" },
   { name: "initial-rtt-timeout", arg: "required", why: "no" },
-  { name: "host-timeout", arg: "required", why: "no" },
-  { name: "scan-delay", arg: "required", why: "no" },
+  { name: "host-timeout", arg: "required", why: "safe" },
+  { name: "scan-delay", arg: "required", why: "safe" },
+  { name: "script-timeout", arg: "required", why: "safe" },
   { name: "max-scan-delay", arg: "required", why: "no" },
   { name: "stats-every", arg: "required", why: "no" },
   { name: "port-ratio", arg: "required", why: "no" },
@@ -143,7 +144,8 @@ function scriptNameError(value: string): string | null {
   if (names.some((name) => /^(?:broadcast|targets)/i.test(name))) {
     return "That script discovers hosts or adds targets. Leave it out.";
   }
-  if (!/^[a-z0-9,_-]+$/i.test(value)) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+  if (value.includes("/") || value.includes(".") || value.includes("\\")) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+  if (!/^[a-z0-9,_*-]+$/i.test(value)) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
   return null;
 }
 
@@ -174,7 +176,8 @@ function portsOk(value: string): boolean {
   if (value === "-") return true;
   if (!value || value.length > 200) return false;
   return value.split(",").every((part) => {
-    const range = /^(\d{1,5})(?:-(\d{1,5}))?$/.exec(part) ?? /^-(\d{1,5})$/.exec(part);
+    const body = part.replace(/^[TU]:/, "");
+    const range = /^(\d{1,5})(?:-(\d{1,5}))?$/.exec(body) ?? /^-(\d{1,5})$/.exec(body);
     if (!range) return false;
     const nums = range.slice(1).filter((item) => item !== undefined).map(Number);
     if (nums.some((n) => n < 1 || n > 65535)) return false;
@@ -183,12 +186,13 @@ function portsOk(value: string): boolean {
 }
 
 function safeValueError(name: string, value: string | null): string | null {
-  if (name === "s") return /^[STUVC]+$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "s") return /^[STUVCNFXA]+$/.test(value ?? "") ? null : NOT_FLAG;
   if (name === "p") return portsOk(value ?? "") ? null : NOT_FLAG;
   if (name === "T") return /^[0-5]$/.test(value ?? "") ? null : NOT_FLAG;
   if (name === "d" || name === "O") return value === null || /^[0-9]$/.test(value) ? null : NOT_FLAG;
   if (name === "top-ports") return /^[1-9]\d{0,4}$/.test(value ?? "") && Number(value) <= 65535 ? null : NOT_FLAG;
-  if (name === "min-rate") return /^[1-9]\d{0,6}$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "min-rate" || name === "max-rate") return /^[1-9]\d{0,6}$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "host-timeout" || name === "scan-delay" || name === "script-timeout") return /^\d{1,9}(?:ms|s|m|h)?$/.test(value ?? "") ? null : NOT_FLAG;
   if (name === "max-retries") return /^\d{1,2}$/.test(value ?? "") ? null : NOT_FLAG;
   if (name === "version-intensity") return /^[0-9]$/.test(value ?? "") ? null : NOT_FLAG;
   if (name === "script") return scriptNameError(value ?? "");

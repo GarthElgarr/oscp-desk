@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
+import { nmapExtra } from "./nmap-scan.ts";
 import { nmapHttp } from "./nmap-scan.server.ts";
 import { testTmp } from "./test-tmp.ts";
 
@@ -91,6 +92,40 @@ test("nmap refuses spoofing flags while the exam lock is on", async (t) => {
   );
   assert.equal(plain.status, 200);
   assert.equal(started, true);
+});
+
+test("normal nmap timing, scan, and script-glob flags still run", (t) => {
+  const root = scoped(t);
+  const allowed = [
+    "--script smb-vuln*",
+    "--script smb-enum-*",
+    "--max-rate 1000",
+    "--host-timeout 30s",
+    "--scan-delay 1s",
+    "--script-timeout 20s",
+    "--osscan-guess",
+    "--traceroute",
+    "-sN",
+    "-sF",
+    "-sX",
+    "-sA",
+    "-p T:80,U:53",
+  ];
+  for (const extra of allowed) {
+    let started = false;
+    const response = nmapHttp(
+      { id: "nmap-use", profile: "custom", target: "10.10.10.5", name: "box", extra },
+      () => {
+        started = true;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 200, extra);
+    assert.equal(started, true, extra);
+  }
+  assert.equal(nmapExtra("--script foo.nse").ok, false);
+  assert.equal(nmapExtra("--script /tmp/x").ok, false);
 });
 
 test("nmap refuses script categories that run broadcast, dos, or external scripts", (t) => {
