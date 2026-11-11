@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test, { type TestContext } from "node:test";
 import { hydraHttp } from "./hydra.server.ts";
 import { flushLiveJobs, setLiveJobHooks } from "./live-jobs.server.ts";
 import { runHttp } from "./run-tool.server.ts";
-import { testTmp } from "./test-tmp.ts";
 import { wfuzzHttp } from "./wfuzz.server.ts";
 
 function quietChild(): ChildProcess {
@@ -27,7 +27,7 @@ function quietChild(): ChildProcess {
 }
 
 function scoped(t: TestContext): { root: string; seen: { bin: string; args: string[]; cwd?: string }[] } {
-  const root = testTmp(t, "oscp-out-");
+  const root = mkdtempSync(path.join(tmpdir(), "oscp-out-"));
   mkdirSync(path.join(root, "data"));
   writeFileSync(
     path.join(root, "data", "exam-ledger.json"),
@@ -50,8 +50,12 @@ function scoped(t: TestContext): { root: string; seen: { bin: string; args: stri
     },
   });
   t.after(() => {
-    flushLiveJobs();
-    setLiveJobHooks({ runsFile: null, spawn: null });
+    try {
+      flushLiveJobs();
+      setLiveJobHooks({ runsFile: null, spawn: null });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
   return { root, seen };
 }

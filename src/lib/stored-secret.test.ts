@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
@@ -11,7 +12,6 @@ import { IMPACKET_MODES, impacketPlan, type ImpacketInput, type ImpacketMode } f
 import { startImpacket } from "./impacket.server.ts";
 import { flushLiveJobs, removeJob, setLiveJobHooks } from "./live-jobs.server.ts";
 import { redactStoredCommand } from "./redact-command.ts";
-import { testTmp } from "./test-tmp.ts";
 
 function quietChild(): ChildProcess {
   const stdout = new PassThrough();
@@ -128,7 +128,7 @@ test("a quoted smbclient password and a kerbrute spray with a space are masked",
 });
 
 test("a live getTGT run does not write the password into scans/runs.json", async (t) => {
-  const root = testTmp(t, "oscp-gettgt-");
+  const root = mkdtempSync(path.join(tmpdir(), "oscp-gettgt-"));
   const runs = path.join(root, "scans", "runs.json");
   const marker = path.join(root, "spawned");
   const stub = path.join(root, "bin");
@@ -145,14 +145,18 @@ test("a live getTGT run does not write the password into scans/runs.json", async
 
   setLiveJobHooks({ runsFile: runs, spawn: () => quietChild() });
   t.after(() => {
-    flushLiveJobs();
-    setLiveJobHooks({ runsFile: null, spawn: null });
-    if (previousPath === undefined) delete process.env.PATH;
-    else process.env.PATH = previousPath;
-    assert.equal(existsSync(marker), false, "the test spawned impacket-getTGT");
-    assert.equal(statSync(scansDir).mode & 0o777, beforeMode);
-    assert.deepEqual(readdirSync(scansDir).sort(), beforeNames);
-    assert.equal(readFileSync(path.join(scansDir, "README.txt"), "utf8"), beforeReadme);
+    try {
+      flushLiveJobs();
+      setLiveJobHooks({ runsFile: null, spawn: null });
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+      assert.equal(existsSync(marker), false, "the test spawned impacket-getTGT");
+      assert.equal(statSync(scansDir).mode & 0o777, beforeMode);
+      assert.deepEqual(readdirSync(scansDir).sort(), beforeNames);
+      assert.equal(readFileSync(path.join(scansDir, "README.txt"), "utf8"), beforeReadme);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   const secret = "NOTREAL";
