@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -52,7 +52,7 @@ test("hydra -M lists and impacket -dc-host stay inside the exam scope", (t) => {
     root,
   );
   assert.equal(hydra.status, 403);
-  assert.equal(existsSync(loot), false);
+  assert.equal(readFileSync(loot, "utf8"), "10.10.11.5\n");
 
   const host = impacketHttp(
     {
@@ -74,24 +74,31 @@ test("hydra -M lists and impacket -dc-host stay inside the exam scope", (t) => {
     runsFile: path.join(root, "scans", "runs.json"),
     spawn: () => hung(),
   });
-  for (const id of ids) assert.equal(startImpacket(id, "true", ["ok"], "true"), true);
-  const full = hydraHttp(
-    {
-      id: "hydra-full",
-      args: ["-L", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "10.10.10.5", "ssh"],
-      lists: { users: "user\n" },
-    },
-    undefined,
-    root,
-  );
-  assert.equal(full.status, 429);
-  assert.equal(existsSync(loot), false);
-  for (const id of ids) removeJob(id);
+  try {
+    for (const id of ids) assert.equal(startImpacket(id, "true", ["ok"], "true"), true);
+    unlinkSync(loot);
+    const full = hydraHttp(
+      {
+        id: "hydra-full",
+        args: ["-L", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "10.10.10.5", "ssh"],
+        lists: { users: "user\n" },
+      },
+      undefined,
+      root,
+    );
+    assert.equal(full.status, 429);
+    assert.equal(existsSync(loot), false);
+  } finally {
+    for (const id of ids) removeJob(id);
+  }
 });
+
+const SLOT_IDS = ["slot-a", "slot-b", "slot-c", "slot-d", "slot-e", "slot-f"];
 
 test("hydra -M refuses a basename that the scan directory would read", (t) => {
   const root = scoped(t);
   setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
   const dir = path.join(root, "scans", "hydra");
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, "targets.txt"), "10.10.10.99\n");
@@ -126,4 +133,52 @@ test("hydra -M refuses a basename that the scan directory would read", (t) => {
   );
   assert.equal(ok.status, 200);
   assert.equal(started, true);
+});
+
+test("hydra -M is one list, and the file on disk is what gets scope-checked", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  const aaa = path.join(dir, "loot-users-aaa.txt");
+  const bbb = path.join(dir, "loot-users-bbb.txt");
+  writeFileSync(aaa, "10.10.11.99\n");
+  let started = false;
+  const split = hydraHttp(
+    {
+      id: "hydra-split",
+      args: ["-L", "scans/hydra/loot-users-bbb.txt", "-p", "NOTREAL", "-M", "scans/hydra/loot-users-aaa.txt", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(split.status, 400);
+  assert.equal(started, false);
+  assert.equal(readFileSync(aaa, "utf8"), "10.10.11.99\n");
+  const both = hydraHttp(
+    {
+      id: "hydra-two",
+      args: ["-M", "scans/hydra/loot-users-bbb.txt", "-M", "scans/hydra/loot-users-aaa.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => true,
+    root,
+  );
+  assert.equal(both.status, 400);
+  assert.equal(existsSync(bbb), false);
+  const one = hydraHttp(
+    {
+      id: "hydra-one",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => true,
+    root,
+  );
+  assert.equal(one.status, 200);
 });

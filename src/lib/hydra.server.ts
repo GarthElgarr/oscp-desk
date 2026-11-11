@@ -62,12 +62,26 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   const raw = ["hydra", ...args].join(" ");
   const command = storedCommand("hydra", placed.args);
   const lists = (body as { lists?: { users?: unknown; passwords?: unknown } }).lists;
-  const blocked = examGuard([...ipv4Targets(args), ...moduleLines(args, lists, root)], raw, root);
-  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
+  const modules = optionValues(args, ["-M"]);
+  if (modules.length > 1 || lootUserPaths(args).length > 1) {
+    return new Response("hydra takes one target list. Use a single scans/hydra/loot-users file.\n", { status: 400 });
+  }
+  const early = examGuard(ipv4Targets(args), raw, root);
+  if (early) return new Response(`${early}\n`, { status: 403 });
   if (!jobSlotFree()) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+  const moduleFile = modules.find((file) => MODULE_LIST.test(file)) ?? null;
+  if (moduleFile && typeof lists?.users === "string") {
+    const file = listFile(lists.users);
+    const dest = lootDest(root, moduleFile);
+    if (!file || !dest) return new Response("There are no saved users to try.\n", { status: 400 });
+    writePrivateFile(dest, file);
+  }
+  const fromDisk = moduleFile ? fileLines(root, moduleFile) : [];
+  const blocked = examGuard(fromDisk, raw, root);
+  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
   const userFile = lootName(args, "users");
   const passFile = lootName(args, "passwords");
-  if (userFile) {
+  if (userFile && userFile !== moduleFile) {
     const file = listFile(lists?.users);
     const dest = lootDest(root, userFile);
     if (!file || !dest) return new Response("There are no saved users to try.\n", { status: 400 });
@@ -86,17 +100,25 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
 
 const MODULE_LIST = /^scans\/hydra\/loot-users-[a-z0-9]+\.txt$/;
 
-function moduleLines(args: string[], lists: { users?: unknown; passwords?: unknown } | undefined, root: string): string[] {
-  const texts: string[] = [];
-  for (const file of optionValues(args, ["-M"])) {
-    if (!MODULE_LIST.test(file)) continue;
-    if (typeof lists?.users === "string") texts.push(lists.users);
-    else {
-      const dir = path.resolve(root, "scans", "hydra");
-      const full = path.resolve(root, file);
-      const rel = path.relative(dir, full);
-      if (!rel.startsWith("..") && !path.isAbsolute(rel) && existsSync(full)) texts.push(readFileSync(full, "utf8"));
+function lootUserPaths(args: readonly string[]): string[] {
+  const found: string[] = [];
+  const push = (value: string) => {
+    if (MODULE_LIST.test(value) && !found.includes(value)) found.push(value);
+  };
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    push(arg);
+    for (const flag of ["-M", "-L"]) {
+      if (arg === flag) push(args[i + 1] ?? "");
+      else if (arg.startsWith(`${flag}=`)) push(arg.slice(flag.length + 1));
+      else if (arg.startsWith(flag) && arg.length > flag.length && !arg.startsWith(`${flag}-`)) push(arg.slice(flag.length));
     }
   }
-  return texts.flatMap((text) => text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  return found;
+}
+
+function fileLines(root: string, name: string): string[] {
+  const dest = lootDest(root, name);
+  if (!dest || !existsSync(dest)) return [];
+  return readFileSync(dest, "utf8").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
