@@ -32,6 +32,26 @@ export function ipv4Targets(args: readonly string[]): string[] {
   return out;
 }
 
+/** Values of -flag, -flag=value, and a short -Mfile attachment. */
+export function optionValues(args: readonly string[], flags: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const arg of args) {
+    if (typeof arg !== "string") continue;
+    for (const flag of flags) {
+      if (arg === flag) continue;
+      if (arg.startsWith(`${flag}=`)) out.push(arg.slice(flag.length + 1));
+      else if (flag.length <= 2 && arg.startsWith(flag) && arg.length > flag.length && !arg.startsWith(`${flag}-`)) out.push(arg.slice(flag.length));
+    }
+  }
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (typeof arg !== "string" || !flags.includes(arg)) continue;
+    const value = args[i + 1];
+    if (typeof value === "string" && !value.startsWith("-")) out.push(value);
+  }
+  return out;
+}
+
 export function namedTargets(...values: unknown[]): string[] {
   const out: string[] = [];
   for (const value of values) {

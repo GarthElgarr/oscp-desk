@@ -1,8 +1,9 @@
-import { writePrivateFile } from "./private-file.ts";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ipv4Targets } from "./exam-block.ts";
+import { ipv4Targets, optionValues } from "./exam-block.ts";
+import { writePrivateFile } from "./private-file.ts";
 import { hydraArgsOk } from "./hydra-args.ts";
-import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { jobId, jobSlotFree, spawnLiveJob } from "./live-jobs.server.ts";
 import { confineHydraArgs, ensureToolDir } from "./output-path.ts";
 import { storedCommand } from "./redact-command.ts";
 import { examGuard } from "./scope-guard.server.ts";
@@ -60,9 +61,10 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   if (!placed) return new Response("That output file has to be a plain name, such as out.txt. It is saved under scans/hydra/.\n", { status: 400 });
   const raw = ["hydra", ...args].join(" ");
   const command = storedCommand("hydra", placed.args);
-  const blocked = examGuard(ipv4Targets(args), raw, root);
-  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
   const lists = (body as { lists?: { users?: unknown; passwords?: unknown } }).lists;
+  const blocked = examGuard([...ipv4Targets(args), ...moduleLines(args, lists, root)], raw, root);
+  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
+  if (!jobSlotFree()) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
   const userFile = lootName(args, "users");
   const passFile = lootName(args, "passwords");
   if (userFile) {
@@ -80,4 +82,18 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   const started = start({ id, command, args: placed.args, cwd: placed.cwd });
   if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
   return Response.json({ ok: true });
+}
+
+function moduleLines(args: string[], lists: { users?: unknown; passwords?: unknown } | undefined, root: string): string[] {
+  const texts: string[] = [];
+  for (const file of optionValues(args, ["-M"])) {
+    if (typeof lists?.users === "string" && file.includes("loot-users-")) texts.push(lists.users);
+    else if (typeof lists?.passwords === "string" && file.includes("loot-passwords-")) texts.push(lists.passwords);
+    else {
+      const full = path.resolve(root, file);
+      const base = path.resolve(root);
+      if ((full === base || full.startsWith(`${base}${path.sep}`)) && existsSync(full)) texts.push(readFileSync(full, "utf8"));
+    }
+  }
+  return texts.flatMap((text) => text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
 }

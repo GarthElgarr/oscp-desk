@@ -122,6 +122,10 @@ function loadRuns() {
   }
 }
 
+export function jobSlotFree(): boolean {
+  return jobs.filter((job) => job.running).length < MAX_RUNNING;
+}
+
 export function jobId(value: unknown): string | null {
   if (typeof value !== "string" || !/^[a-z][a-z0-9-]{0,40}$/.test(value)) return null;
   return value;

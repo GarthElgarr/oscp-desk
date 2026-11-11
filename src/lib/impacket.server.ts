@@ -1,4 +1,6 @@
-import { spawnLiveJob } from "./live-jobs.server.ts";
+import { ipv4Targets, namedTargets, optionValues } from "./exam-block.ts";
+import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { examGuard } from "./scope-guard.server.ts";
 import { quoteHydraArg } from "./hydra-args.ts";
 import { confineFlagArgs, ensureToolDir } from "./output-path.ts";
 import { PLAIN_OUTPUT } from "./output-name.ts";
@@ -53,6 +55,21 @@ export function impacketRequest(body: unknown, root = process.cwd()): { bin: str
   const secrets = [typeof row.password === "string" ? row.password : "", typeof row.newPass === "string" ? row.newPass : "", text(row.hash)];
   const display = displayCommand(plan.bin, placed.args, secrets);
   return { bin: plan.bin, args: placed.args, command, display, cwd: placed.cwd };
+}
+
+export function impacketHttp(body: unknown, start: typeof startImpacket = startImpacket, root = process.cwd()): Response {
+  const plan = impacketRequest(body, root);
+  if ("error" in plan) return new Response(`${plan.error}\n`, { status: 400 });
+  const id = jobId((body as { id?: unknown }).id);
+  if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+  const row = body as { host?: unknown; dc?: unknown };
+  const hosts = optionValues(plan.args, ["-dc-host", "-target", "-targets"]);
+  const blocked = examGuard([...namedTargets(row.host, row.dc), ...hosts, ...ipv4Targets(plan.args)], plan.command, root);
+  if (blocked) return new Response(`${blocked}\n`, { status: 403 });
+  if (!start(id, plan.bin, plan.args, plan.display, plan.cwd)) {
+    return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+  }
+  return Response.json({ ok: true });
 }
 
 export function startImpacket(id: string, bin: string, args: string[], command: string, cwd?: string): boolean {
