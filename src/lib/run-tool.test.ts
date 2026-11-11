@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
@@ -53,14 +54,18 @@ test("john and hashcat files stay inside scans/crack", async (t) => {
 });
 
 test("hashcat --remove is refused when every file is a wordlist", async (t) => {
-  const root = testTmp(t, "oscp-remove-");
+  const root = mkdtempSync(path.join(tmpdir(), "oscp-remove-"));
   setLiveJobHooks({
     runsFile: path.join(root, "scans", "runs.json"),
     spawn: () => quietChild(),
   });
   t.after(() => {
-    flushLiveJobs();
-    setLiveJobHooks({ runsFile: null, spawn: null });
+    try {
+      flushLiveJobs();
+      setLiveJobHooks({ runsFile: null, spawn: null });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
   const wordlist = runHttp(
     { id: "rm-word", tool: "hashcat", steps: [{ kind: "exec", bin: "hashcat", args: ["-m", "0", "--remove", "/usr/share/wordlists/dirb/common.txt"] }] },
@@ -76,5 +81,6 @@ test("hashcat --remove is refused when every file is a wordlist", async (t) => {
     root,
   );
   assert.equal(hash.status, 200);
+  await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
 });
