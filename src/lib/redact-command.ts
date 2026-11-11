@@ -200,45 +200,171 @@ function isFuzz(value: string): boolean {
   return /FUZ\d*Z/.test(value);
 }
 
-function maskWfuzzCookie(token: string): string {
-  const bare = unquote(token);
-  const value = bare.startsWith("-b=") ? bare.slice(3) : bare;
-  if (isFuzz(value)) return token;
-  if (bare.startsWith("-b=")) return "-b=****";
-  return mask(token);
+const SECRET_KEY = /pass|pwd|secret|token/i;
+const SECRET_HEADER_NAME = /token|secret|key|auth/i;
+const WFUZZ_AUTH = ["--basic", "--ntlm", "--digest"] as const;
+
+/** Quote a displayed arg when it contains a space. The process still gets the raw arg. */
+function quoteStored(arg: string): string {
+  if (!/\s/.test(arg)) return arg;
+  return quoteHydraArg(arg);
 }
 
-function maskWfuzzAuth(token: string): string {
+function requote(token: string, next: string): string {
   const quote = token.length >= 2 && (token[0] === "'" || token[0] === '"') && token.endsWith(token[0]) ? token[0] : "";
-  const bare = unquote(token);
-  const eq = bare.startsWith("--") ? bare.indexOf("=") : -1;
-  const flag = eq > 0 ? bare.slice(0, eq) : "";
-  const value = eq > 0 ? bare.slice(eq + 1) : bare;
+  if (quote) return `${quote}${next}${quote}`;
+  return quoteStored(next);
+}
+
+function maskAuthValue(value: string): string {
   const colon = value.indexOf(":");
-  const masked = colon < 0 ? "****" : `${value.slice(0, colon + 1)}****`;
-  const next = flag ? `${flag}=${masked}` : masked;
-  return quote ? `${quote}${next}${quote}` : next;
+  if (colon < 0) return "****";
+  return `${value.slice(0, colon + 1)}****`;
 }
 
-/** Hide body values whose key looks like a password, secret, or token. A FUZZ marker stays. */
-function maskWfuzzBody(token: string): string {
-  const quote = token.length >= 2 && (token[0] === "'" || token[0] === '"') && token.endsWith(token[0]) ? token[0] : "";
-  const bare = unquote(token);
-  const prefixed = bare.startsWith("-d=");
-  const body = prefixed ? bare.slice(3) : bare;
-  const next = body
+/** Mask each cookie value. A value that is a FUZZ marker stays, including the name. */
+function maskCookieValue(value: string): string {
+  if (!value.includes("=")) return isFuzz(value) ? value : "****";
+  return value
+    .split(";")
+    .map((part) => {
+      const lead = /^\s*/.exec(part)?.[0] ?? "";
+      const trimmed = part.trim();
+      if (!trimmed) return part;
+      const eq = trimmed.indexOf("=");
+      if (eq < 0) return isFuzz(trimmed) ? part : `${lead}****`;
+      const key = trimmed.slice(0, eq);
+      const val = trimmed.slice(eq + 1);
+      if (isFuzz(val)) return `${lead}${key}=${val}`;
+      return `${lead}${key}=****`;
+    })
+    .join(";");
+}
+
+function maskFormBody(body: string): string {
+  return body
     .split("&")
     .map((pair) => {
       const eq = pair.indexOf("=");
       if (eq < 0) return pair;
       const key = pair.slice(0, eq);
       const value = pair.slice(eq + 1);
-      if (!/pass|pwd|secret|token/i.test(key) || isFuzz(value)) return pair;
+      if (!SECRET_KEY.test(key) || isFuzz(value)) return pair;
       return `${key}=****`;
     })
     .join("&");
+}
+
+function maskJsonNode(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => maskJsonNode(item));
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === "string" && SECRET_KEY.test(key) && !isFuzz(item)) out[key] = "****";
+    else out[key] = maskJsonNode(item);
+  }
+  return out;
+}
+
+/** Form bodies and JSON. Secret keys lose their values. FUZZ markers stay. */
+function maskBody(body: string): string {
+  const trimmed = body.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return JSON.stringify(maskJsonNode(JSON.parse(trimmed) as unknown));
+    } catch {
+      /* not JSON; fall through to a form body */
+    }
+  }
+  return maskFormBody(body);
+}
+
+function secretHeader(name: string): boolean {
+  if (SECRET_HEADERS.has(name.toLowerCase())) return true;
+  return SECRET_HEADER_NAME.test(name);
+}
+
+/** Keep the header name. Mask the value when the name is a credential header. */
+function maskHeaderValue(value: string): string {
+  const match = /^([A-Za-z][A-Za-z0-9-]{0,40})(\s*:\s*)([\s\S]*)$/.exec(value);
+  if (!match) return value;
+  const name = match[1] ?? "";
+  const sep = match[2] ?? ": ";
+  const rest = match[3] ?? "";
+  if (!secretHeader(name) || isFuzz(rest)) return value;
+  return `${name}${sep}****`;
+}
+
+function maskHydraArg(prev: string, arg: string): string {
+  if (prev === "-p") return "****";
+  if (arg.startsWith("-p=")) return "-p=****";
+  if (/^-p\S/.test(arg)) return "-p****";
+  return arg;
+}
+
+function maskWfuzzArg(prev: string, arg: string): string {
+  if (prev === "--basic" || prev === "--ntlm" || prev === "--digest") return maskAuthValue(arg);
+  if (prev === "-H") return maskHeaderValue(arg);
+  if (prev === "-b") return maskCookieValue(arg);
+  if (prev === "-d") return maskBody(arg);
+  for (const flag of WFUZZ_AUTH) {
+    if (arg.startsWith(`${flag}=`)) return `${flag}=${maskAuthValue(arg.slice(flag.length + 1))}`;
+  }
+  if (arg.startsWith("-H=")) return `-H=${maskHeaderValue(arg.slice(3))}`;
+  if (arg.startsWith("-b=")) return `-b=${maskCookieValue(arg.slice(3))}`;
+  if (arg.startsWith("-d=")) return `-d=${maskBody(arg.slice(3))}`;
+  return arg;
+}
+
+/**
+ * The command written to the run log, built from the argv the process receives.
+ * Hydra and wfuzz secrets are masked by position. Other tools are quoted only;
+ * redactStoredCommand still masks those.
+ */
+export function storedCommand(bin: string, args: readonly string[]): string {
+  const tool = toolName(bin);
+  const shown = args.map((arg, index) => {
+    const prev = index > 0 ? (args[index - 1] ?? "") : "";
+    if (tool === "hydra") return maskHydraArg(prev, arg);
+    if (tool === "wfuzz") return maskWfuzzArg(prev, arg);
+    return arg;
+  });
+  const name = (bin.split(/[/\\]/).pop() ?? bin).replace(/\.exe$/i, "");
+  return [name, ...shown.map(quoteStored)].join(" ");
+}
+
+function maskWfuzzCookie(token: string): string {
+  const bare = unquote(token);
+  if (bare.startsWith("-b=")) return requote(token, `-b=${maskCookieValue(bare.slice(3))}`);
+  return requote(token, maskCookieValue(bare));
+}
+
+function maskWfuzzAuth(token: string): string {
+  const bare = unquote(token);
+  const eq = bare.startsWith("--") ? bare.indexOf("=") : -1;
+  const flag = eq > 0 ? bare.slice(0, eq) : "";
+  const value = eq > 0 ? bare.slice(eq + 1) : bare;
+  const next = flag ? `${flag}=${maskAuthValue(value)}` : maskAuthValue(value);
+  return requote(token, next);
+}
+
+function maskWfuzzHeader(token: string): string {
+  const bare = unquote(token);
+  const prefixed = bare.startsWith("-H=");
+  const value = prefixed ? bare.slice(3) : bare;
+  const next = maskHeaderValue(value);
+  const joined = prefixed ? `-H=${next}` : next;
+  return requote(token, joined);
+}
+
+/** Hide body values whose key looks like a password, secret, or token. A FUZZ marker stays. */
+function maskWfuzzBody(token: string): string {
+  const bare = unquote(token);
+  const prefixed = bare.startsWith("-d=");
+  const body = prefixed ? bare.slice(3) : bare;
+  const next = maskBody(body);
   const joined = prefixed ? `-d=${next}` : next;
-  return quote ? `${quote}${joined}${quote}` : joined;
+  return requote(token, joined);
 }
 
 function redactWfuzz(command: string): string {
@@ -252,6 +378,10 @@ function redactWfuzz(command: string): string {
     const prev = index > 0 ? unquote(tokens[index - 1] ?? "") : "";
     if (prev === "-b" || bare.startsWith("-b=")) {
       out.push(maskWfuzzCookie(token));
+      continue;
+    }
+    if (prev === "-H" || bare.startsWith("-H=")) {
+      out.push(maskWfuzzHeader(token));
       continue;
     }
     if (prev === "--basic" || prev === "--ntlm" || prev === "--digest" || /^(?:--basic|--ntlm|--digest)=/.test(bare)) {
@@ -270,6 +400,7 @@ function redactWfuzz(command: string): string {
 function redactFlags(command: string): string {
   const tool = toolOf(command);
   return command.replace(SECRET_FLAG, (full, flag: string) => {
+    if (tool === "wfuzz" && flag === "-H") return full;
     const at = full.indexOf(flag);
     const sepAndValue = full.slice(at + flag.length);
     const sep = sepAndValue.startsWith("=") ? "=" : (sepAndValue.match(/^\s+/)?.[0] ?? " ");
@@ -290,7 +421,9 @@ export function redactStoredCommand(command: string): string {
   const sprayed = redactSpray(comments);
   const users = sprayed.replace(USER_PASS, (_match, lead: string, user: string) => `${lead}${user}:****@`);
   const pct = redactPct(users);
-  return redactWfuzz(redactFlags(pct));
+  const flagged = redactFlags(pct);
+  const hydra = toolOf(flagged) === "hydra" ? flagged.replace(/(^|\s)-p=\S+/g, "$1-p=****").replace(/(^|\s)-p(?![\s=])\S+/g, "$1-p****") : flagged;
+  return redactWfuzz(hydra);
 }
 
 /** The echoed `$ command` line is stored with the run. Tool output after it stays as the tool printed it. */

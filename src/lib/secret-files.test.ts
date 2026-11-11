@@ -118,7 +118,9 @@ test("a written loot file and the exam ledger are mode 0o600", async (t) => {
       lists: { users: "user\n" },
     },
     (input) => {
-      assert.match(input.command, /-p NOTREAL/);
+      assert.ok(input.args.includes("NOTREAL"));
+      assert.equal(input.command.includes("NOTREAL"), false);
+      assert.match(input.command, /-p \*\*\*\*/);
       return true;
     },
     root,

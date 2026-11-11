@@ -16,7 +16,7 @@ test("wfuzz hides a basic password, a session cookie, and a body secret", () => 
 
   const cookie = redactStoredCommand("wfuzz -b PHPSESSID=NOTREAL -u http://10.10.10.5/FUZZ");
   assert.equal(cookie.includes("NOTREAL"), false);
-  assert.match(cookie, /-b \*\*\*\*/);
+  assert.match(cookie, /-b PHPSESSID=\*\*\*\*/);
   assert.match(cookie, /\/FUZZ/);
   assert.match(redactStoredCommand("wfuzz -b session=FUZZ -u http://10.10.10.5/"), /-b session=FUZZ/);
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { ipv4Targets } from "./exam-block.ts";
 import { hydraArgsOk } from "./hydra-args.ts";
 import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { storedCommand } from "./redact-command.ts";
 import { examGuard } from "./scope-guard.server.ts";
 
 const LOOT = /^scans\/hydra\/loot-(users|passwords)-[a-z0-9]+\.txt$/;
@@ -52,8 +53,9 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   if (!hydraArgsOk(args)) return new Response("Those arguments are not a hydra command this desk will run.\n", { status: 400 });
   const id = jobId((body as { id?: unknown }).id);
   if (!id) return new Response("The scan id is missing.\n", { status: 400 });
-  const command = ["hydra", ...args].join(" ");
-  const blocked = examGuard(ipv4Targets(args), command, root);
+  const raw = ["hydra", ...args].join(" ");
+  const command = storedCommand("hydra", args);
+  const blocked = examGuard(ipv4Targets(args), raw, root);
   if (blocked) return new Response(`${blocked}\n`, { status: 403 });
   const lists = (body as { lists?: { users?: unknown; passwords?: unknown } }).lists;
   const userFile = lootName(args, "users");

@@ -1,4 +1,4 @@
-import { quoteHydraArg } from "./hydra-args";
+import { quoteHydraArg } from "./hydra-args.ts";
 
 const SHELL = /[;|`$<>\\\n\r\0]/;
 const BLOCKED = /rockyou|\/etc\/|\/proc\/|\/dev\/|\/root\/|\/home\//i;
