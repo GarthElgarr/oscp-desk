@@ -3,6 +3,7 @@ import path from "node:path";
 import { ipv4Targets } from "./exam-block.ts";
 import { hydraArgsOk } from "./hydra-args.ts";
 import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { confineHydraArgs, ensureToolDir } from "./output-path.ts";
 import { storedCommand } from "./redact-command.ts";
 import { examGuard } from "./scope-guard.server.ts";
 
@@ -31,9 +32,10 @@ function lootDest(root: string, name: string): string | null {
   return full;
 }
 
-export type HydraStart = (input: { id: string; command: string; args: string[] }) => boolean;
+export type HydraStart = (input: { id: string; command: string; args: string[]; cwd?: string }) => boolean;
 
-export function startHydra(input: { id: string; command: string; args: string[] }): boolean {
+export function startHydra(input: { id: string; command: string; args: string[]; cwd?: string }): boolean {
+  if (input.cwd) ensureToolDir(input.cwd);
   return spawnLiveJob({
     id: input.id,
     tool: "hydra",
@@ -41,6 +43,7 @@ export function startHydra(input: { id: string; command: string; args: string[] 
     command: input.command,
     bin: "hydra",
     args: input.args,
+    cwd: input.cwd,
     timeoutMs: 180_000,
     maxOut: 200_000,
     missing: "hydra was not found on this machine. Run the desk on Kali, where hydra is already installed.\n",
@@ -53,8 +56,10 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   if (!hydraArgsOk(args)) return new Response("Those arguments are not a hydra command this desk will run.\n", { status: 400 });
   const id = jobId((body as { id?: unknown }).id);
   if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+  const placed = confineHydraArgs(root, args);
+  if (!placed) return new Response("That output file has to be a plain name, such as out.txt. It is saved under scans/hydra/.\n", { status: 400 });
   const raw = ["hydra", ...args].join(" ");
-  const command = storedCommand("hydra", args);
+  const command = storedCommand("hydra", placed.args);
   const blocked = examGuard(ipv4Targets(args), raw, root);
   if (blocked) return new Response(`${blocked}\n`, { status: 403 });
   const lists = (body as { lists?: { users?: unknown; passwords?: unknown } }).lists;
@@ -72,7 +77,7 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
     if (!file || !dest) return new Response("There are no saved passwords to try.\n", { status: 400 });
     writePrivateFile(dest, file);
   }
-  const started = start({ id, command, args });
+  const started = start({ id, command, args: placed.args, cwd: placed.cwd });
   if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
   return Response.json({ ok: true });
 }

@@ -1,4 +1,5 @@
 import { quoteHydraArg } from "./hydra-args.ts";
+import { wfuzzOutput } from "./output-path.ts";
 
 const SHELL = /[;|`$<>\\\n\r\0]/;
 const BLOCKED = /rockyou|\/etc\/|\/proc\/|\/dev\/|\/root\/|\/home\//i;
@@ -364,6 +365,7 @@ export function wfuzzArgsOk(args: unknown): args is string[] {
       } else return false;
     }
     if (arg === "-w") sawPayload = true;
+    if (arg === "-f" && (typeof value !== "string" || !wfuzzOutput(value))) return false;
   }
   return sawPayload;
 }

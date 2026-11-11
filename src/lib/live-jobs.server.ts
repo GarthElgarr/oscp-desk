@@ -26,13 +26,11 @@ const dropped = new Set<string>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let runsOverride: string | null = null;
 
-type LiveSpawn = (
-  command: string,
-  args: readonly string[],
-  options: { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv },
-) => ChildProcess;
+type LiveSpawnOptions = { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv; cwd?: string };
 
-function defaultSpawn(command: string, args: readonly string[], options: { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv }): ChildProcess {
+type LiveSpawn = (command: string, args: readonly string[], options: LiveSpawnOptions) => ChildProcess;
+
+function defaultSpawn(command: string, args: readonly string[], options: LiveSpawnOptions): ChildProcess {
   return spawn(command, args, options);
 }
 
@@ -54,6 +52,13 @@ export function setLiveJobHooks(hooks: { runsFile?: string | null; spawn?: LiveS
 
 export function flushLiveJobs(): void {
   writeRunsNow();
+}
+
+export function spawnDesk(bin: string, args: readonly string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; tty?: boolean } = {}): ChildProcess {
+  const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(options.env ?? {}) };
+  const opts: LiveSpawnOptions = { shell: false, stdio: ["ignore", "pipe", "pipe"], env, cwd: options.cwd };
+  if (options.tty) return spawnCommand("python3", ["-c", PTY_WRAP, bin, ...args], opts);
+  return spawnCommand(bin, args, opts);
 }
 
 function saveRuns() {
@@ -227,16 +232,14 @@ export function spawnLiveJob(input: {
   maxOut?: number;
   env?: NodeJS.ProcessEnv;
   tty?: boolean;
+  cwd?: string;
   missing: string;
   doneLine: (code: number | null, stopped: boolean) => string;
 }): boolean {
   const handle = openJob(input);
   if (!handle) return false;
   handle.push(`$ ${redactStoredCommand(input.command)}\n`);
-  const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(input.env ?? {}) };
-  const child = input.tty
-    ? spawnCommand("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
-    : spawnCommand(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
+  const child = spawnDesk(input.bin, input.args, { cwd: input.cwd, env: input.env, tty: input.tty });
   handle.attach(child);
   const block = { value: "" };
   const feed = createTerminalFeed((full) => handle.paint(full, block));

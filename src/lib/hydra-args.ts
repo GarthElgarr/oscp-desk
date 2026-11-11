@@ -1,3 +1,4 @@
+import { outputBasename } from "./output-path.ts";
 import { wordlistPath } from "./scope-target.ts";
 
 const SHELL = /[;&|`$<>\\\n\r\0]/;
@@ -54,7 +55,7 @@ export function hydraArgsOk(args: unknown): args is string[] {
     const flagged = fileFlag(arg);
     if (!flagged) continue;
     const value = flagged.inline === null ? args[i + 1] : flagged.inline;
-    if (typeof value !== "string" || !hydraFile(value)) return false;
+    if (typeof value !== "string" || !hydraFile(value, flagged.flag)) return false;
     if (flagged.inline === null) i += 1;
   }
   return true;
@@ -67,17 +68,18 @@ function rockyouOk(arg: string): boolean {
   return eq !== -1 && wordlistPath(arg.slice(eq + 1)) !== null;
 }
 
-function hydraFile(value: string): boolean {
+function hydraFile(value: string, flag: string): boolean {
+  if (flag === "-o") return outputBasename(value) !== null;
   if (!value || value.includes("..") || value.startsWith("~") || (/rockyou/i.test(value) && !wordlistPath(value))) return false;
   if (wordlistPath(value) || LOOT.test(value)) return true;
   return !value.includes("/") && PLAIN.test(value);
 }
 
-function fileFlag(arg: string): { inline: string | null } | null {
+function fileFlag(arg: string): { flag: string; inline: string | null } | null {
   for (const flag of FILE_FLAGS) {
-    if (arg === flag) return { inline: null };
-    if (arg.startsWith(`${flag}=`)) return { inline: arg.slice(flag.length + 1) };
-    if (arg.startsWith(flag) && arg.length > flag.length) return { inline: arg.slice(flag.length) };
+    if (arg === flag) return { flag, inline: null };
+    if (arg.startsWith(`${flag}=`)) return { flag, inline: arg.slice(flag.length + 1) };
+    if (arg.startsWith(flag) && arg.length > flag.length) return { flag, inline: arg.slice(flag.length) };
   }
   return null;
 }
