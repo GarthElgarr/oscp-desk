@@ -132,13 +132,25 @@ function matchLong(name: string): LongOpt | "ambiguous" | null {
   return null;
 }
 
+const SCRIPT_WRAP = "and not (broadcast or dos or external)";
+
 function scriptNameError(value: string): string | null {
+  if (value.includes(SCRIPT_WRAP)) return null;
   const names = value.split(",").map((part) => part.trim()).filter(Boolean);
+  if (names.some((name) => /^(?:all|dos|external)$/i.test(name))) {
+    return "That script category runs broadcast, dos, or external scripts. Leave it out.";
+  }
   if (names.some((name) => /^(?:broadcast|targets)/i.test(name))) {
     return "That script discovers hosts or adds targets. Leave it out.";
   }
-  if (!/^[a-z0-9,_-]+$/.test(value)) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+  if (!/^[a-z0-9,_-]+$/i.test(value)) return "A script name is letters, numbers, commas, and dashes. Not a file path.";
   return null;
+}
+
+function wrapScript(value: string): string {
+  if (value.includes(SCRIPT_WRAP)) return value;
+  const names = value.split(",").map((part) => part.trim()).filter(Boolean);
+  return `(${names.join(",")}) ${SCRIPT_WRAP}`;
 }
 
 const SCRIPT_FILE_KEYS = new Set([
@@ -286,6 +298,25 @@ function screenNmapArgs(tokens: string[], mode: "extra" | "edit"): { keep: strin
       for (let j = i; j < read.next; j++) keep.push(tokens[j] ?? "");
     }
     i = read.next - 1;
+  }
+  return rewriteScripts(keep);
+}
+
+function rewriteScripts(tokens: string[]): { keep: string[] } | { error: string } {
+  const keep: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i] ?? "";
+    const head = token.split("=")[0] ?? token;
+    if (head !== "--script" && head !== "-script") {
+      keep.push(token);
+      continue;
+    }
+    const inline = token.includes("=");
+    const value = inline ? token.slice(token.indexOf("=") + 1) : tokens[i + 1] ?? "";
+    if (!inline) i += 1;
+    const problem = scriptNameError(value);
+    if (problem) return { error: problem };
+    keep.push("--script", wrapScript(value));
   }
   return { keep };
 }

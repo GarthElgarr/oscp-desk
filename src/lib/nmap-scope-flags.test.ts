@@ -93,6 +93,34 @@ test("nmap refuses spoofing flags while the exam lock is on", async (t) => {
   assert.equal(started, true);
 });
 
+test("nmap refuses script categories that run broadcast, dos, or external scripts", (t) => {
+  const root = scoped(t);
+  for (const extra of ["--script all", "--script dos", "--script external", "--script=all"]) {
+    let started = false;
+    const response = nmapHttp(
+      { id: "nmap-cat", profile: "custom", target: "10.10.10.5", name: "box", extra },
+      () => {
+        started = true;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 400, extra);
+    assert.equal(started, false, extra);
+  }
+  let args: string[] = [];
+  const ok = nmapHttp(
+    { id: "nmap-safe", profile: "custom", target: "10.10.10.5", name: "box", extra: "--script safe,default" },
+    (_command, _bin, seen) => {
+      args = seen;
+      return true;
+    },
+    root,
+  );
+  assert.equal(ok.status, 200);
+  assert.ok(args.includes("(safe,default) and not (broadcast or dos or external)"));
+});
+
 test("nmap script-args cannot name a file, and the scan runs in scans/nmap", (t) => {
   const root = scoped(t);
   const refused = [
