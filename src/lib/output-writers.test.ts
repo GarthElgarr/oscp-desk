@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test, { type TestContext } from "node:test";
-import { adRequest } from "./ad.server.ts";
+import { adHttp, adRequest } from "./ad.server.ts";
 import { impacketRequest, startImpacket } from "./impacket.server.ts";
 import { flushLiveJobs, setLiveJobHooks } from "./live-jobs.server.ts";
 import { nmapHttp } from "./nmap-scan.server.ts";
@@ -119,4 +119,27 @@ test("impacket and AD output flags stay under scans, and script paths are refuse
   assert.equal(nmap.status, 400);
   assert.equal(started, false);
   await new Promise((resolve) => setImmediate(resolve));
+});
+
+test("bloodhound argparse abbreviations cannot set an output prefix outside scans/ad", (t) => {
+  const root = desk(t);
+  const body = { id: "bh-op", mode: "bh-all", domain: "corp.local", user: "user", password: "NOTREAL", dc: "10.10.10.5" };
+  for (const extra of [
+    ["--outputprefix", "/tmp/bh"],
+    ["--outputprefix=/tmp/bh"],
+    ["--outp", "/tmp/bh"],
+    ["--output", "/tmp/bh"],
+    ["-op/tmp/bh"],
+  ]) {
+    const response = adHttp({ ...body, extra }, () => true, root);
+    assert.equal(response.status, 400, extra.join(" "));
+  }
+  let cwd = "";
+  const ok = adHttp({ ...body, id: "bh-ok", extra: ["--outputprefix", "bh"] }, (_id, _bin, args, _command, _mode, seen) => {
+    cwd = seen ?? "";
+    assert.ok(args.includes("bh"));
+    return true;
+  }, root);
+  assert.equal(ok.status, 200);
+  assert.equal(cwd, path.join(root, "scans", "ad"));
 });
