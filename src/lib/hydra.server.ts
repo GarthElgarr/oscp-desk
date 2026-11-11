@@ -10,6 +10,18 @@ import { examGuard } from "./scope-guard.server.ts";
 
 const LOOT = /^scans\/hydra\/loot-(users|passwords)-[a-z0-9]+\.txt$/;
 
+function writeLoot(dest: string, data: string): Response | null {
+  try {
+    writePrivateFile(dest, data);
+    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ELOOP") {
+      return new Response(`${err instanceof Error ? err.message : "That file is a symlink."}\n`, { status: 400 });
+    }
+    throw err;
+  }
+}
+
 function listFile(text: unknown): string | null {
   if (typeof text !== "string" || text.length > 20_000 || text.includes("\0")) return null;
   const lines = text
@@ -74,7 +86,8 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
     const file = listFile(lists.users);
     const dest = lootDest(root, moduleFile);
     if (!file || !dest) return new Response("There are no saved users to try.\n", { status: 400 });
-    writePrivateFile(dest, file);
+    const refused = writeLoot(dest, file);
+    if (refused) return refused;
   }
   const fromDisk = moduleFile ? fileLines(root, moduleFile) : [];
   const blocked = examGuard(fromDisk, raw, root);
@@ -85,13 +98,15 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
     const file = listFile(lists?.users);
     const dest = lootDest(root, userFile);
     if (!file || !dest) return new Response("There are no saved users to try.\n", { status: 400 });
-    writePrivateFile(dest, file);
+    const refused = writeLoot(dest, file);
+    if (refused) return refused;
   }
   if (passFile) {
     const file = listFile(lists?.passwords);
     const dest = lootDest(root, passFile);
     if (!file || !dest) return new Response("There are no saved passwords to try.\n", { status: 400 });
-    writePrivateFile(dest, file);
+    const refused = writeLoot(dest, file);
+    if (refused) return refused;
   }
   const started = start({ id, command, args: placed.args, cwd: placed.cwd });
   if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });

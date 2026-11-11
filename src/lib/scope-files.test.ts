@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -204,4 +204,31 @@ test("hydra -M= and -M glued forms become an absolute -M path", (t) => {
     assert.equal(seen[seen.indexOf("-M") + 1], abs, args[0]);
     assert.equal(seen.some((arg) => arg.startsWith("-M=") || arg.startsWith("-Mscans/")), false, args[0]);
   }
+});
+
+test("hydra does not write a loot list through a symlink", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  const outside = path.join(root, "outside.txt");
+  writeFileSync(outside, "kept\n");
+  symlinkSync(outside, path.join(dir, "loot-users-abc.txt"));
+  let started = false;
+  const response = hydraHttp(
+    {
+      id: "hydra-link",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(response.status, 400);
+  assert.equal(started, false);
+  assert.equal(readFileSync(outside, "utf8"), "kept\n");
 });
