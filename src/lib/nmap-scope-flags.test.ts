@@ -40,6 +40,15 @@ const refused = [
   "--script-args=newtargets",
   "--script targets-asn",
   "--script broadcast-dhcp-discover",
+  "-Fi/etc/hosts",
+  "-4i/etc/hosts",
+  "-ni/x",
+  "-Ri/x",
+  "-4o/tmp/x",
+  "-Fo/tmp/x",
+  "-Fopackage.json",
+  "--input-file=/etc/hosts",
+  "--output=/tmp/x",
 ];
 
 test("nmap custom flags cannot read a host list or add targets while the exam lock is on", (t) => {
@@ -57,7 +66,7 @@ test("nmap custom flags cannot read a host list or add targets while the exam lo
     assert.equal(response.status, 400, extra);
     assert.equal(started, false, extra);
   }
-  for (const extra of ["-sC -sV -p-", "--script http-title", "--script=http-title"]) {
+  for (const extra of ["-F", "-Pn", "-sC -sV", "-sC -sV -p-", "--script http-title", "--script=http-title"]) {
     let started = false;
     const response = nmapHttp(
       { id: "nmap-ok", profile: "custom", target: "10.10.10.5", name: "box", extra },
