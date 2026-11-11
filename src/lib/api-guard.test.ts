@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { guardDecision, tokensEqual } from "./api-guard.ts";
-import { DESK_TOKEN_SLOT, deskToken } from "./api-guard.server.ts";
+import { DESK_TOKEN_SLOT, deskToken, guardNodeRequest } from "./api-guard.server.ts";
 
 const token = "ab".repeat(32);
 const names = new Set(["localhost", "127.0.0.1", "::1", "10.10.14.5"]);
@@ -65,6 +65,20 @@ test("the desk token is one process-wide value, so a second module copy cannot m
   } finally {
     if (previous === undefined) delete bag[DESK_TOKEN_SLOT];
     else bag[DESK_TOKEN_SLOT] = previous;
+  }
+});
+
+test("every api route refuses a missing token, a wrong token, a bad origin, and a bad host", () => {
+  const files = readdirSync(new URL("../routes/api/", import.meta.url)).filter((name) => name.endsWith(".ts"));
+  const token = deskToken();
+  assert.ok(files.length >= 10);
+  for (const file of files) {
+    const url = `/api/${file.replace(/\.ts$/, "")}`;
+    const base = { method: "GET", url, listenPort: 81, contentType: undefined as string | undefined };
+    assert.equal(guardNodeRequest({ ...base, host: "127.0.0.1:81", origin: undefined, token: undefined })?.status, 401, url);
+    assert.equal(guardNodeRequest({ ...base, host: "127.0.0.1:81", origin: undefined, token: "nope" })?.status, 401, url);
+    assert.equal(guardNodeRequest({ ...base, host: "127.0.0.1:81", origin: "http://evil.example:81", token })?.status, 403, url);
+    assert.equal(guardNodeRequest({ ...base, host: "evil.example:81", origin: undefined, token })?.status, 403, url);
   }
 });
 
