@@ -350,7 +350,7 @@ function unlinkTree(dir: string) {
   }
 }
 
-/** Delete the run log, hydra/crack files, and SNMP community files. Leave the readme, nmap output, and the exam ledger. Refuses while a job is running. */
+/** Delete the run log, hydra/crack files, SNMP community files, and suggester systeminfo files. Leave the readme, nmap output, and the exam ledger. Refuses while a job is running. */
 export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) => job.running)): boolean {
   if (busy) return false;
   if (path.resolve(root) === path.resolve(process.cwd())) {
@@ -367,7 +367,7 @@ export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) =>
   const scans = path.resolve(root, "scans");
   if (existsSync(scans)) {
     for (const name of readdirSync(scans)) {
-      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name)) continue;
+      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name) && !/^systeminfo-[a-z0-9-]{1,40}\.txt$/.test(name)) continue;
       const full = path.join(scans, name);
       if (statSync(full).isFile()) unlinkSync(full);
     }

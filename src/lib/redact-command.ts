@@ -28,7 +28,7 @@ const SECRET_HEADERS = new Set(["authorization", "proxy-authorization", "cookie"
 const SECRET_FLAG = /(?:^|\s)(--password|-password|--hashes|-hashes|-nthash|-computer-pass|-new-pass|-newpass|-aesKey|-H|-c|-p)(?:=|\s+)(?:"[^"]*"|'(?:[^']|'\\'')*'|\S+)/g;
 const USER_PASS = /(^|[\s'"=/])((?:[^\s'":@/\\]+[/\\])?[^\s'":@]+):([^\s'":@]+)@/g;
 const SECRET_NAMES = new Set(["-password", "--password", "-hashes", "--hashes", "-nthash", "-newpass", "-new-pass", "-aeskey", "-computer-pass"]);
-const USER_PCT = /(^|[\s'"=/])([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^\s'"%]+)/g;
+const USER_PCT = /(^|[\s'"=/])([A-Za-z][A-Za-z0-9._@\\-]{0,63})%([^\s'"]+)/g;
 
 function unquote(value: string): string {
   if (value.length >= 2 && (value[0] === "'" || value[0] === '"') && value.endsWith(value[0])) return value.slice(1, -1);
@@ -126,6 +126,28 @@ function isSecretFlag(tool: string, flag: string): boolean {
   return name === "-p" && PASSWORD_P.has(tool);
 }
 
+const NO_HOST_IMPACKET = new Set([
+  "impacket-getuserspns",
+  "impacket-getnpusers",
+  "impacket-gettgt",
+  "impacket-getst",
+  "impacket-getadusers",
+  "impacket-finddelegation",
+  "impacket-addcomputer",
+  "impacket-rbcd",
+]);
+
+/** No host on the identity. Everything after the first colon is the secret, including @. */
+function maskNoHostIdent(ident: string): string {
+  if (!ident || ident.startsWith("-") || /^(?:ldaps?|https?|tcp):\/\//i.test(ident)) return ident;
+  const slash = Math.max(ident.lastIndexOf("/"), ident.lastIndexOf("\\"));
+  const head = slash >= 0 ? ident.slice(0, slash + 1) : "";
+  const userAndPass = slash >= 0 ? ident.slice(slash + 1) : ident;
+  const colon = userAndPass.indexOf(":");
+  if (colon <= 0) return ident;
+  return `${head}${userAndPass.slice(0, colon)}:****`;
+}
+
 /** [domain/]user[:password][@host]. The password may contain :, space, @, or %. */
 function maskIdent(ident: string): string {
   if (!ident || ident.startsWith("-") || /^(?:ldaps?|https?|tcp):\/\//i.test(ident)) return ident;
@@ -152,7 +174,7 @@ export function displayArgs(bin: string, args: string[], secrets: string[] = [])
     const prev = index > 0 ? (args[index - 1] ?? "") : "";
     const prevName = prev.split("=")[0] ?? "";
     if (prevName && isSecretFlag(tool, prevName) && !prev.includes("=")) return "****";
-    if (tool.startsWith("impacket-")) return maskIdent(arg);
+    if (tool.startsWith("impacket-")) return NO_HOST_IMPACKET.has(tool) ? maskNoHostIdent(arg) : maskIdent(arg);
     if (spray && index === args.length - 1 && !arg.startsWith("-")) {
       const file = args[index - 1] ?? "";
       if (!file.startsWith("-") && (file.includes("/") || file.endsWith(".txt"))) return "****";
