@@ -2,7 +2,7 @@ import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
-import { WFUZZ_LISTS, wfuzzArgsOk, wfuzzPlan, type WfuzzList, type WfuzzMode } from "@/lib/wfuzz-args";
+import { WFUZZ_LISTS, wfuzzCanRun, wfuzzPlan, type WfuzzList, type WfuzzMode } from "@/lib/wfuzz-args";
 import { quoteHydraArg } from "@/lib/hydra-args";
 import { useGlobalField } from "@/lib/use-global-field";
 
@@ -142,7 +142,7 @@ export function WfuzzBuilder() {
   );
 
   const args = [...plan.args, ...extraArgs];
-  const runnable = plan.ready && !plan.stop && (extraArgs.length === 0 || wfuzzArgsOk(args));
+  const runnable = wfuzzCanRun(plan, extraArgs);
   const shown = plan.ready ? ["wfuzz", ...plan.args.map(quoteHydraArg), ...extraArgs.map(quoteHydraArg)].join(" ") : "";
 
   return (
