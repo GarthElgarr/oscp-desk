@@ -1,13 +1,32 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { type ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { AD_MODES, adPlan, type AdInput, type AdMode } from "./ad-plan.ts";
 import { quoteHydraArg } from "./hydra-args.ts";
 import { IMPACKET_MODES, impacketPlan, type ImpacketInput, type ImpacketMode } from "./impacket-plan.ts";
 import { startImpacket } from "./impacket.server.ts";
-import { removeJob } from "./live-jobs.server.ts";
+import { flushLiveJobs, removeJob, setLiveJobHooks } from "./live-jobs.server.ts";
 import { redactStoredCommand } from "./redact-command.ts";
+import { testTmp } from "./test-tmp.ts";
+
+function quietChild(): ChildProcess {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const child = new EventEmitter() as ChildProcess;
+  child.stdout = stdout;
+  child.stderr = stderr;
+  child.kill = () => true;
+  setImmediate(() => {
+    stdout.end();
+    stderr.end();
+    child.emit("close", 0, null);
+  });
+  return child;
+}
 
 const SECRETS = ["NOTREAL", "NOT:REAL", "NOT REAL", "N0t@Real", "NOT%REAL", "1234"] as const;
 
@@ -108,27 +127,52 @@ test("a quoted smbclient password and a kerbrute spray with a space are masked",
   assert.match(changed, /-aesKey \*\*\*\*/);
 });
 
-test("a live getTGT run does not write the password into scans/runs.json", async () => {
+test("a live getTGT run does not write the password into scans/runs.json", async (t) => {
+  const root = testTmp(t, "oscp-gettgt-");
+  const runs = path.join(root, "scans", "runs.json");
+  const marker = path.join(root, "spawned");
+  const stub = path.join(root, "bin");
+  mkdirSync(stub);
+  writeFileSync(path.join(stub, "impacket-getTGT"), `#!/bin/sh\necho spawned > ${JSON.stringify(marker)}\n`);
+  chmodSync(path.join(stub, "impacket-getTGT"), 0o755);
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${stub}${path.delimiter}${previousPath ?? ""}`;
+
+  const scansDir = path.resolve(process.cwd(), "scans");
+  const beforeMode = statSync(scansDir).mode & 0o777;
+  const beforeNames = readdirSync(scansDir).sort();
+  const beforeReadme = readFileSync(path.join(scansDir, "README.txt"), "utf8");
+
+  setLiveJobHooks({ runsFile: runs, spawn: () => quietChild() });
+  t.after(() => {
+    flushLiveJobs();
+    setLiveJobHooks({ runsFile: null, spawn: null });
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+    assert.equal(existsSync(marker), false, "the test spawned impacket-getTGT");
+    assert.equal(statSync(scansDir).mode & 0o777, beforeMode);
+    assert.deepEqual(readdirSync(scansDir).sort(), beforeNames);
+    assert.equal(readFileSync(path.join(scansDir, "README.txt"), "utf8"), beforeReadme);
+  });
+
   const secret = "NOTREAL";
   const plan = impacketPlan(impacketInput("gettgt", secret));
   assert.ok(!("error" in plan));
   if ("error" in plan) return;
   const id = "gettgt-store";
-  const file = path.resolve(process.cwd(), "scans", "runs.json");
-  const before = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const had = before.includes(secret);
   removeJob(id);
   try {
     assert.equal(startImpacket(id, plan.bin, plan.args, plan.display), true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    const body = readFileSync(file, "utf8");
+    await new Promise((resolve) => setImmediate(resolve));
+    flushLiveJobs();
+    const body = readFileSync(runs, "utf8");
     const saved = JSON.parse(body) as { id?: string }[];
     const job = saved.find((row) => row.id === id);
     assert.ok(job, "gettgt run was not stored");
     assert.equal(JSON.stringify(job).includes(secret), false, JSON.stringify(job));
-    if (!had) assert.equal(body.includes(secret), false);
+    assert.equal(body.includes(secret), false);
   } finally {
     removeJob(id);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    flushLiveJobs();
   }
 });

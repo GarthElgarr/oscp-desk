@@ -19,12 +19,42 @@ export type LiveJob = {
 
 const MAX_RUNNING = 6;
 const KEEP = 200;
-const RUNS_FILE = path.resolve(process.cwd(), "scans", "runs.json");
 const jobs: LiveJob[] = [];
 const killers = new Map<string, () => void>();
 const writers = new Map<string, (text: string) => void>();
 const dropped = new Set<string>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let runsOverride: string | null = null;
+
+type LiveSpawn = (
+  command: string,
+  args: readonly string[],
+  options: { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv },
+) => ChildProcess;
+
+function defaultSpawn(command: string, args: readonly string[], options: { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv }): ChildProcess {
+  return spawn(command, args, options);
+}
+
+let spawnCommand: LiveSpawn = defaultSpawn;
+
+function runsFile(): string {
+  return runsOverride ?? path.resolve(process.cwd(), "scans", "runs.json");
+}
+
+/** Tests point the run log at a temp file and replace the process spawner. The desk still spawns for real when this is unset. */
+export function setLiveJobHooks(hooks: { runsFile?: string | null; spawn?: LiveSpawn | null }): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if ("runsFile" in hooks) runsOverride = hooks.runsFile ? path.resolve(hooks.runsFile) : null;
+  if ("spawn" in hooks) spawnCommand = hooks.spawn ?? defaultSpawn;
+}
+
+export function flushLiveJobs(): void {
+  writeRunsNow();
+}
 
 function saveRuns() {
   if (saveTimer) return;
@@ -46,7 +76,7 @@ function writeRunsNow() {
       command: redactStoredCommand(job.command).slice(0, 500),
       output: redactStoredOutput(job.output).slice(-120_000),
     }));
-    writePrivateFile(RUNS_FILE, JSON.stringify(body));
+    writePrivateFile(runsFile(), JSON.stringify(body));
   } catch {
     /* the next change tries again */
   }
@@ -54,7 +84,7 @@ function writeRunsNow() {
 
 function loadRuns() {
   try {
-    const raw = JSON.parse(readFileSync(RUNS_FILE, "utf8")) as unknown;
+    const raw = JSON.parse(readFileSync(runsFile(), "utf8")) as unknown;
     if (!Array.isArray(raw)) return;
     const loaded: LiveJob[] = [];
     let dirty = false;
@@ -205,8 +235,8 @@ export function spawnLiveJob(input: {
   handle.push(`$ ${redactStoredCommand(input.command)}\n`);
   const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(input.env ?? {}) };
   const child = input.tty
-    ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
-    : spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
+    ? spawnCommand("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
+    : spawnCommand(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
   handle.attach(child);
   const block = { value: "" };
   const feed = createTerminalFeed((full) => handle.paint(full, block));
