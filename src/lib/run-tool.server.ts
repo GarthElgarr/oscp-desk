@@ -85,9 +85,15 @@ const HASHCAT_VALUE_FLAGS = new Set([
   "-j", "--rule-left", "-k", "--rule-right", "--session", "--restore-file-path",
 ]);
 
-/** --remove rewrites the hash file. At least one positional hash file has to already live under scans/crack. A wordlist or a mask does not count. */
+function crackHashFile(arg: string): boolean {
+  if (!arg.startsWith("scans/crack/") || arg.includes("..") || arg.includes("\\")) return false;
+  return crackFile(arg.slice("scans/crack/".length)) !== null;
+}
+
+/** --remove rewrites the hash file. Hashcat treats the first positional as that file, so it has to be under scans/crack. */
 export function hashcatRemoveOk(args: readonly string[]): boolean {
   if (!args.some((arg) => (arg.split("=")[0] ?? arg) === "--remove")) return true;
+  let first = true;
   let hashes = 0;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] ?? "";
@@ -96,9 +102,14 @@ export function hashcatRemoveOk(args: readonly string[]): boolean {
       if (!arg.includes("=") && HASHCAT_VALUE_FLAGS.has(name)) i += 1;
       continue;
     }
+    if (first) {
+      first = false;
+      if (!crackHashFile(arg)) return false;
+      hashes += 1;
+      continue;
+    }
     if (wordlistPath(arg) || arg.includes("?")) continue;
-    if (!arg.startsWith("scans/crack/") || arg.includes("..") || arg.includes("\\")) return false;
-    if (crackFile(arg.slice("scans/crack/".length)) === null) return false;
+    if (!crackHashFile(arg)) return false;
     hashes += 1;
   }
   return hashes > 0;

@@ -46,6 +46,7 @@ test("john and hashcat files stay inside scans/crack", async (t) => {
   assert.equal(hashcatRemoveOk(["--remove", "/usr/share/wordlists/dirb/common.txt"]), false);
   assert.equal(hashcatRemoveOk(["-a", "3", "--remove", "scans/crack/hashes.txt", "?a?a?a?a"]), true);
   assert.equal(hashcatRemoveOk(["--remove", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"]), true);
+  assert.equal(hashcatRemoveOk(["--remove", "/usr/share/wordlists/rockyou.txt", "scans/crack/h.hash"]), false);
   assert.equal(crackFile("vite.config.ts"), null);
   const root = testTmp(t, "oscp-crack-");
   const written = await writeCrackFile("h.txt", "user:hash\n", root);
@@ -81,6 +82,15 @@ test("hashcat --remove is refused when every file is a wordlist", async (t) => {
     root,
   );
   assert.equal(hash.status, 200);
+  const reversed = runHttp(
+    {
+      id: "rm-rev",
+      tool: "hashcat",
+      steps: [{ kind: "exec", bin: "hashcat", args: ["-m", "0", "--remove", "/usr/share/wordlists/rockyou.txt", "scans/crack/h.hash"] }],
+    },
+    root,
+  );
+  assert.equal(reversed.status, 400);
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
 });
