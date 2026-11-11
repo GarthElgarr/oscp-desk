@@ -54,7 +54,7 @@ const tgt = {
   dc: "10.10.10.5",
 };
 
-test("impacket and AD output flags stay under scans, and script paths are refused", (t) => {
+test("impacket and AD output flags stay under scans, and script paths are refused", async (t) => {
   const root = desk(t);
   for (const extra of [
     ["-outputfile", "/tmp/x"],
@@ -108,4 +108,5 @@ test("impacket and AD output flags stay under scans, and script paths are refuse
   );
   assert.equal(nmap.status, 400);
   assert.equal(started, false);
+  await new Promise((resolve) => setImmediate(resolve));
 });
