@@ -93,6 +93,41 @@ test("nmap refuses spoofing flags while the exam lock is on", async (t) => {
   assert.equal(started, true);
 });
 
+test("nmap script-args cannot name a file, and the scan runs in scans/nmap", (t) => {
+  const root = scoped(t);
+  const refused = [
+    "--script http-wordpress-users --script-args http-wordpress-users.out=vite.config.ts",
+    "--script-args url-snarf.outfile=x",
+    "--script-args http-enum.fingerprintfile=package.json",
+    "--script-args userdb=package.json",
+    "--script-args-file=/x",
+  ];
+  for (const extra of refused) {
+    let started = false;
+    const response = nmapHttp(
+      { id: "nmap-script", profile: "custom", target: "10.10.10.5", name: "box", extra },
+      () => {
+        started = true;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 400, extra);
+    assert.equal(started, false, extra);
+  }
+  let cwd = "";
+  const ok = nmapHttp(
+    { id: "nmap-ua", profile: "custom", target: "10.10.10.5", name: "box", extra: "--script-args smbdomain=NOTREAL,http.useragent=x" },
+    (_command, _bin, _args, _profile, _meta, seen) => {
+      cwd = seen ?? "";
+      return true;
+    },
+    root,
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(cwd, path.join(root, "scans", "nmap"));
+});
+
 test("nmap custom flags cannot read a host list or add targets while the exam lock is on", (t) => {
   const root = scoped(t);
   for (const extra of refused) {

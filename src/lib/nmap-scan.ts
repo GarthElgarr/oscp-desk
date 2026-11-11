@@ -141,12 +141,20 @@ function scriptNameError(value: string): string | null {
   return null;
 }
 
+const SCRIPT_FILE_KEYS = new Set([
+  "out", "outfile", "file", "kmlfile", "save", "dir", "destination", "filename", "path",
+  "rfile", "fingerprintfile", "fingerprints", "userdb", "passdb", "credfile", "db",
+]);
+
 function scriptArgsError(value: string): string | null {
   if (/newtargets/i.test(value)) return "newtargets adds hosts. Leave it out.";
-  if (value.includes("/") || value.includes("\\") || /(?:destination|filename)\s*=/i.test(value)) {
-    return "That script argument writes a file. Leave the path out.";
+  if (value.includes("/") || value.includes("\\")) return "That script argument writes a file. Leave the path out.";
+  for (const part of value.split(",")) {
+    const key = (part.includes("=") ? part.slice(0, part.indexOf("=")) : part).trim();
+    const last = key.split(".").pop()?.toLowerCase() ?? "";
+    if (SCRIPT_FILE_KEYS.has(last)) return "That script argument writes or reads a file. Leave it out.";
   }
-  if (!/^[A-Za-z0-9_.=,:+-]{1,200}$/.test(value)) return NOT_FLAG;
+  if (!/^[A-Za-z0-9_.=,:+-]{1,300}$/.test(value)) return NOT_FLAG;
   return null;
 }
 
