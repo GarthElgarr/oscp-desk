@@ -1,4 +1,4 @@
-import { outputBasename } from "./output-path.ts";
+import { outputBasename } from "./output-name.ts";
 import { wordlistPath } from "./scope-target.ts";
 
 const SHELL = /[;&|`$<>\\\n\r\0]/;

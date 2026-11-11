@@ -1,5 +1,5 @@
 import { quoteHydraArg } from "./hydra-args.ts";
-import { wfuzzOutput } from "./output-path.ts";
+import { wfuzzOutput } from "./output-name.ts";
 
 const SHELL = /[;|`$<>\\\n\r\0]/;
 const BLOCKED = /rockyou|\/etc\/|\/proc\/|\/dev\/|\/root\/|\/home\//i;

@@ -1,20 +1,8 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { outputBasename, sessionBasename, wfuzzOutput } from "./output-name.ts";
 
-/** A file name saved under scans/<tool>/. No folders, no dotfiles, no source names such as package.json. */
-const OUTPUT_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,40}\.(?:txt|out|log|csv|pot|hc|restore)$/;
-const SESSION_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$/;
-const PRINTER = /^[A-Za-z0-9]{1,20}$/;
-
-export function outputBasename(value: string): string | null {
-  if (!OUTPUT_NAME.test(value)) return null;
-  return value;
-}
-
-export function sessionBasename(value: string): string | null {
-  if (!SESSION_NAME.test(value)) return null;
-  return value;
-}
+export { outputBasename, sessionBasename, wfuzzOutput } from "./output-name.ts";
 
 export function toolDir(root: string, tool: string): string {
   return path.resolve(root, "scans", tool);
@@ -99,15 +87,6 @@ export function confineHydraArgs(root: string, args: readonly string[]): { args:
     next.push(arg.startsWith("scans/") && !arg.includes("..") ? path.resolve(root, arg) : arg);
   }
   return { args: next, cwd };
-}
-
-export function wfuzzOutput(value: string): { name: string; printer: string } | null {
-  const comma = value.indexOf(",");
-  if (comma <= 0) return null;
-  const name = outputBasename(value.slice(0, comma));
-  const printer = value.slice(comma + 1);
-  if (!name || !PRINTER.test(printer)) return null;
-  return { name, printer };
 }
 
 export function confineWfuzzArgs(root: string, args: readonly string[]): { args: string[]; cwd: string } | null {
