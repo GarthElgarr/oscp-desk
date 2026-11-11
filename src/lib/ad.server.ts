@@ -52,7 +52,7 @@ export function adRequest(body: unknown, root = process.cwd()): { bin: string; a
   const extra = Array.isArray(row.extra) ? row.extra : [];
   const args = [...plan.args, ...extra];
   if (!adArgsOk(plan.bin, args)) return { error: "Those arguments are not a command this desk will run." };
-  const placed = confineFlagArgs(root, "ad", args, ["-o", "-out", "-output", "-op"]);
+  const placed = confineFlagArgs(root, "ad", args, ["-o", "-out", "-output"], ["-op"]);
   if (!placed) return { error: PLAIN_OUTPUT };
   const command = [plan.bin, ...placed.args.map((arg) => quoteHydraArg(arg))].join(" ");
   const secrets = [typeof row.password === "string" ? row.password : "", typeof row.pfxPass === "string" ? row.pfxPass : "", text(row.hash)];

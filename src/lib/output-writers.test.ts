@@ -93,6 +93,16 @@ test("impacket and AD output flags stay under scans, and script paths are refuse
     assert.equal(cwd, path.join(root, "scans", "impacket"));
     assert.ok(args.includes(path.join(root, "scans", "impacket", "loot.txt")));
   }
+  const prefix = adRequest(
+    { mode: "bh-all", domain: "corp.local", user: "user", password: "NOTREAL", dc: "10.10.10.5", extra: ["-op", "bh"] },
+    root,
+  );
+  assert.ok(!("error" in prefix));
+  if (!("error" in prefix)) {
+    assert.equal(prefix.bin, "bloodhound-python");
+    assert.ok(prefix.args.includes("bh"));
+    assert.equal(prefix.cwd, path.join(root, "scans", "ad"));
+  }
   const named = adRequest({ ...adBase, extra: ["-o", "out.txt"] }, root);
   assert.ok(!("error" in named));
   if (!("error" in named)) assert.ok(named.args.includes(path.join(root, "scans", "ad", "out.txt")));
