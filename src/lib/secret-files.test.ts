@@ -101,11 +101,17 @@ test("the clear action leaves the readme and the exam ledger and removes the res
   const root = testTmp(t, "oscp-clear-runs-");
   mkdirSync(path.join(root, "scans", "hydra"), { recursive: true });
   mkdirSync(path.join(root, "scans", "crack"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "wfuzz"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "impacket"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "ad"), { recursive: true });
   mkdirSync(path.join(root, "data"), { recursive: true });
   writeFileSync(path.join(root, "scans", "README.txt"), "keep\n");
   writeFileSync(path.join(root, "scans", "runs.json"), '[{"command":"hydra -p NOTREAL"}]');
   writeFileSync(path.join(root, "scans", "hydra", "loot-passwords-abc.txt"), "NOTREAL\n");
   writeFileSync(path.join(root, "scans", "crack", "h.txt"), "hash\n");
+  writeFileSync(path.join(root, "scans", "wfuzz", "out.txt"), "hit\n");
+  writeFileSync(path.join(root, "scans", "impacket", "user.ccache"), "ticket\n");
+  writeFileSync(path.join(root, "scans", "ad", "bloodhound.zip"), "zip\n");
   writeFileSync(path.join(root, "data", "exam-ledger.json"), '{"on":false}\n');
   writeFileSync(path.join(root, "scans", "exam-ledger.json"), '{"on":false}\n');
   writeFileSync(path.join(root, "scans", "snmp-1.communities"), "NOTREAL\n");
@@ -119,6 +125,9 @@ test("the clear action leaves the readme and the exam ledger and removes the res
   assert.equal(existsSync(path.join(root, "scans", "runs.json")), false);
   assert.equal(existsSync(path.join(root, "scans", "hydra", "loot-passwords-abc.txt")), false);
   assert.equal(existsSync(path.join(root, "scans", "crack", "h.txt")), false);
+  assert.equal(existsSync(path.join(root, "scans", "wfuzz", "out.txt")), false);
+  assert.equal(existsSync(path.join(root, "scans", "impacket", "user.ccache")), false);
+  assert.equal(existsSync(path.join(root, "scans", "ad", "bloodhound.zip")), false);
   assert.equal(readFileSync(path.join(root, "scans", "README.txt"), "utf8"), "keep\n");
   assert.equal(readFileSync(path.join(root, "data", "exam-ledger.json"), "utf8"), '{"on":false}\n');
   assert.equal(readFileSync(path.join(root, "scans", "exam-ledger.json"), "utf8"), '{"on":false}\n');

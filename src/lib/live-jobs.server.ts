@@ -369,13 +369,15 @@ export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) =>
   }
   const runs = path.resolve(root, "scans", "runs.json");
   if (existsSync(runs)) unlinkSync(runs);
-  unlinkTree(path.resolve(root, "scans", "hydra"));
-  unlinkTree(path.resolve(root, "scans", "crack"));
   const scans = path.resolve(root, "scans");
   if (existsSync(scans)) {
-    for (const name of readdirSync(scans)) {
-      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name) && !/^systeminfo-[a-z0-9-]{1,40}\.txt$/.test(name)) continue;
-      const full = path.join(scans, name);
+    for (const name of readdirSync(scans, { withFileTypes: true })) {
+      const full = path.join(scans, name.name);
+      if (name.isDirectory()) {
+        unlinkTree(full);
+        continue;
+      }
+      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name.name) && !/^systeminfo-[a-z0-9-]{1,40}\.txt$/.test(name.name)) continue;
       if (statSync(full).isFile()) unlinkSync(full);
     }
   }
