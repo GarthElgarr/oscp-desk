@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { testTmp } from "./test-tmp.ts";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -122,7 +123,12 @@ test("impacket and AD output flags stay under scans, and script paths are refuse
 });
 
 test("bloodhound argparse abbreviations cannot set an output prefix outside scans/ad", (t) => {
-  const root = desk(t);
+  const root = testTmp(t, "oscp-bh-");
+  mkdirSync(path.join(root, "data"));
+  writeFileSync(
+    path.join(root, "data", "exam-ledger.json"),
+    JSON.stringify({ on: true, startedAt: 0, meterpreterHost: "", scope: ["10.10.10.0/24"], hosts: [], msf: [], audit: [] }),
+  );
   const body = { id: "bh-op", mode: "bh-all", domain: "corp.local", user: "user", password: "NOTREAL", dc: "10.10.10.5" };
   for (const extra of [
     ["--outputprefix", "/tmp/bh"],
