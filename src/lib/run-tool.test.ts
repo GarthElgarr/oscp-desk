@@ -47,6 +47,14 @@ test("john and hashcat files stay inside scans/crack", async (t) => {
   assert.equal(hashcatRemoveOk(["-a", "3", "--remove", "scans/crack/hashes.txt", "?a?a?a?a"]), true);
   assert.equal(hashcatRemoveOk(["--remove", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"]), true);
   assert.equal(hashcatRemoveOk(["--remove", "/usr/share/wordlists/rockyou.txt", "scans/crack/h.hash"]), false);
+  assert.equal(
+    stepsOk([{ kind: "exec", bin: "hashcat", args: ["-m0", "-a0", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"] }]),
+    true,
+  );
+  assert.equal(
+    stepsOk([{ kind: "exec", bin: "hashcat", args: ["-m1000", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"] }]),
+    true,
+  );
   assert.equal(crackFile("vite.config.ts"), null);
   const root = testTmp(t, "oscp-crack-");
   const written = await writeCrackFile("h.txt", "user:hash\n", root);
@@ -91,6 +99,24 @@ test("hashcat --remove is refused when every file is a wordlist", async (t) => {
     root,
   );
   assert.equal(reversed.status, 400);
+  const glued = runHttp(
+    {
+      id: "rm-glued",
+      tool: "hashcat",
+      steps: [{ kind: "exec", bin: "hashcat", args: ["-m0", "-a0", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"] }],
+    },
+    root,
+  );
+  assert.equal(glued.status, 200);
+  const mode = runHttp(
+    {
+      id: "rm-mode",
+      tool: "hashcat",
+      steps: [{ kind: "exec", bin: "hashcat", args: ["-m1000", "scans/crack/h.hash", "/usr/share/wordlists/rockyou.txt"] }],
+    },
+    root,
+  );
+  assert.equal(mode.status, 200);
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setImmediate(resolve));
 });

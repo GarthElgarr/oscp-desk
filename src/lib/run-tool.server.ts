@@ -70,10 +70,19 @@ function locateCrackArg(arg: string, root: string): string {
   return path.join("scans", "crack", arg);
 }
 
+function hashcatFlag(arg: string): boolean {
+  const name = arg.split("=")[0] ?? arg;
+  if (HASHCAT_FLAGS.has(name)) return true;
+  const glued = /^(-[maw])(\d+)$/.exec(arg);
+  if (!glued || !HASHCAT_FLAGS.has(glued[1] ?? "")) return false;
+  if (glued[1] === "-a" || glued[1] === "-w") return /^[0-4]$/.test(glued[2] ?? "");
+  return true;
+}
+
 function flagAllowed(bin: string, arg: string): boolean {
   if (!arg.startsWith("-")) return true;
+  if (bin === "hashcat") return hashcatFlag(arg);
   const name = arg.split("=")[0] ?? arg;
-  if (bin === "hashcat") return HASHCAT_FLAGS.has(name);
   if (bin === "john") return JOHN_FLAGS.has(name);
   return true;
 }
@@ -99,7 +108,8 @@ export function hashcatRemoveOk(args: readonly string[]): boolean {
     const arg = args[i] ?? "";
     if (arg.startsWith("-")) {
       const name = arg.split("=")[0] ?? arg;
-      if (!arg.includes("=") && HASHCAT_VALUE_FLAGS.has(name)) i += 1;
+      const gluedValue = /^-[maw]\d+$/.test(arg);
+      if (!arg.includes("=") && !gluedValue && HASHCAT_VALUE_FLAGS.has(name)) i += 1;
       continue;
     }
     if (first) {
