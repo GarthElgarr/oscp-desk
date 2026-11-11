@@ -131,6 +131,7 @@ export async function clearRunsAndLoot(): Promise<string | null> {
     const text = (await response.text()).trim();
     return text || "The run log was not cleared.";
   }
+  publish([]);
   await syncJobs();
   return null;
 }
