@@ -4,6 +4,7 @@ import { PLAIN_OUTPUT } from "./output-name.ts";
 import { confineFlagArgs, ensureToolDir } from "./output-path.ts";
 import { displayCommand } from "./redact-command.ts";
 import { AD_MODES, adArgsOk, adPlan, type AdInput, type AdMode } from "./ad-plan.ts";
+import { adExtraOk } from "./tool-flags.ts";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -49,7 +50,8 @@ export function adRequest(body: unknown, root = process.cwd()): { bin: string; a
     kerberos: row.kerberos === true,
   });
   if ("error" in plan) return plan;
-  const extra = Array.isArray(row.extra) ? row.extra : [];
+  const extra = Array.isArray(row.extra) ? row.extra.filter((arg): arg is string => typeof arg === "string") : [];
+  if (!adExtraOk(plan.bin, extra)) return { error: "That flag is not an option this desk will run." };
   const args = [...plan.args, ...extra];
   if (!adArgsOk(plan.bin, args)) return { error: "Those arguments are not a command this desk will run." };
   const placed = confineFlagArgs(root, "ad", args, ["-o", "-out", "-output"], ["-op"]);

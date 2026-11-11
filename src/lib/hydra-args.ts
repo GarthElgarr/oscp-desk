@@ -1,5 +1,6 @@
 import { outputBasename } from "./output-name.ts";
 import { wordlistPath } from "./scope-target.ts";
+import { hydraFlagListed } from "./tool-flags.ts";
 
 const SHELL = /[;&|`$<>\\\n\r\0]/;
 const FILE_FLAGS = ["-o", "-M", "-C", "-L", "-P"] as const;
@@ -52,6 +53,7 @@ export function hydraArgsOk(args: unknown): args is string[] {
     const arg = args[i];
     if (typeof arg !== "string" || arg.length > 500 || SHELL.test(arg)) return false;
     if (!rockyouOk(arg)) return false;
+    if (arg.startsWith("-") && !hydraFlagListed(arg)) return false;
     const flagged = fileFlag(arg);
     if (!flagged) continue;
     const value = flagged.inline === null ? args[i + 1] : flagged.inline;

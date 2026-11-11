@@ -6,6 +6,7 @@ import { confineFlagArgs, ensureToolDir } from "./output-path.ts";
 import { PLAIN_OUTPUT } from "./output-name.ts";
 import { displayCommand } from "./redact-command.ts";
 import { impacketArgsOk, impacketPlan, type ImpacketInput, type ImpacketMode, IMPACKET_MODES } from "./impacket-plan.ts";
+import { impacketExtraOk } from "./tool-flags.ts";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -46,7 +47,8 @@ export function impacketRequest(body: unknown, root = process.cwd()): { bin: str
   });
   if ("error" in plan) return plan;
   if (!plan.run) return { error: "This one opens a shell. Copy it into a terminal. The desk would close it." };
-  const extra = Array.isArray(row.extra) ? row.extra : [];
+  const extra = Array.isArray(row.extra) ? row.extra.filter((arg): arg is string => typeof arg === "string") : [];
+  if (!impacketExtraOk(extra)) return { error: "That flag is not an Impacket option this desk will run." };
   const args = [...plan.args, ...extra];
   if (!impacketArgsOk(plan.bin, args)) return { error: "Those arguments are not an Impacket command this desk will run." };
   const placed = confineFlagArgs(root, "impacket", args, ["-outputfile", "-save"]);
