@@ -78,6 +78,30 @@ function flagAllowed(bin: string, arg: string): boolean {
   return true;
 }
 
+const HASHCAT_VALUE_FLAGS = new Set([
+  "-m", "--hash-type", "-a", "--attack-mode", "-o", "--outfile", "--outfile-format",
+  "-r", "--rules-file", "-w", "--workload-profile", "--status-timer", "--separator",
+  "-1", "-2", "-3", "-4", "--increment-min", "--increment-max",
+  "-j", "--rule-left", "-k", "--rule-right", "--session", "--restore-file-path",
+]);
+
+/** --remove rewrites the hash file. That file has to already live under scans/crack; a wordlist or a mask does not. */
+export function hashcatRemoveOk(args: readonly string[]): boolean {
+  if (!args.some((arg) => (arg.split("=")[0] ?? arg) === "--remove")) return true;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    if (arg.startsWith("-")) {
+      const name = arg.split("=")[0] ?? arg;
+      if (!arg.includes("=") && HASHCAT_VALUE_FLAGS.has(name)) i += 1;
+      continue;
+    }
+    if (wordlistPath(arg) || arg.includes("?")) continue;
+    if (!arg.startsWith("scans/crack/") || arg.includes("..") || arg.includes("\\")) return false;
+    if (crackFile(arg.slice("scans/crack/".length)) === null) return false;
+  }
+  return true;
+}
+
 function absoluteAllowed(arg: string): boolean {
   if (wordlistPath(arg) !== null) return true;
   return RULE_FILE.test(arg) && !arg.includes("..");
@@ -105,6 +129,7 @@ export function stepsOk(value: unknown): value is ToolStep[] {
     if ((item.kind === "exec" || item.kind === "exec-to-file") && BINS.has(item.bin)) {
       if (!Array.isArray(item.args) || item.args.length < 1 || item.args.length > 40 || !item.args.every((arg) => argOk(arg, item.bin))) return false;
       if (!crackOutputsOk(item.bin, item.args)) return false;
+      if (item.bin === "hashcat" && !hashcatRemoveOk(item.args)) return false;
       return item.kind === "exec" || crackFile(item.name) !== null;
     }
     return false;

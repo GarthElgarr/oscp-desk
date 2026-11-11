@@ -85,12 +85,14 @@ test("tool output paths stay under scans and refuse repo files", async (t) => {
   assert.ok(seen.some((row) => row.args.includes(`${wfuzzFile},json`)));
   assert.ok(seen.some((row) => row.cwd === path.join(root, "scans", "wfuzz")));
 
-  const hydraOk = hydraHttp({ id: "hydra-ok", args: ["-l", "user", "-p", "NOTREAL", "-o", "out.txt", "10.10.10.5", "ssh"] }, undefined, root);
+  const hydraOk = hydraHttp({ id: "hydra-ok", args: ["-l", "user", "-p", "NOTREAL", "-o=out.txt", "10.10.10.5", "ssh"] }, undefined, root);
   assert.equal(hydraOk.status, 200);
   const hydraFile = path.join(root, "scans", "hydra", "out.txt");
   const hydraRun = seen.find((row) => row.bin === "hydra");
   assert.ok(hydraRun);
   assert.ok(hydraRun.args.includes(hydraFile));
+  assert.equal(hydraRun.args[hydraRun.args.indexOf("-o") + 1], hydraFile);
+  assert.equal(hydraRun.args.some((arg) => arg.startsWith("-o=")), false);
   assert.equal(hydraRun.cwd, path.join(root, "scans", "hydra"));
   assert.ok(hydraRun.args.includes("NOTREAL"));
 

@@ -77,11 +77,8 @@ export function confineHydraArgs(root: string, args: readonly string[]): { args:
       const name = outputBasename(value);
       if (!name) return null;
       const file = toolFile(root, "hydra", name);
-      if (inline === null) {
-        next.push("-o", file);
-        i += 1;
-      } else if (arg.startsWith("-o=")) next.push(`-o=${file}`);
-      else next.push(`-o${file}`);
+      next.push("-o", file);
+      if (inline === null) i += 1;
       continue;
     }
     next.push(arg.startsWith("scans/") && !arg.includes("..") ? path.resolve(root, arg) : arg);
