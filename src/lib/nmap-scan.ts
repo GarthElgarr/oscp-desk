@@ -5,6 +5,7 @@ const OUTPUT_FLAGS = ["-oA", "-oN", "-oX", "-oG", "-oS"];
 const BARE_IPV4 = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 const FILE_FLAG = "That flag reads a host list or writes a file. The target and the save path stay in the form.";
 const NOT_FLAG = "One custom flag is not an nmap option this desk will run.";
+const SPOOF_FLAG = "Spoofing is banned. Leave -e, -S, -D, --proxies, --spoof-mac, and -g out of the scan.";
 const AMBIGUOUS = "That nmap option is ambiguous. Type the full name.";
 
 type ArgKind = "none" | "required" | "optional";
@@ -178,6 +179,7 @@ function safeValueError(name: string, value: string | null): string | null {
 function whyError(why: Why): string | null {
   if (why === "safe") return null;
   if (why === "file") return FILE_FLAG;
+  if (why === "spoof") return SPOOF_FLAG;
   return NOT_FLAG;
 }
 
