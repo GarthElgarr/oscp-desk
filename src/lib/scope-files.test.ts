@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import test, { type TestContext } from "node:test";
+import { hydraArgsOk } from "./hydra-args.ts";
 import { hydraHttp } from "./hydra.server.ts";
 import { impacketHttp, startImpacket } from "./impacket.server.ts";
 import { flushLiveJobs, removeJob, setLiveJobHooks } from "./live-jobs.server.ts";
@@ -181,6 +182,47 @@ test("hydra -M is one list, and the file on disk is what gets scope-checked", (t
     root,
   );
   assert.equal(one.status, 200);
+});
+
+test("hydra keeps an ampersand inside an http form string", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const form = "/login.php:user=^USER^&pass=^PASS^:F=Invalid";
+  let seen: string[] = [];
+  const response = hydraHttp(
+    {
+      id: "hydra-form",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "http-post-form", form],
+    },
+    (input) => {
+      seen = input.args;
+      return true;
+    },
+    root,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(seen.at(-1), form);
+  assert.equal(seen.includes("http-post-form"), true);
+  const https = hydraHttp(
+    {
+      id: "hydra-https",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "https-post-form", form],
+    },
+    () => true,
+    root,
+  );
+  assert.equal(https.status, 200);
+  const get = hydraHttp(
+    {
+      id: "hydra-get",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "http-get-form", "/login.php:user=^USER^&pass=^PASS^:F=Invalid"],
+    },
+    () => true,
+    root,
+  );
+  assert.equal(get.status, 200);
+  assert.equal(hydraArgsOk(["-l", "user", "-p", "a&b", "10.10.10.5", "ssh"]), false);
 });
 
 test("hydra -M= and -M glued forms become an absolute -M path", (t) => {

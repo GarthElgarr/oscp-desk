@@ -3,6 +3,7 @@ import { wordlistPath } from "./scope-target.ts";
 import { hydraFlagListed } from "./tool-flags.ts";
 
 const SHELL = /[;&|`$<>\\\n\r\0]/;
+const SHELL_MODULE = /[;|`$<>\\\n\r\0]/;
 const FILE_FLAGS = ["-o", "-M", "-C", "-L", "-P"] as const;
 const LOOT = /^scans\/hydra\/loot-(?:users|passwords)-[a-z0-9]+\.txt$/;
 const PLAIN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
@@ -51,7 +52,7 @@ export function hydraArgsOk(args: unknown): args is string[] {
   if (!Array.isArray(args) || args.length < 2 || args.length > 40) return false;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (typeof arg !== "string" || arg.length > 500 || SHELL.test(arg)) return false;
+    if (typeof arg !== "string" || arg.length > 500 || hydraShell(arg)) return false;
     if (!rockyouOk(arg)) return false;
     if (arg.startsWith("-") && !hydraFlagListed(arg)) return false;
     const flagged = fileFlag(arg);
@@ -61,6 +62,15 @@ export function hydraArgsOk(args: unknown): args is string[] {
     if (flagged.inline === null) i += 1;
   }
   return true;
+}
+
+/** The http(s) form string is one argv element. & ^ : = ? belong in it. They stay refused in every other argument. */
+function hydraModuleArg(arg: string): boolean {
+  return /\^(?:USER|PASS)\^/.test(arg) || /^\/?[^:\s]+:[^:\s]*:/.test(arg);
+}
+
+function hydraShell(arg: string): boolean {
+  return (hydraModuleArg(arg) ? SHELL_MODULE : SHELL).test(arg);
 }
 
 function rockyouOk(arg: string): boolean {
