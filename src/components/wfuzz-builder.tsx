@@ -141,7 +141,6 @@ export function WfuzzBuilder() {
     ],
   );
 
-  const args = [...plan.args, ...extraArgs];
   const runnable = wfuzzCanRun(plan, extraArgs);
   const shown = plan.ready ? ["wfuzz", ...plan.args.map(quoteHydraArg), ...extraArgs.map(quoteHydraArg)].join(" ") : "";
 
