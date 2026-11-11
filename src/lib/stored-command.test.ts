@@ -96,7 +96,7 @@ test("hydra and wfuzz routes store a masked command built from the args array", 
   assert.match(shown, new RegExp(PAYLOAD.replaceAll("/", "\\/")));
   assert.match(shown, /http:\/\/10\.10\.10\.5\/FUZZ/);
 
-  const jsonArgs = ["-z", PAYLOAD, "-d", '{"password":"NOTREAL","user":"alice","token":"FUZZ"}', "-u", URL];
+  const jsonArgs = ["-z", PAYLOAD, "-d", '{"password":12345678,"secret":true,"token":false,"pwd":"NOTREAL","user":"alice","note":"FUZZ"}', "-u", URL];
   let jsonCommand = "";
   const json = wfuzzHttp({ id: "wfuzz-json", args: jsonArgs }, (input) => {
     assert.deepEqual(input.args, jsonArgs);
@@ -106,7 +106,15 @@ test("hydra and wfuzz routes store a masked command built from the args array", 
   assert.equal(json.status, 200);
   const jsonShown = stored(jsonCommand);
   assert.equal(jsonCommand.includes("REAL"), false, jsonCommand);
-  assert.match(jsonShown, /\{"password":"\*\*\*\*","user":"alice","token":"FUZZ"\}/);
+  assert.equal(jsonShown.includes("12345678"), false, jsonShown);
+  assert.equal(jsonShown.includes("true"), false, jsonShown);
+  assert.equal(jsonShown.includes("false"), false, jsonShown);
+  assert.match(jsonShown, /"password":"\*\*\*\*"/);
+  assert.match(jsonShown, /"secret":"\*\*\*\*"/);
+  assert.match(jsonShown, /"token":"\*\*\*\*"/);
+  assert.match(jsonShown, /"pwd":"\*\*\*\*"/);
+  assert.match(jsonShown, /"user":"alice"/);
+  assert.match(jsonShown, /"note":"FUZZ"/);
   assert.match(jsonShown, new RegExp(PAYLOAD.replaceAll("/", "\\/")));
   assert.match(jsonShown, /\/FUZZ/);
 });

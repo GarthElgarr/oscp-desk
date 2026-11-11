@@ -228,7 +228,7 @@ const WFUZZ_AUTH = ["--basic", "--ntlm", "--digest"] as const;
 
 /** Quote a displayed arg when it contains a space. The process still gets the raw arg. */
 function quoteStored(arg: string): string {
-  if (!/\s/.test(arg)) return arg;
+  if (!/[\s"'{}$]/.test(arg)) return arg;
   return quoteHydraArg(arg);
 }
 
@@ -277,12 +277,16 @@ function maskFormBody(body: string): string {
     .join("&");
 }
 
+function jsonScalar(value: unknown): boolean {
+  return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
 function maskJsonNode(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => maskJsonNode(item));
   if (!value || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof item === "string" && SECRET_KEY.test(key) && !isFuzz(item)) out[key] = "****";
+    if (SECRET_KEY.test(key) && jsonScalar(item) && !(typeof item === "string" && isFuzz(item))) out[key] = "****";
     else out[key] = maskJsonNode(item);
   }
   return out;
