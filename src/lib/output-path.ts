@@ -81,6 +81,14 @@ export function confineHydraArgs(root: string, args: readonly string[]): { args:
       if (inline === null) i += 1;
       continue;
     }
+    const moduleInline = arg === "-M" ? null : arg.startsWith("-M=") ? arg.slice(3) : arg.startsWith("-M") && arg.length > 2 && !arg.startsWith("-M-") ? arg.slice(2) : undefined;
+    if (arg === "-M" || moduleInline !== undefined) {
+      const value = moduleInline === null ? args[i + 1] : moduleInline;
+      if (typeof value !== "string" || !/^scans\/hydra\/loot-users-[a-z0-9]+\.txt$/.test(value)) return null;
+      next.push("-M", path.resolve(root, value));
+      if (moduleInline === null) i += 1;
+      continue;
+    }
     next.push(arg.startsWith("scans/") && !arg.includes("..") ? path.resolve(root, arg) : arg);
   }
   return { args: next, cwd };

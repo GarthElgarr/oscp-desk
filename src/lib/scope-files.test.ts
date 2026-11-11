@@ -182,3 +182,26 @@ test("hydra -M is one list, and the file on disk is what gets scope-checked", (t
   );
   assert.equal(one.status, 200);
 });
+
+test("hydra -M= and -M glued forms become an absolute -M path", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const list = "scans/hydra/loot-users-abc.txt";
+  const abs = path.join(root, list);
+  for (const args of [[`-M=${list}`, "-p", "NOTREAL", "ssh"], [`-M${list}`, "-p", "NOTREAL", "ssh"]]) {
+    let seen: string[] = [];
+    const response = hydraHttp(
+      { id: "hydra-abs", args, lists: { users: "10.10.10.5\n" } },
+      (input) => {
+        seen = input.args;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 200, args[0]);
+    assert.equal(seen.includes("-M"), true, args[0]);
+    assert.equal(seen[seen.indexOf("-M") + 1], abs, args[0]);
+    assert.equal(seen.some((arg) => arg.startsWith("-M=") || arg.startsWith("-Mscans/")), false, args[0]);
+  }
+});
