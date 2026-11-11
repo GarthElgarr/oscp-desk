@@ -458,18 +458,25 @@ test("extensions stay off unless the desk env is exactly 1", () => {
     assert.match(out, /script-src 'self'/);
     assert.match(out, /object-src 'none'/);
     assert.match(out, /base-uri 'self'/);
-    assert.match(out, /frame-ancestors 'none'/);
     assert.match(out, /connect-src 'self'/);
+    assert.equal(out.includes("frame-ancestors"), false);
     assert.equal(deskContentSecurityPolicy({}).includes("grok.com"), false);
+    assert.match(deskContentSecurityPolicy({}), /frame-ancestors 'none'/);
+    const metaOff = out.match(/Content-Security-Policy" content="([^"]+)"/);
+    assert.equal(metaOff?.[1], deskContentSecurityPolicy({}, { meta: true }));
     process.env.VITE_GROK_EXTENSIONS = "1";
     assert.equal(readGrokExtensionsEnabled(), true);
     const on = injectGrokPwaHead("<html><head></head></html>", { projectId: "proj-123" });
     assert.match(on, /src="https:\/\/grok\.com\/grok-app-builder\/extensions\.js"/);
     const policy = deskContentSecurityPolicy();
     assert.match(policy, /script-src 'self' 'unsafe-inline' https:\/\/grok\.com/);
+    assert.match(policy, /frame-ancestors 'none'/);
     assert.doesNotMatch(policy, /connect-src [^;]*grok\.com/);
     const meta = on.match(/Content-Security-Policy" content="([^"]+)"/);
-    assert.equal(meta?.[1], policy);
+    const metaPolicy = deskContentSecurityPolicy(undefined, { meta: true });
+    assert.equal(meta?.[1], metaPolicy);
+    assert.equal(metaPolicy.includes("frame-ancestors"), false);
+    assert.match(metaPolicy, /https:\/\/grok\.com/);
   } finally {
     if (previous === undefined) delete process.env.VITE_GROK_EXTENSIONS;
     else process.env.VITE_GROK_EXTENSIONS = previous;

@@ -41,7 +41,8 @@ export type ImpacketInput = {
   password: string;
   hash: string;
   dc: string;
-  command: string;
+  /** The command the tool runs on the target. Empty means a shell you copy. */
+  remoteCommand: string;
   share: string;
   file: string;
   file2: string;
@@ -244,7 +245,7 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
 
   if (input.mode === "psexec" || input.mode === "smbexec" || input.mode === "wmiexec" || input.mode === "atexec") {
     const bins = { psexec: "impacket-psexec", smbexec: "impacket-smbexec", wmiexec: "impacket-wmiexec", atexec: "impacket-atexec" } as const;
-    const command = input.command.trim();
+    const command = input.remoteCommand.trim();
     if (!command) {
       return pack(input, 
         bins[input.mode],
@@ -472,6 +473,11 @@ export function impacketPlan(input: ImpacketInput): ImpacketPlan | { error: stri
   }
 
   return { error: "That Impacket tool is not in the builder." };
+}
+
+/** The JSON the Run button posts. remoteCommand stays the target command. The displayed line is not sent back as command. */
+export function impacketRunBody(form: ImpacketInput, extra: string[]): ImpacketInput & { extra: string[] } {
+  return { ...form, extra };
 }
 
 export function impacketArgsOk(bin: unknown, args: unknown): args is string[] {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { JobList } from "@/components/job-list";
 import { launchJob } from "@/lib/live-jobs";
 import { parseExtraFlags } from "@/lib/hydra-args";
+import { pendingCommand } from "@/lib/pending-command";
 
 export function ToolRun({
   endpoint,
@@ -35,8 +36,8 @@ export function ToolRun({
   }
 
   async function run(body: Record<string, unknown>) {
-    const listed = typeof body.command === "string" ? body.command : typeof body.args === "object" && Array.isArray(body.args) ? `${tool} ${body.args.join(" ")}` : tool;
-    await launchJob(endpoint, body, { tool, title: listed.slice(0, 500), command: listed.slice(0, 500) });
+    const listed = pendingCommand(tool, body);
+    await launchJob(endpoint, body, { tool, title: listed, command: listed });
     onRan?.();
   }
 

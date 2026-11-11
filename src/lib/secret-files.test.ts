@@ -47,6 +47,27 @@ test("stored commands keep scan details and hide the secret", () => {
   assert.match(redactStoredCommand("ssh://alice:NOTREAL@10.10.10.5"), /alice:\*\*\*\*@/);
   assert.equal(redactStoredCommand("https://alice:NOTREAL@10.10.10.5/").includes("NOTREAL"), false);
   assert.match(redactStoredCommand("smbclient //10.10.10.5/ -U alice%NOTREAL"), /-U alice%\*\*\*\*/);
+  const pct = redactStoredCommand("smbclient //10.10.10.5/share -U user%NOT%REAL");
+  assert.equal(pct.includes("NOT"), false, pct);
+  assert.equal(pct.includes("REAL"), false, pct);
+  assert.match(pct, /-U user%\*\*\*\*/);
+  assert.match(pct, /10\.10\.10\.5/);
+  for (const bin of [
+    "impacket-GetUserSPNs",
+    "impacket-GetNPUsers",
+    "impacket-getTGT",
+    "impacket-getST",
+    "impacket-GetADUsers",
+    "impacket-findDelegation",
+    "impacket-addcomputer",
+    "impacket-rbcd",
+  ]) {
+    const stored = redactStoredCommand(`${bin} user:N0t@Real -dc-ip 10.10.10.5`);
+    assert.equal(stored.includes("N0t"), false, stored);
+    assert.equal(stored.includes("@Real"), false, stored);
+    assert.match(stored, /user:\*\*\*\*/);
+    assert.match(stored, /-dc-ip 10\.10\.10\.5/);
+  }
   assert.equal(redactStoredCommand("smbclient //10.10.10.5/ -U guest%"), "smbclient //10.10.10.5/ -U guest%");
   assert.equal(redactStoredCommand("echo 100%"), "echo 100%");
   assert.equal(redactStoredCommand("snmpwalk -v 2c -c NOTREAL -Oa 10.10.10.5").includes("NOTREAL"), false);
@@ -80,26 +101,38 @@ test("the clear action leaves the readme and the exam ledger and removes the res
   const root = testTmp(t, "oscp-clear-runs-");
   mkdirSync(path.join(root, "scans", "hydra"), { recursive: true });
   mkdirSync(path.join(root, "scans", "crack"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "wfuzz"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "impacket"), { recursive: true });
+  mkdirSync(path.join(root, "scans", "ad"), { recursive: true });
   mkdirSync(path.join(root, "data"), { recursive: true });
   writeFileSync(path.join(root, "scans", "README.txt"), "keep\n");
   writeFileSync(path.join(root, "scans", "runs.json"), '[{"command":"hydra -p NOTREAL"}]');
   writeFileSync(path.join(root, "scans", "hydra", "loot-passwords-abc.txt"), "NOTREAL\n");
   writeFileSync(path.join(root, "scans", "crack", "h.txt"), "hash\n");
+  writeFileSync(path.join(root, "scans", "wfuzz", "out.txt"), "hit\n");
+  writeFileSync(path.join(root, "scans", "impacket", "user.ccache"), "ticket\n");
+  writeFileSync(path.join(root, "scans", "ad", "bloodhound.zip"), "zip\n");
   writeFileSync(path.join(root, "data", "exam-ledger.json"), '{"on":false}\n');
   writeFileSync(path.join(root, "scans", "exam-ledger.json"), '{"on":false}\n');
   writeFileSync(path.join(root, "scans", "snmp-1.communities"), "NOTREAL\n");
+  writeFileSync(path.join(root, "scans", "systeminfo-suggest.txt"), "NOTREAL\n");
   writeFileSync(path.join(root, "scans", "lab.nmap"), "open 22\n");
   assert.equal(clearRunsAndLoot(root, true), false);
   assert.equal(existsSync(path.join(root, "scans", "runs.json")), true);
   assert.equal(existsSync(path.join(root, "scans", "snmp-1.communities")), true);
+  assert.equal(existsSync(path.join(root, "scans", "systeminfo-suggest.txt")), true);
   assert.equal(clearRunsAndLoot(root), true);
   assert.equal(existsSync(path.join(root, "scans", "runs.json")), false);
   assert.equal(existsSync(path.join(root, "scans", "hydra", "loot-passwords-abc.txt")), false);
   assert.equal(existsSync(path.join(root, "scans", "crack", "h.txt")), false);
+  assert.equal(existsSync(path.join(root, "scans", "wfuzz", "out.txt")), false);
+  assert.equal(existsSync(path.join(root, "scans", "impacket", "user.ccache")), false);
+  assert.equal(existsSync(path.join(root, "scans", "ad", "bloodhound.zip")), false);
   assert.equal(readFileSync(path.join(root, "scans", "README.txt"), "utf8"), "keep\n");
   assert.equal(readFileSync(path.join(root, "data", "exam-ledger.json"), "utf8"), '{"on":false}\n');
   assert.equal(readFileSync(path.join(root, "scans", "exam-ledger.json"), "utf8"), '{"on":false}\n');
   assert.equal(existsSync(path.join(root, "scans", "snmp-1.communities")), false);
+  assert.equal(existsSync(path.join(root, "scans", "systeminfo-suggest.txt")), false);
   assert.equal(readFileSync(path.join(root, "scans", "lab.nmap"), "utf8"), "open 22\n");
 });
 
@@ -118,7 +151,9 @@ test("a written loot file and the exam ledger are mode 0o600", async (t) => {
       lists: { users: "user\n" },
     },
     (input) => {
-      assert.match(input.command, /-p NOTREAL/);
+      assert.ok(input.args.includes("NOTREAL"));
+      assert.equal(input.command.includes("NOTREAL"), false);
+      assert.match(input.command, /-p '\*\*\*\*'/);
       return true;
     },
     root,

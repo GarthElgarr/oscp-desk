@@ -21,6 +21,7 @@ import { getExam, getExamServer, subscribeExam } from "@/lib/exam-lock";
 import { nxcGuard, nxcInputError, nxcTarget, nxcUnknownFlag } from "@/lib/nxc-plan";
 import { useGlobalField } from "@/lib/use-global-field";
 import { quoteHydraArg } from "@/lib/hydra-args";
+import { outputBasename, PLAIN_OUTPUT, sessionBasename } from "@/lib/output-name";
 
 export type ToolId = "msfvenom" | "identify" | "hashcat" | "john" | "hydra" | "nxc" | "local" | "udp" | "nmap" | "snmp" | "search" | "tunnel" | "wfuzz" | "impacket" | "ad" | "basic" | "ffuf" | "dirs" | "smb" | "bof" | "sqli" | "adhour" | "client";
 
@@ -456,7 +457,8 @@ function HashcatBuilder() {
   const hash = cleanLoose(pasted).replace(/\s+/g, "");
   const hashOk = source === "loot" ? savedHashes.length > 0 : source === "file" || (hash.length > 0 && !/['"\\;&|`]/.test(hash));
   const maskOk = attack !== "mask" || /^\?[ludsab](?:\?[ludsab]|[A-Za-z0-9!@#$%&*._-]|\?l|\?u|\?d|\?s|\?a|\?b){0,30}$/.test(mask) || /^[?ludsabA-Za-z0-9!@#$%&*._-]+$/.test(mask);
-  const ready = Boolean(hashFile) && hashOk && (attack === "show" || attack === "mask" || Boolean(wordlist)) && (attack !== "mask" || (mask.length > 0 && maskOk));
+  const outBad = outfile.trim() !== "" && !outputBasename(outfile.trim());
+  const ready = Boolean(hashFile) && hashOk && !outBad && (attack === "show" || attack === "mask" || Boolean(wordlist)) && (attack !== "mask" || (mask.length > 0 && maskOk));
 
   let command = "";
   const hashcatSteps: Array<
@@ -484,7 +486,7 @@ function HashcatBuilder() {
     if (status) crack.push("--status", "--status-timer", "10");
     if (potOff) crack.push("--potfile-disable");
     if (removeFound) crack.push("--remove");
-    const out = cleanPath(outfile);
+    const out = outputBasename(outfile.trim()) ?? "";
     if (out) crack.push("-o", out);
     const sess = outfileSafe(session);
     if (sess) crack.push(`--session=${sess}`);
@@ -544,7 +546,7 @@ function HashcatBuilder() {
       title="hashcat"
       blurb="Pick the mode from the prefix. Paste one hash or name the file. Rockyou first. One rules pass only if that misses."
       command={command}
-      empty="Choose a mode. The command appears when the file name is valid."
+      empty={outBad ? PLAIN_OUTPUT : "Choose a mode. The command appears when the file name is valid."}
       why={why + (username ? " --username tells hashcat the line is name:hash and the name is not part of the hash." : "") + hashcatFlagWhy({ workload, optimized, forceOpencl, hwmon, status, potOff, removeFound, increment })}
       note={`${picked.hint}. ${picked.note}`}
       then={attack === "show" ? undefined : "Cracked means copy the password and try it. Exhausted means it is not in that list. Stop."}
@@ -873,7 +875,8 @@ function JohnBuilder() {
   const job = JOHN_JOBS.find((j) => j.id === jobId) ?? JOHN_JOBS[0];
   const wordlist = list === "custom" ? cleanPath(customList) : list;
   const readyFiles = job.fields.every((field) => cleanPath(files[field.key] || ""));
-  const ready = readyFiles && (attack === "show" || attack === "single" || attack === "incremental" || Boolean(wordlist));
+  const potBad = pot.trim() !== "" && !outputBasename(pot.trim());
+  const ready = readyFiles && !potBad && (attack === "show" || attack === "single" || attack === "incremental" || Boolean(wordlist));
 
   let command = "";
   const johnSteps: Array<
@@ -906,9 +909,9 @@ function JohnBuilder() {
     if (length) crack.push(`--max-length=${length}`);
     const users = /^[A-Za-z0-9._,-]{1,80}$/.test(johnUsers.trim()) ? johnUsers.trim() : "";
     if (users) crack.push(`--users=${users}`);
-    const potFile = cleanPath(pot);
+    const potFile = outputBasename(pot.trim()) ?? "";
     if (potFile) crack.push(`--pot=${potFile}`);
-    const sess = outfileSafe(johnSession);
+    const sess = sessionBasename(johnSession.trim()) ?? "";
     if (sess) crack.push(`--session=${sess}`);
     if (attack === "show") crack.push("--show", target);
     else if (attack === "single") {
@@ -947,7 +950,7 @@ function JohnBuilder() {
       title="john"
       blurb="John wants its own hash file. Convert first, then the wordlist, then --show."
       command={command}
-      empty="The file name has a character John would treat as a second argument. Use a plain path."
+      empty={potBad ? PLAIN_OUTPUT : "The file name has a character John would treat as a second argument. Use a plain path."}
       why={
         job.convert({ key: "FILE", passwd: "passwd", shadow: "shadow", file: "FILE", hash: "hashes.txt" }).split(" ")[0] +
         (job.id === "hash"
@@ -1348,7 +1351,8 @@ function HydraBuilder() {
     basicOk &&
     (!svc.form || (fieldOk && extraOk && markerClean.length > 0)) &&
     (!svc.user || Boolean(userValue)) &&
-    (passMode === "one" ? passOne.length > 0 : Boolean(passPath));
+    (passMode === "one" ? passOne.length > 0 : Boolean(passPath)) &&
+    (hydraOut.trim() === "" || Boolean(outputBasename(hydraOut.trim())));
 
   let command = "";
   const args: string[] = [];
@@ -1378,7 +1382,7 @@ function HydraBuilder() {
     if (/^[nsr]{1,3}$/.test(tryExtra)) args.push("-e", tryExtra);
     const wait = digits(waitTime, 60);
     if (wait) args.push("-w", wait);
-    const out = cleanPath(hydraOut);
+    const out = outputBasename(hydraOut.trim()) ?? "";
     if (out) {
       args.push("-o", out);
       if (hydraFmt === "json" || hydraFmt === "jsonv1") args.push("-b", hydraFmt);
@@ -1403,7 +1407,7 @@ function HydraBuilder() {
       title="hydra"
       blurb="A tiny list only. -t 1 is one try at a time. -f stops at the first hit. A form is built from one failed login, not from memory."
       command={command}
-      empty={rockyou || viewstate ? blocked : "Fill in the host. The command appears when the form text is safe to paste."}
+      empty={hydraOut.trim() && !outputBasename(hydraOut.trim()) ? PLAIN_OUTPUT : rockyou || viewstate ? blocked : "Fill in the host. The command appears when the form text is safe to paste."}
       why={
         svc.form
           ? "-t 1 is one login at a time. -f stops at the first password that works. -l is one user, -L is a file, -P is the password file. http-post-form takes the path, then the body, then the text that decides success. ^USER^ and ^PASS^ are replaced by hydra. A colon inside the failure text would split the argument, so it is left out. S= means the text appears on success. Without S=, hydra treats a missing string as success."
@@ -1693,7 +1697,7 @@ function NxcBuilder() {
   const portOk = port.trim() === "" || (/^\d+$/.test(port.trim()) && Number(port) >= 1 && Number(port) <= 65535);
   const shareOk = picked.id !== "spider" || cleanPath(share) !== "";
   const patternOk = picked.id !== "spider" || /^[A-Za-z0-9|._*-]+$/.test(pattern);
-  const outOk = !picked.outfile || outfileSafe(outfile) !== "";
+  const outOk = !picked.outfile || Boolean(outputBasename(outfile.trim()));
   const cmdOk = (picked.id !== "cmd" && picked.id !== "query") || (cleanLoose(cmd).length > 0 && !/[\n'`]/.test(cmd));
   const ready = Boolean(host) && NXC_PROTOS.has(proto) && domainOk && userOk && secretOk && !rockyou && portOk && shareOk && patternOk && outOk && cmdOk;
 
@@ -1734,8 +1738,8 @@ function NxcBuilder() {
     if (picked.id === "laps-smb") bits.push("--laps");
     if (picked.id === "adcs") bits.push("-M adcs");
     if (picked.id === "deleg") bits.push("--trusted-for-delegation");
-    if (picked.id === "kerb") bits.push(`--kerberoasting ${outfileSafe(outfile)}`);
-    if (picked.id === "asrep") bits.push(`--asreproast ${outfileSafe(outfile)}`);
+    if (picked.id === "kerb") bits.push(`--kerberoasting ${outputBasename(outfile.trim()) ?? ""}`);
+    if (picked.id === "asrep") bits.push(`--asreproast ${outputBasename(outfile.trim()) ?? ""}`);
     if (picked.id === "blood") bits.push("--bloodhound", "-c All");
     if (picked.id === "sam") bits.push("--sam");
     if (picked.id === "lsa") bits.push("--lsa");
@@ -1761,7 +1765,7 @@ function NxcBuilder() {
       title="nxc"
       blurb="Check the login on one host before you scan the subnet. A hash uses -H. A local SAM hash also needs --local-auth."
       command={command}
-      empty={blockNote || inputError || (rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret.")}
+      empty={picked.outfile && outfile.trim() && !outputBasename(outfile.trim()) ? PLAIN_OUTPUT : blockNote || inputError || (rockyou ? "Rockyou does not belong in nxc. One password you already found." : "Fill in the target, the user, and the secret.")}
       why={nxcWhy(proto, picked.id, auth, local)}
       note={picked.note}
       stop={Boolean(picked.stop) || rockyou}

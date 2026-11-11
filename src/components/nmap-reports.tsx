@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getJobs, getJobsServer, subscribeJobs } from "@/lib/live-jobs";
 import { deskFetch } from "@/lib/desk-fetch";
+import { presentNmapReport } from "@/lib/nmap-report";
 import { deskCard } from "@/lib/nmap-card";
 
 type Script = { id: string; output: string };
@@ -148,14 +149,19 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
                   >
                     {name}.xml
                   </button>
-                  <a
-                    href={`/api/nmap?name=${encodeURIComponent(name)}&html=1`}
-                    target="_blank"
-                    rel="noopener"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const opened = window.open("", "_blank");
+                      if (opened) opened.opener = null;
+                      void presentNmapReport(name, opened).then((message) => {
+                        if (message) setError(message);
+                      });
+                    }}
                     className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs text-primary"
                   >
                     HTML
-                  </a>
+                  </button>
                 </span>
               ))}
             </div>

@@ -1,0 +1,276 @@
+import assert from "node:assert/strict";
+import { type ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { PassThrough } from "node:stream";
+import test, { type TestContext } from "node:test";
+import { hydraArgsOk } from "./hydra-args.ts";
+import { hydraHttp } from "./hydra.server.ts";
+import { impacketHttp, startImpacket } from "./impacket.server.ts";
+import { flushLiveJobs, removeJob, setLiveJobHooks } from "./live-jobs.server.ts";
+
+function hung(): ChildProcess {
+  const child = new EventEmitter() as ChildProcess;
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => {
+    child.emit("close", null);
+    return true;
+  };
+  return child;
+}
+
+function scoped(t: TestContext): string {
+  const root = mkdtempSync(path.join(tmpdir(), "oscp-scope-file-"));
+  mkdirSync(path.join(root, "data"));
+  writeFileSync(
+    path.join(root, "data", "exam-ledger.json"),
+    JSON.stringify({ on: true, startedAt: 0, meterpreterHost: "", scope: ["10.10.10.5"], hosts: [], msf: [], audit: [] }),
+  );
+  t.after(() => {
+    try {
+      flushLiveJobs();
+      setLiveJobHooks({ runsFile: null, spawn: null });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+  return root;
+}
+
+test("hydra -M lists and impacket -dc-host stay inside the exam scope", (t) => {
+  const root = scoped(t);
+  const loot = path.join(root, "scans", "hydra", "loot-users-abc.txt");
+  const hydra = hydraHttp(
+    {
+      id: "hydra-mod",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.11.5\n" },
+    },
+    () => true,
+    root,
+  );
+  assert.equal(hydra.status, 403);
+  assert.equal(readFileSync(loot, "utf8"), "10.10.11.5\n");
+
+  const host = impacketHttp(
+    {
+      id: "imp-host",
+      mode: "gettgt",
+      domain: "corp.local",
+      user: "user",
+      password: "NOTREAL",
+      dc: "10.10.10.5",
+      extra: ["-dc-host", "dc.corp.local"],
+    },
+    () => true,
+    root,
+  );
+  assert.equal(host.status, 403);
+
+  const ids = ["slot-a", "slot-b", "slot-c", "slot-d", "slot-e", "slot-f"];
+  setLiveJobHooks({
+    runsFile: path.join(root, "scans", "runs.json"),
+    spawn: () => hung(),
+  });
+  try {
+    for (const id of ids) assert.equal(startImpacket(id, "true", ["ok"], "true"), true);
+    unlinkSync(loot);
+    const full = hydraHttp(
+      {
+        id: "hydra-full",
+        args: ["-L", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "10.10.10.5", "ssh"],
+        lists: { users: "user\n" },
+      },
+      undefined,
+      root,
+    );
+    assert.equal(full.status, 429);
+    assert.equal(existsSync(loot), false);
+  } finally {
+    for (const id of ids) removeJob(id);
+  }
+});
+
+const SLOT_IDS = ["slot-a", "slot-b", "slot-c", "slot-d", "slot-e", "slot-f"];
+
+test("hydra -M refuses a basename that the scan directory would read", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "targets.txt"), "10.10.10.99\n");
+  const loot = path.join(dir, "loot-users-abc.txt");
+  for (const args of [
+    ["-M", "targets.txt", "-p", "NOTREAL", "ssh"],
+    ["-M=targets.txt", "-p", "NOTREAL", "ssh"],
+    ["-Mtargets.txt", "-p", "NOTREAL", "ssh"],
+  ]) {
+    let started = false;
+    const response = hydraHttp({ id: "hydra-bare", args, lists: { users: "10.10.10.99\n" } }, () => {
+      started = true;
+      return true;
+    }, root);
+    assert.equal(response.status, 400, args[0]);
+    assert.equal(started, false, args[0]);
+  }
+  assert.equal(existsSync(loot), false);
+
+  let started = false;
+  const ok = hydraHttp(
+    {
+      id: "hydra-loot",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(started, true);
+});
+
+test("hydra -M is one list, and the file on disk is what gets scope-checked", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  const aaa = path.join(dir, "loot-users-aaa.txt");
+  const bbb = path.join(dir, "loot-users-bbb.txt");
+  writeFileSync(aaa, "10.10.11.99\n");
+  let started = false;
+  const split = hydraHttp(
+    {
+      id: "hydra-split",
+      args: ["-L", "scans/hydra/loot-users-bbb.txt", "-p", "NOTREAL", "-M", "scans/hydra/loot-users-aaa.txt", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(split.status, 400);
+  assert.equal(started, false);
+  assert.equal(readFileSync(aaa, "utf8"), "10.10.11.99\n");
+  const both = hydraHttp(
+    {
+      id: "hydra-two",
+      args: ["-M", "scans/hydra/loot-users-bbb.txt", "-M", "scans/hydra/loot-users-aaa.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => true,
+    root,
+  );
+  assert.equal(both.status, 400);
+  assert.equal(existsSync(bbb), false);
+  const one = hydraHttp(
+    {
+      id: "hydra-one",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => true,
+    root,
+  );
+  assert.equal(one.status, 200);
+});
+
+test("hydra keeps an ampersand inside an http form string", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const form = "/login.php:user=^USER^&pass=^PASS^:F=Invalid";
+  let seen: string[] = [];
+  const response = hydraHttp(
+    {
+      id: "hydra-form",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "http-post-form", form],
+    },
+    (input) => {
+      seen = input.args;
+      return true;
+    },
+    root,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(seen.at(-1), form);
+  assert.equal(seen.includes("http-post-form"), true);
+  const https = hydraHttp(
+    {
+      id: "hydra-https",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "https-post-form", form],
+    },
+    () => true,
+    root,
+  );
+  assert.equal(https.status, 200);
+  const get = hydraHttp(
+    {
+      id: "hydra-get",
+      args: ["-l", "user", "-p", "NOTREAL", "10.10.10.5", "http-get-form", "/login.php:user=^USER^&pass=^PASS^:F=Invalid"],
+    },
+    () => true,
+    root,
+  );
+  assert.equal(get.status, 200);
+  assert.equal(hydraArgsOk(["-l", "user", "-p", "a&b", "10.10.10.5", "ssh"]), false);
+});
+
+test("hydra -M= and -M glued forms become an absolute -M path", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const list = "scans/hydra/loot-users-abc.txt";
+  const abs = path.join(root, list);
+  for (const args of [[`-M=${list}`, "-p", "NOTREAL", "ssh"], [`-M${list}`, "-p", "NOTREAL", "ssh"]]) {
+    let seen: string[] = [];
+    const response = hydraHttp(
+      { id: "hydra-abs", args, lists: { users: "10.10.10.5\n" } },
+      (input) => {
+        seen = input.args;
+        return true;
+      },
+      root,
+    );
+    assert.equal(response.status, 200, args[0]);
+    assert.equal(seen.includes("-M"), true, args[0]);
+    assert.equal(seen[seen.indexOf("-M") + 1], abs, args[0]);
+    assert.equal(seen.some((arg) => arg.startsWith("-M=") || arg.startsWith("-Mscans/")), false, args[0]);
+  }
+});
+
+test("hydra does not write a loot list through a symlink", (t) => {
+  const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
+  for (const id of SLOT_IDS) removeJob(id);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  const outside = path.join(root, "outside.txt");
+  writeFileSync(outside, "kept\n");
+  symlinkSync(outside, path.join(dir, "loot-users-abc.txt"));
+  let started = false;
+  const response = hydraHttp(
+    {
+      id: "hydra-link",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(response.status, 400);
+  assert.equal(started, false);
+  assert.equal(readFileSync(outside, "utf8"), "kept\n");
+});

@@ -2,42 +2,338 @@ import { quoteHydraArg } from "./hydra-args.ts";
 
 const SHELL = /[;|&`$<>\\\n\r\0]/;
 const OUTPUT_FLAGS = ["-oA", "-oN", "-oX", "-oG", "-oS"];
-const GLUED_PATH = /^-(o[ANXGS]|i[LR])/;
-const BANNED_LONG = new Set([
-  "--script-args-file",
-  "--datadir",
-  "--servicedb",
-  "--versiondb",
-  "--excludefile",
-  "--resume",
-  "--stylesheet",
-  "--webxml",
-]);
 const BARE_IPV4 = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+const FILE_FLAG = "That flag reads a host list or writes a file. The target and the save path stay in the form.";
+const NOT_FLAG = "One custom flag is not an nmap option this desk will run.";
+const SPOOF_FLAG = "Spoofing is banned. Leave -e, -S, -D, --proxies, --spoof-mac, and -g out of the scan.";
+const AMBIGUOUS = "That nmap option is ambiguous. Type the full name.";
 
-function flagHead(arg: string): string {
-  const eq = arg.indexOf("=");
-  return eq === -1 ? arg : arg.slice(0, eq);
-}
+type ArgKind = "none" | "required" | "optional";
+type Why = "safe" | "file" | "spoof" | "no";
+type LongOpt = { name: string; arg: ArgKind; why: Why };
 
-/** Glued -oNout / -iL/etc/passwd, and the long flags that read or write a file. Exact -oA is left for the editor to strip. */
-function pathFlagError(arg: string): string | null {
-  if (GLUED_PATH.test(arg) && !OUTPUT_FLAGS.includes(arg)) {
-    return "The output name sets where the scan is saved. Leave -oA and -iL out of the command.";
-  }
-  if (BANNED_LONG.has(flagHead(arg))) {
-    return "That nmap flag reads or writes a file. Leave it out of the command.";
-  }
+/**
+ * nmap uses getopt_long_only. A single dash can be a long option, a short
+ * cluster, or a short option with the rest of the token as its value
+ * (-Fi/etc/hosts is -F -i /etc/hosts). Unsafe names stay in the table so a
+ * prefix cannot collapse onto a safe option.
+ */
+const LONG_OPTS: LongOpt[] = [
+  { name: "Pn", arg: "none", why: "safe" },
+  { name: "open", arg: "none", why: "safe" },
+  { name: "reason", arg: "none", why: "safe" },
+  { name: "top-ports", arg: "required", why: "safe" },
+  { name: "min-rate", arg: "required", why: "safe" },
+  { name: "max-retries", arg: "required", why: "safe" },
+  { name: "version-intensity", arg: "required", why: "safe" },
+  { name: "version-all", arg: "none", why: "safe" },
+  { name: "version-light", arg: "none", why: "safe" },
+  { name: "script", arg: "required", why: "safe" },
+  { name: "script-args", arg: "required", why: "safe" },
+  { name: "iL", arg: "required", why: "file" },
+  { name: "iR", arg: "required", why: "file" },
+  { name: "oA", arg: "required", why: "file" },
+  { name: "oN", arg: "required", why: "file" },
+  { name: "oX", arg: "required", why: "file" },
+  { name: "oG", arg: "required", why: "file" },
+  { name: "oS", arg: "required", why: "file" },
+  { name: "input-file", arg: "required", why: "file" },
+  { name: "output", arg: "required", why: "file" },
+  { name: "append-output", arg: "none", why: "file" },
+  { name: "excludefile", arg: "required", why: "file" },
+  { name: "exclude", arg: "required", why: "no" },
+  { name: "datadir", arg: "required", why: "file" },
+  { name: "servicedb", arg: "required", why: "file" },
+  { name: "versiondb", arg: "required", why: "file" },
+  { name: "resume", arg: "required", why: "file" },
+  { name: "stylesheet", arg: "required", why: "file" },
+  { name: "webxml", arg: "none", why: "file" },
+  { name: "script-args-file", arg: "required", why: "file" },
+  { name: "script-help", arg: "required", why: "no" },
+  { name: "script-trace", arg: "none", why: "no" },
+  { name: "script-updatedb", arg: "none", why: "file" },
+  { name: "spoof-mac", arg: "required", why: "spoof" },
+  { name: "source-port", arg: "required", why: "spoof" },
+  { name: "source-ip", arg: "required", why: "spoof" },
+  { name: "proxies", arg: "required", why: "spoof" },
+  { name: "decoy", arg: "required", why: "spoof" },
+  { name: "decoys", arg: "required", why: "spoof" },
+  { name: "interface", arg: "required", why: "spoof" },
+  { name: "osscan-guess", arg: "none", why: "safe" },
+  { name: "osscan-limit", arg: "none", why: "no" },
+  { name: "send-eth", arg: "none", why: "no" },
+  { name: "send-ip", arg: "none", why: "no" },
+  { name: "privileged", arg: "none", why: "no" },
+  { name: "unprivileged", arg: "none", why: "no" },
+  { name: "system-dns", arg: "none", why: "no" },
+  { name: "dns-servers", arg: "required", why: "no" },
+  { name: "traceroute", arg: "none", why: "safe" },
+  { name: "packet-trace", arg: "none", why: "no" },
+  { name: "max-rate", arg: "required", why: "safe" },
+  { name: "max-hostgroup", arg: "required", why: "no" },
+  { name: "min-hostgroup", arg: "required", why: "no" },
+  { name: "max-parallelism", arg: "required", why: "no" },
+  { name: "min-parallelism", arg: "required", why: "no" },
+  { name: "max-rtt-timeout", arg: "required", why: "no" },
+  { name: "min-rtt-timeout", arg: "required", why: "no" },
+  { name: "initial-rtt-timeout", arg: "required", why: "no" },
+  { name: "host-timeout", arg: "required", why: "safe" },
+  { name: "scan-delay", arg: "required", why: "safe" },
+  { name: "script-timeout", arg: "required", why: "safe" },
+  { name: "max-scan-delay", arg: "required", why: "no" },
+  { name: "stats-every", arg: "required", why: "no" },
+  { name: "port-ratio", arg: "required", why: "no" },
+  { name: "scanflags", arg: "required", why: "no" },
+  { name: "data", arg: "required", why: "no" },
+  { name: "data-string", arg: "required", why: "no" },
+  { name: "data-length", arg: "required", why: "no" },
+  { name: "ip-options", arg: "required", why: "no" },
+  { name: "ttl", arg: "required", why: "no" },
+  { name: "mtu", arg: "required", why: "no" },
+  { name: "badsum", arg: "none", why: "no" },
+  { name: "allports", arg: "none", why: "no" },
+  { name: "fuzzy", arg: "none", why: "no" },
+];
+
+const SHORT_OPTS: Record<string, { arg: ArgKind; why: Why }> = {
+  "4": { arg: "none", why: "no" },
+  "6": { arg: "none", why: "no" },
+  A: { arg: "none", why: "safe" },
+  b: { arg: "required", why: "no" },
+  D: { arg: "required", why: "spoof" },
+  d: { arg: "optional", why: "safe" },
+  e: { arg: "required", why: "spoof" },
+  F: { arg: "none", why: "safe" },
+  f: { arg: "none", why: "no" },
+  g: { arg: "required", why: "spoof" },
+  h: { arg: "none", why: "no" },
+  I: { arg: "none", why: "no" },
+  i: { arg: "required", why: "file" },
+  M: { arg: "required", why: "no" },
+  n: { arg: "none", why: "safe" },
+  O: { arg: "optional", why: "safe" },
+  o: { arg: "required", why: "file" },
+  P: { arg: "required", why: "no" },
+  p: { arg: "required", why: "safe" },
+  r: { arg: "none", why: "no" },
+  R: { arg: "none", why: "no" },
+  S: { arg: "required", why: "spoof" },
+  s: { arg: "required", why: "safe" },
+  T: { arg: "required", why: "safe" },
+  v: { arg: "none", why: "safe" },
+  V: { arg: "none", why: "no" },
+};
+
+function matchLong(name: string): LongOpt | "ambiguous" | null {
+  const exact = LONG_OPTS.filter((opt) => opt.name === name);
+  if (exact.length === 1) return exact[0] ?? null;
+  const prefix = LONG_OPTS.filter((opt) => opt.name.startsWith(name));
+  if (prefix.length === 1) return prefix[0] ?? null;
+  if (prefix.length > 1) return "ambiguous";
   return null;
 }
 
-function scriptError(arg: string, next: string | undefined): string | null {
-  if (flagHead(arg) !== "--script") return null;
-  const value = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : next && !next.startsWith("-") ? next : "";
-  if (!/^[a-z0-9,_-]+$/.test(value)) {
-    return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+const SCRIPT_WRAP = "and not (broadcast or dos or external)";
+const SCRIPT_CATEGORY = "That script category runs broadcast, dos, or external scripts. Leave it out.";
+const SCRIPT_DISCOVER = "That script discovers hosts or adds targets. Leave it out.";
+const SCRIPT_NAME = "A script name is letters, numbers, commas, and dashes. Not a file path.";
+const DESK_SCRIPT = /^\(([a-z0-9,_*-]+)\) and not \(broadcast or dos or external\)$/i;
+
+/** A comma-separated name or glob list. The desk's own wrap is accepted and checked again. Anything with parentheses, and/or/not, quotes, or spaces has to be exactly that wrap. */
+function scriptList(value: string): { names: string[] } | { error: string } {
+  let list = value;
+  if (/[()\s'"]/.test(value) || /\b(?:and|or|not)\b/i.test(value)) {
+    const exact = DESK_SCRIPT.exec(value);
+    if (!exact?.[1]) return { error: SCRIPT_NAME };
+    list = exact[1];
   }
+  if (list.includes("/") || list.includes(".") || list.includes("\\") || !/^[a-z0-9,_*-]+$/i.test(list)) return { error: SCRIPT_NAME };
+  const names = list.split(",").filter(Boolean);
+  if (names.length === 0 || names.some((name) => name !== name.trim())) return { error: SCRIPT_NAME };
+  if (names.some((name) => /^(?:all|dos|external)$/i.test(name))) return { error: SCRIPT_CATEGORY };
+  if (names.some((name) => /^(?:broadcast|targets)/i.test(name))) return { error: SCRIPT_DISCOVER };
+  return { names };
+}
+
+function scriptNameError(value: string): string | null {
+  const parsed = scriptList(value);
+  return "error" in parsed ? parsed.error : null;
+}
+
+function wrapScript(value: string): string {
+  const parsed = scriptList(value);
+  if ("error" in parsed) return value;
+  return `(${parsed.names.join(",")}) ${SCRIPT_WRAP}`;
+}
+
+const SCRIPT_FILE_KEYS = new Set([
+  "out", "outfile", "file", "kmlfile", "save", "dir", "destination", "filename", "path",
+  "rfile", "fingerprintfile", "fingerprints", "userdb", "passdb", "credfile", "db",
+]);
+
+function scriptArgsError(value: string): string | null {
+  if (/newtargets/i.test(value)) return "newtargets adds hosts. Leave it out.";
+  if (value.includes("/") || value.includes("\\")) return "That script argument writes a file. Leave the path out.";
+  for (const part of value.split(",")) {
+    const key = (part.includes("=") ? part.slice(0, part.indexOf("=")) : part).trim();
+    const last = key.split(".").pop()?.toLowerCase() ?? "";
+    if (SCRIPT_FILE_KEYS.has(last)) return "That script argument writes or reads a file. Leave it out.";
+  }
+  if (!/^[A-Za-z0-9_.=,:+-]{1,300}$/.test(value)) return NOT_FLAG;
   return null;
+}
+
+function portsOk(value: string): boolean {
+  if (value === "-") return true;
+  if (!value || value.length > 200) return false;
+  return value.split(",").every((part) => {
+    const body = part.replace(/^[TU]:/, "");
+    const range = /^(\d{1,5})(?:-(\d{1,5}))?$/.exec(body) ?? /^-(\d{1,5})$/.exec(body);
+    if (!range) return false;
+    const nums = range.slice(1).filter((item) => item !== undefined).map(Number);
+    if (nums.some((n) => n < 1 || n > 65535)) return false;
+    return range[2] === undefined || Number(range[2]) >= Number(range[1]);
+  });
+}
+
+function safeValueError(name: string, value: string | null): string | null {
+  if (name === "s") return /^[STUVCNFXA]+$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "p") return portsOk(value ?? "") ? null : NOT_FLAG;
+  if (name === "T") return /^[0-5]$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "d" || name === "O") return value === null || /^[0-9]$/.test(value) ? null : NOT_FLAG;
+  if (name === "top-ports") return /^[1-9]\d{0,4}$/.test(value ?? "") && Number(value) <= 65535 ? null : NOT_FLAG;
+  if (name === "min-rate" || name === "max-rate") return /^[1-9]\d{0,6}$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "host-timeout" || name === "scan-delay" || name === "script-timeout") return /^\d{1,9}(?:ms|s|m|h)?$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "max-retries") return /^\d{1,2}$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "version-intensity") return /^[0-9]$/.test(value ?? "") ? null : NOT_FLAG;
+  if (name === "script") return scriptNameError(value ?? "");
+  if (name === "script-args") return scriptArgsError(value ?? "");
+  return null;
+}
+
+function whyError(why: Why): string | null {
+  if (why === "safe") return null;
+  if (why === "file") return FILE_FLAG;
+  if (why === "spoof") return SPOOF_FLAG;
+  return NOT_FLAG;
+}
+
+function decide(why: Why, name: string, value: string | null): string | null {
+  return whyError(why) ?? safeValueError(name, value);
+}
+
+type Read = { next: number; drop: boolean } | { error: string };
+
+function finish(why: Why, name: string, value: string | null, next: number): Read {
+  const error = decide(why, name, value);
+  if (error) return { error };
+  return { next, drop: false };
+}
+
+/** One argv element, using nmap's getopt_long_only rules. */
+function readOption(tokens: string[], index: number): Read {
+  const token = tokens[index] ?? "";
+  const dashed = token.startsWith("--");
+  const body = dashed ? token.slice(2) : token.slice(1);
+  const eq = body.indexOf("=");
+  const name = eq === -1 ? body : body.slice(0, eq);
+  const inline = eq === -1 ? null : body.slice(eq + 1);
+  const longName = /^[A-Za-z0-9][A-Za-z0-9-]*$/.test(name);
+  if (dashed || (longName && name.length > 1)) {
+    if (!longName) return dashed ? { error: NOT_FLAG } : readShort(token, tokens, index);
+    const matched = matchLong(name);
+    if (matched === "ambiguous") return { error: AMBIGUOUS };
+    if (matched) {
+      let next = index + 1;
+      let value = inline;
+      if (matched.arg === "none" && inline !== null) return { error: NOT_FLAG };
+      if (matched.arg === "required" && value === null) {
+        const following = tokens[next];
+        if (following === undefined) return { error: NOT_FLAG };
+        value = following;
+        next += 1;
+      }
+      return finish(matched.why, matched.name, value, next);
+    }
+    if (dashed) return { error: NOT_FLAG };
+  }
+  return readShort(token, tokens, index);
+}
+
+function readShort(token: string, tokens: string[], index: number): Read {
+  let cursor = 1;
+  let next = index + 1;
+  if (cursor >= token.length) return { error: NOT_FLAG };
+  while (cursor < token.length) {
+    const letter = token[cursor] ?? "";
+    const spec = SHORT_OPTS[letter];
+    if (!spec) return { error: NOT_FLAG };
+    cursor += 1;
+    let value: string | null = null;
+    if (spec.arg === "required") {
+      if (cursor < token.length) {
+        value = token.slice(cursor);
+        cursor = token.length;
+      } else {
+        const following = tokens[next];
+        if (following === undefined) return { error: NOT_FLAG };
+        value = following;
+        next += 1;
+      }
+    } else if (spec.arg === "optional" && cursor < token.length) {
+      value = token.slice(cursor);
+      cursor = token.length;
+    }
+    const error = decide(spec.why, letter, value);
+    if (error) return { error };
+  }
+  return { next, drop: false };
+}
+
+/** Keep the flags nmap will actually see. Exact -oA/-oN/-oX/-oG/-oS in an edited command are replaced by the desk path. */
+function screenNmapArgs(tokens: string[], mode: "extra" | "edit"): { keep: string[] } | { error: string } {
+  const keep: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i] ?? "";
+    if (token.length > 200 || token.includes("..") || token.startsWith("/")) return { error: NOT_FLAG };
+    if (BARE_IPV4.test(token) || !token.startsWith("-") || token === "-" || token === "--") {
+      const second = mode === "edit"
+        ? "The target IP stays at the end of the command. A second address is not a flag."
+        : "The target stays in the IP box, so a second address is not a flag.";
+      return { error: second };
+    }
+    if (mode === "edit" && (OUTPUT_FLAGS.includes(token) || token === "--append-output")) {
+      const following = tokens[i + 1];
+      if (OUTPUT_FLAGS.includes(token) && following && !following.startsWith("-")) i += 1;
+      continue;
+    }
+    const read = readOption(tokens, i);
+    if ("error" in read) return read;
+    if (!read.drop) {
+      for (let j = i; j < read.next; j++) keep.push(tokens[j] ?? "");
+    }
+    i = read.next - 1;
+  }
+  return rewriteScripts(keep);
+}
+
+function rewriteScripts(tokens: string[]): { keep: string[] } | { error: string } {
+  const keep: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i] ?? "";
+    const head = token.split("=")[0] ?? token;
+    if (head !== "--script" && head !== "-script") {
+      keep.push(token);
+      continue;
+    }
+    const inline = token.includes("=");
+    const value = inline ? token.slice(token.indexOf("=") + 1) : tokens[i + 1] ?? "";
+    if (!inline) i += 1;
+    const problem = scriptNameError(value);
+    if (problem) return { error: problem };
+    keep.push("--script", wrapScript(value));
+  }
+  return { keep };
 }
 
 export const NMAP_PROFILES = ["quick", "alltcp", "udp", "deep", "custom"] as const;
@@ -111,20 +407,9 @@ export function nmapExtra(input: string): { ok: true; args: string[] } | { ok: f
   if (quote) return { ok: false, error: "A quote in the custom flags is not closed." };
   if (cur) args.push(cur);
   if (args.length > 24) return { ok: false, error: "Too many custom flags." };
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i] ?? "";
-    if (arg.length > 200 || SHELL.test(arg) || arg.includes("..") || arg.startsWith("/")) {
-      return { ok: false, error: "One custom flag is not an nmap option this desk will run." };
-    }
-    const blocked = pathFlagError(arg) ?? scriptError(arg, args[i + 1]);
-    if (blocked || OUTPUT_FLAGS.includes(arg) || arg === "--append-output") {
-      return { ok: false, error: blocked ?? "The output name sets where the scan is saved. Leave -oA and -iL out of the custom flags." };
-    }
-    if (BARE_IPV4.test(arg)) {
-      return { ok: false, error: "The target stays in the IP box, so a second address is not a flag." };
-    }
-  }
-  return { ok: true, args };
+  const screened = screenNmapArgs(args, "extra");
+  if ("error" in screened) return { ok: false, error: screened.error };
+  return { ok: true, args: screened.keep };
 }
 
 export function nmapPlan(input: {
@@ -180,21 +465,9 @@ export function nmapEditedCommand(line: string, name: string): { args: string[];
   const target = body[body.length - 1] ?? "";
   const host = nmapTarget(target);
   if (!host) return { error: "The target IP stays at the end of the command." };
-  const args: string[] = [];
-  for (let i = 0; i < body.length - 1; i++) {
-    const arg = body[i] ?? "";
-    const blocked = pathFlagError(arg) ?? scriptError(arg, body[i + 1]);
-    if (blocked) return { error: blocked };
-    if (OUTPUT_FLAGS.includes(arg) || arg === "--append-output") {
-      if (OUTPUT_FLAGS.includes(arg) && !arg.includes("=") && body[i + 1] && !body[i + 1].startsWith("-")) i += 1;
-      continue;
-    }
-    if (arg.length > 200 || arg.includes("..") || arg.startsWith("/")) {
-      return { error: "One argument is not an nmap option this desk will run." };
-    }
-    if (BARE_IPV4.test(arg)) return { error: "The target IP stays at the end of the command. A second address is not a flag." };
-    args.push(arg);
-  }
+  const screened = screenNmapArgs(body.slice(0, -1), "edit");
+  if ("error" in screened) return screened;
+  const args = screened.keep;
   args.push("-oA", `scans/${name}`, host);
   const sudo = askedSudo || wantsRoot(false, args);
   const command = [sudo ? "sudo -n nmap" : "nmap", ...args.map(quoteHydraArg)].join(" ");

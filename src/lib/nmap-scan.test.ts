@@ -57,7 +57,7 @@ test("nmap refuses file-path flags and a second address", () => {
   assert.equal(nmapExtra("-p 80,443 -sV").ok, true);
   const kept = nmapEditedCommand("nmap --script=vuln,safe -p 80,443 -sV 10.10.10.10", "box");
   assert.ok(!("error" in kept));
-  assert.equal(kept.args.includes("--script=vuln,safe"), true);
+  assert.ok(kept.args.includes("(vuln,safe) and not (broadcast or dos or external)"));
   const second = nmapEditedCommand("nmap -sV 10.1.1.1 10.1.1.2", "box");
   assert.ok("error" in second);
 });

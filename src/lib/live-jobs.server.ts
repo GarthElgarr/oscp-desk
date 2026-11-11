@@ -19,12 +19,47 @@ export type LiveJob = {
 
 const MAX_RUNNING = 6;
 const KEEP = 200;
-const RUNS_FILE = path.resolve(process.cwd(), "scans", "runs.json");
 const jobs: LiveJob[] = [];
 const killers = new Map<string, () => void>();
 const writers = new Map<string, (text: string) => void>();
 const dropped = new Set<string>();
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let runsOverride: string | null = null;
+
+type LiveSpawnOptions = { shell: false; stdio: ["ignore", "pipe", "pipe"]; env: NodeJS.ProcessEnv; cwd?: string };
+
+type LiveSpawn = (command: string, args: readonly string[], options: LiveSpawnOptions) => ChildProcess;
+
+function defaultSpawn(command: string, args: readonly string[], options: LiveSpawnOptions): ChildProcess {
+  return spawn(command, args, options);
+}
+
+let spawnCommand: LiveSpawn = defaultSpawn;
+
+function runsFile(): string {
+  return runsOverride ?? path.resolve(process.cwd(), "scans", "runs.json");
+}
+
+/** Tests point the run log at a temp file and replace the process spawner. The desk still spawns for real when this is unset. */
+export function setLiveJobHooks(hooks: { runsFile?: string | null; spawn?: LiveSpawn | null }): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if ("runsFile" in hooks) runsOverride = hooks.runsFile ? path.resolve(hooks.runsFile) : null;
+  if ("spawn" in hooks) spawnCommand = hooks.spawn ?? defaultSpawn;
+}
+
+export function flushLiveJobs(): void {
+  writeRunsNow();
+}
+
+export function spawnDesk(bin: string, args: readonly string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; tty?: boolean } = {}): ChildProcess {
+  const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(options.env ?? {}) };
+  const opts: LiveSpawnOptions = { shell: false, stdio: ["ignore", "pipe", "pipe"], env, cwd: options.cwd };
+  if (options.tty) return spawnCommand("python3", ["-c", PTY_WRAP, bin, ...args], opts);
+  return spawnCommand(bin, args, opts);
+}
 
 function saveRuns() {
   if (saveTimer) return;
@@ -46,7 +81,7 @@ function writeRunsNow() {
       command: redactStoredCommand(job.command).slice(0, 500),
       output: redactStoredOutput(job.output).slice(-120_000),
     }));
-    writePrivateFile(RUNS_FILE, JSON.stringify(body));
+    writePrivateFile(runsFile(), JSON.stringify(body));
   } catch {
     /* the next change tries again */
   }
@@ -54,7 +89,7 @@ function writeRunsNow() {
 
 function loadRuns() {
   try {
-    const raw = JSON.parse(readFileSync(RUNS_FILE, "utf8")) as unknown;
+    const raw = JSON.parse(readFileSync(runsFile(), "utf8")) as unknown;
     if (!Array.isArray(raw)) return;
     const loaded: LiveJob[] = [];
     let dirty = false;
@@ -85,6 +120,10 @@ function loadRuns() {
   } catch {
     /* no saved runs yet */
   }
+}
+
+export function jobSlotFree(): boolean {
+  return jobs.filter((job) => job.running).length < MAX_RUNNING;
 }
 
 export function jobId(value: unknown): string | null {
@@ -197,16 +236,14 @@ export function spawnLiveJob(input: {
   maxOut?: number;
   env?: NodeJS.ProcessEnv;
   tty?: boolean;
+  cwd?: string;
   missing: string;
   doneLine: (code: number | null, stopped: boolean) => string;
 }): boolean {
   const handle = openJob(input);
   if (!handle) return false;
   handle.push(`$ ${redactStoredCommand(input.command)}\n`);
-  const env = { ...process.env, COLUMNS: "200", LINES: "50", ...(input.env ?? {}) };
-  const child = input.tty
-    ? spawn("python3", ["-c", PTY_WRAP, input.bin, ...input.args], { shell: false, stdio: ["ignore", "pipe", "pipe"], env })
-    : spawn(input.bin, input.args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env });
+  const child = spawnDesk(input.bin, input.args, { cwd: input.cwd, env: input.env, tty: input.tty });
   handle.attach(child);
   const block = { value: "" };
   const feed = createTerminalFeed((full) => handle.paint(full, block));
@@ -320,7 +357,7 @@ function unlinkTree(dir: string) {
   }
 }
 
-/** Delete the run log, hydra/crack files, and SNMP community files. Leave the readme, nmap output, and the exam ledger. Refuses while a job is running. */
+/** Delete the run log, hydra/crack files, SNMP community files, and suggester systeminfo files. Leave the readme, nmap output, and the exam ledger. Refuses while a job is running. */
 export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) => job.running)): boolean {
   if (busy) return false;
   if (path.resolve(root) === path.resolve(process.cwd())) {
@@ -332,13 +369,15 @@ export function clearRunsAndLoot(root = process.cwd(), busy = jobs.some((job) =>
   }
   const runs = path.resolve(root, "scans", "runs.json");
   if (existsSync(runs)) unlinkSync(runs);
-  unlinkTree(path.resolve(root, "scans", "hydra"));
-  unlinkTree(path.resolve(root, "scans", "crack"));
   const scans = path.resolve(root, "scans");
   if (existsSync(scans)) {
-    for (const name of readdirSync(scans)) {
-      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name)) continue;
-      const full = path.join(scans, name);
+    for (const name of readdirSync(scans, { withFileTypes: true })) {
+      const full = path.join(scans, name.name);
+      if (name.isDirectory()) {
+        unlinkTree(full);
+        continue;
+      }
+      if (!/^[a-z][a-z0-9-]{0,40}\.communities$/.test(name.name) && !/^systeminfo-[a-z0-9-]{1,40}\.txt$/.test(name.name)) continue;
       if (statSync(full).isFile()) unlinkSync(full);
     }
   }

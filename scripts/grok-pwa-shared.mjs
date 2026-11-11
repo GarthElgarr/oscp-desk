@@ -202,12 +202,14 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
 
 export const GROK_EXTENSIONS_SCRIPT_SRC = "https://grok.com/grok-app-builder/extensions.js";
 
-/** Same-origin scripts, plus the opt-in extensions host only when that flag is exactly "1". */
-export function deskContentSecurityPolicy(env) {
+/** Same-origin scripts, plus the opt-in extensions host only when that flag is exactly "1". frame-ancestors is header-only; a meta policy omits it. */
+export function deskContentSecurityPolicy(env, options) {
   const script = readGrokExtensionsEnabled(env)
     ? "script-src 'self' 'unsafe-inline' https://grok.com"
     : "script-src 'self' 'unsafe-inline'";
-  return `${script}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; connect-src 'self'`;
+  const directives = [script, "object-src 'none'", "base-uri 'self'", "connect-src 'self'"];
+  if (!options?.meta) directives.splice(3, 0, "frame-ancestors 'none'");
+  return directives.join("; ");
 }
 
 /** Default policy with extensions off. The live header calls deskContentSecurityPolicy(). */
@@ -474,7 +476,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
   );
 
   if (!next.includes("Content-Security-Policy")) {
-    missing.push(`<meta http-equiv="Content-Security-Policy" content="${deskContentSecurityPolicy()}">`);
+    missing.push(`<meta http-equiv="Content-Security-Policy" content="${deskContentSecurityPolicy(undefined, { meta: true })}">`);
   }
 
   if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {

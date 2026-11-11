@@ -31,6 +31,16 @@ test("sqlmap is banned only while the exam lock is on", () => {
   assert.equal(bannedCommand("nmap -Pn 10.10.10.10", true), null);
 });
 
+test("every exam refusal still blocks sqlmap, mass scanners, and spoofing", () => {
+  const banned = ["sqlmap", "sqlninja", "nessus", "openvas", "nexpose", "responder", "mitm6", "bettercap", "ettercap", "arpspoof", "ntlmrelayx"];
+  for (const name of banned) {
+    const locked = bannedCommand(`${name} --help`, true);
+    assert.match(locked ?? "", new RegExp(name, "i"), name);
+    assert.equal(bannedCommand(`${name} --help`, false), null, name);
+  }
+  assert.equal(bannedCommand("nmap -sC -sV 10.10.10.5", true), null);
+});
+
 test("the pass mark changes on 1 Dec 2026 and the timer has two windows", () => {
   assert.equal(passRule(SCALE_FROM - 1000).scaled, false);
   assert.equal(passRule(SCALE_FROM).scaled, true);

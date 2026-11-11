@@ -1,4 +1,5 @@
-import { quoteHydraArg } from "./hydra-args";
+import { quoteHydraArg } from "./hydra-args.ts";
+import { outputBasename, PLAIN_OUTPUT, wfuzzOutput } from "./output-name.ts";
 
 const SHELL = /[;|`$<>\\\n\r\0]/;
 const BLOCKED = /rockyou|\/etc\/|\/proc\/|\/dev\/|\/root\/|\/home\//i;
@@ -179,7 +180,8 @@ export function wfuzzPlan(input: WfuzzInput): WfuzzPlan {
   const delay = input.delay === "1" || input.delay === "2" ? input.delay : "";
   const proxy = /^127\.0\.0\.1:\d{1,5}$/.test(input.proxy.trim()) ? input.proxy.trim() : "";
   const proxyPort = proxy ? Number(proxy.split(":")[1]) : 0;
-  const outfile = /^[A-Za-z0-9._-]{1,64}$/.test(input.outfile.trim()) ? input.outfile.trim() : "";
+  const outfileRaw = input.outfile.trim();
+  const outfile = outputBasename(outfileRaw) ?? "";
   const extraHeader = /^[A-Za-z0-9-]{1,40}: ?[A-Za-z0-9._~:/?&=%+-]{1,120}$/.test(input.extraHeader.trim())
     ? input.extraHeader.trim()
     : "";
@@ -221,7 +223,7 @@ export function wfuzzPlan(input: WfuzzInput): WfuzzPlan {
   if (input.mode === "vhost" && input.domain.trim() && !domain) {
     notes.push("The domain is the part after the guessed name, such as exam.htb. Leave it blank to replace the whole Host header.");
   }
-  if (input.outfile.trim() && !outfile) notes.push("The save name is one file name, such as wfuzz.txt. No folders.");
+  if (outfileRaw && !outfile) notes.push(PLAIN_OUTPUT);
 
   const url = base ? placeFuzz(base, input.mode, extension || ".php", param || "id") : "";
   let body = "";
@@ -364,6 +366,13 @@ export function wfuzzArgsOk(args: unknown): args is string[] {
       } else return false;
     }
     if (arg === "-w") sawPayload = true;
+    if (arg === "-f" && (typeof value !== "string" || !wfuzzOutput(value))) return false;
   }
   return sawPayload;
+}
+
+/** Run is enabled only when the built args, including extra flags, are a command the route will accept. */
+export function wfuzzCanRun(plan: { ready: boolean; stop: boolean; args: string[] }, extra: string[] = []): boolean {
+  if (!plan.ready || plan.stop) return false;
+  return wfuzzArgsOk([...plan.args, ...extra]);
 }

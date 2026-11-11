@@ -1,5 +1,4 @@
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { chmodSync, closeSync, constants, lstatSync, mkdirSync, openSync, writeSync } from "node:fs";
 import path from "node:path";
 
 /** Create a desk directory and force 0700, including an existing scans/ or data/ parent. */
@@ -11,14 +10,32 @@ export function ensurePrivateDir(dir: string): void {
   if (parent !== dir && (name === "scans" || name === "data")) chmodSync(parent, 0o700);
 }
 
-export function writePrivateFile(file: string, data: string): void {
+/** Write without following a symlink at the final path. A symlink is refused. */
+function writeNoFollow(file: string, data: string | Uint8Array): void {
   ensurePrivateDir(path.dirname(file));
-  writeFileSync(file, data, { mode: 0o600 });
+  try {
+    if (lstatSync(file).isSymbolicLink()) {
+      const error = new Error("That file is a symlink. The desk will not follow it.") as NodeJS.ErrnoException;
+      error.code = "ELOOP";
+      throw error;
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+  const fd = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
+  try {
+    if (typeof data === "string") writeSync(fd, data);
+    else writeSync(fd, data);
+  } finally {
+    closeSync(fd);
+  }
   chmodSync(file, 0o600);
 }
 
-export async function writePrivateFileAsync(file: string, data: string): Promise<void> {
-  ensurePrivateDir(path.dirname(file));
-  await writeFile(file, data, { mode: 0o600 });
-  chmodSync(file, 0o600);
+export function writePrivateFile(file: string, data: string | Uint8Array): void {
+  writeNoFollow(file, data);
+}
+
+export async function writePrivateFileAsync(file: string, data: string | Uint8Array): Promise<void> {
+  writeNoFollow(file, data);
 }

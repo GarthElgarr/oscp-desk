@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { jobId, spawnLiveJob } from "./live-jobs.server.ts";
+import { ensureToolDir } from "./output-path.ts";
 import { nmapEditedCommand, nmapExtra, nmapName, nmapPlan, nmapPorts, nmapProfile, nmapTarget, type NmapProfile } from "./nmap-scan.ts";
 import { examGuard } from "./scope-guard.server.ts";
 
@@ -76,8 +77,10 @@ export function startNmapScan(
   args: string[],
   profile: NmapProfile,
   meta: { id: string; name: string; title: string },
+  cwd?: string,
 ): boolean {
-  mkdirSync(scansDir(), { recursive: true });
+  if (cwd) ensureToolDir(cwd);
+  else mkdirSync(scansDir(), { recursive: true });
   return spawnLiveJob({
     id: meta.id,
     tool: "nmap",
@@ -86,6 +89,7 @@ export function startNmapScan(
     name: meta.name,
     bin,
     args,
+    cwd,
     timeoutMs: TIMEOUT_MS[profile],
     maxOut: 800_000,
     missing: `${bin} was not found. On Kali, the install button includes nmap.\n`,
@@ -106,7 +110,7 @@ export function nmapHttp(body: unknown, start: typeof startNmapScan = startNmapS
   if (blocked) return new Response(`${blocked}\n`, { status: 403 });
   const title = `${NMAP_TITLES[scan.profile]} ${target}`;
   const saved = scan.args[scan.args.indexOf("-oA") + 1]?.split("/").pop() ?? "scan";
-  const started = start(scan.command, scan.bin, scan.args, scan.profile, { id, name: saved, title });
+  const started = start(scan.command, scan.bin, scan.args, scan.profile, { id, name: saved, title }, path.join(root, "scans", "nmap"));
   if (!started) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
   return Response.json({ ok: true });
 }

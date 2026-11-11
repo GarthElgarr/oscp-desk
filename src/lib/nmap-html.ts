@@ -91,6 +91,7 @@ function page(title: string, body: string): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="script-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} — nmap</title>
 <style>

@@ -1,6 +1,7 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { TermBox } from "@/components/term-box";
 import { getJobs, getJobsServer, removeJob, stopJob, subscribeJobs, syncJobs, type LiveJob } from "@/lib/live-jobs";
+import { presentNmapReport } from "@/lib/nmap-report";
 import { renderTerminal } from "@/lib/terminal-feed";
 
 function shownOutput(text: string) {
@@ -21,6 +22,7 @@ function jobState(job: LiveJob): "running" | "done" | "partial" | "failed" {
 
 export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string; onRead?: (job: LiveJob) => void }) {
   const jobs = useSyncExternalStore(subscribeJobs, getJobs, getJobsServer);
+  const [reportError, setReportError] = useState("");
   useEffect(() => {
     void syncJobs();
   }, []);
@@ -28,6 +30,7 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
   if (shown.length === 0) return empty ? <p className="text-sm text-muted">{empty}</p> : null;
   return (
     <div className="flex flex-col gap-3">
+      {reportError ? <p className="text-sm text-dead">{reportError}</p> : null}
       {shown.map((job) => {
         const state = jobState(job);
         const header =
@@ -56,9 +59,17 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
                   </button>
                 ) : null}
                 {state === "done" && job.tool === "nmap" && job.name ? (
-                  <a href={`/api/nmap?name=${encodeURIComponent(job.name)}&html=1`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center rounded-lg border border-alive bg-bg px-3 text-sm text-alive">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const opened = window.open("", "_blank");
+                      if (opened) opened.opener = null;
+                      void presentNmapReport(job.name, opened).then((message) => setReportError(message ?? ""));
+                    }}
+                    className="inline-flex min-h-11 items-center rounded-lg border border-alive bg-bg px-3 text-sm text-alive"
+                  >
                     Open HTML report
-                  </a>
+                  </button>
                 ) : null}
                 <button type="button" onClick={() => void stopJob(job.id)} disabled={!job.running} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-bg px-3 text-sm text-fg disabled:opacity-40">
                   Kill

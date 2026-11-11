@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -27,6 +27,23 @@ test("a saved upload lands in the uploads folder", async () => {
     const removed = await removeUpload("note.txt");
     assert.ok(!("error" in removed));
     await assert.rejects(readFile(path.join(dir, "note.txt"), "utf8"));
+  } finally {
+    delete process.env.OSCP_UPLOADS;
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("an upload does not follow a symlink", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "oscp-uploads-"));
+  const outside = path.join(dir, "outside.txt");
+  process.env.OSCP_UPLOADS = dir;
+  try {
+    await writeFile(outside, "kept");
+    await symlink(outside, path.join(dir, "note.txt"));
+    const saved = await saveUpload("note.txt", Buffer.from("pwned"), true);
+    assert.ok("error" in saved);
+    assert.match(saved.error, /symlink/);
+    assert.equal(await readFile(outside, "utf8"), "kept");
   } finally {
     delete process.env.OSCP_UPLOADS;
     await rm(dir, { recursive: true, force: true });

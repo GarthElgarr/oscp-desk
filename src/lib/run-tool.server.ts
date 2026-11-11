@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { createTerminalFeed, openJob } from "./live-jobs.server.ts";
+import { createTerminalFeed, jobId, openJob, spawnDesk } from "./live-jobs.server.ts";
+import { confineCrackArgs, crackOutputsOk, ensureToolDir } from "./output-path.ts";
 import { writePrivateFileAsync } from "./private-file.ts";
 import { wordlistPath } from "./scope-target.ts";
 
@@ -26,7 +26,7 @@ const HASHCAT_FLAGS = new Set([
   "--force", "--username", "--potfile-disable", "--status", "--status-timer",
   "--show", "--left", "--stdout", "--remove", "--separator", "--hex-salt", "--hex-charset",
   "-1", "-2", "-3", "-4", "--increment", "--increment-min", "--increment-max",
-  "-j", "--rule-left", "-k", "--rule-right", "--quiet", "--hwmon-disable", "--session",
+  "-j", "--rule-left", "-k", "--rule-right", "--quiet", "--hwmon-disable", "--session", "--restore-file-path",
 ]);
 
 const JOHN_FLAGS = new Set([
@@ -70,12 +70,59 @@ function locateCrackArg(arg: string, root: string): string {
   return path.join("scans", "crack", arg);
 }
 
+function hashcatFlag(arg: string): boolean {
+  const name = arg.split("=")[0] ?? arg;
+  if (HASHCAT_FLAGS.has(name)) return true;
+  const glued = /^(-[maw])(\d+)$/.exec(arg);
+  if (!glued || !HASHCAT_FLAGS.has(glued[1] ?? "")) return false;
+  if (glued[1] === "-a" || glued[1] === "-w") return /^[0-4]$/.test(glued[2] ?? "");
+  return true;
+}
+
 function flagAllowed(bin: string, arg: string): boolean {
   if (!arg.startsWith("-")) return true;
+  if (bin === "hashcat") return hashcatFlag(arg);
   const name = arg.split("=")[0] ?? arg;
-  if (bin === "hashcat") return HASHCAT_FLAGS.has(name);
   if (bin === "john") return JOHN_FLAGS.has(name);
   return true;
+}
+
+const HASHCAT_VALUE_FLAGS = new Set([
+  "-m", "--hash-type", "-a", "--attack-mode", "-o", "--outfile", "--outfile-format",
+  "-r", "--rules-file", "-w", "--workload-profile", "--status-timer", "--separator",
+  "-1", "-2", "-3", "-4", "--increment-min", "--increment-max",
+  "-j", "--rule-left", "-k", "--rule-right", "--session", "--restore-file-path",
+]);
+
+function crackHashFile(arg: string): boolean {
+  if (!arg.startsWith("scans/crack/") || arg.includes("..") || arg.includes("\\")) return false;
+  return crackFile(arg.slice("scans/crack/".length)) !== null;
+}
+
+/** --remove rewrites the hash file. Hashcat treats the first positional as that file, so it has to be under scans/crack. */
+export function hashcatRemoveOk(args: readonly string[]): boolean {
+  if (!args.some((arg) => (arg.split("=")[0] ?? arg) === "--remove")) return true;
+  let first = true;
+  let hashes = 0;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    if (arg.startsWith("-")) {
+      const name = arg.split("=")[0] ?? arg;
+      const gluedValue = /^-[maw]\d+$/.test(arg);
+      if (!arg.includes("=") && !gluedValue && HASHCAT_VALUE_FLAGS.has(name)) i += 1;
+      continue;
+    }
+    if (first) {
+      first = false;
+      if (!crackHashFile(arg)) return false;
+      hashes += 1;
+      continue;
+    }
+    if (wordlistPath(arg) || arg.includes("?")) continue;
+    if (!crackHashFile(arg)) return false;
+    hashes += 1;
+  }
+  return hashes > 0;
 }
 
 function absoluteAllowed(arg: string): boolean {
@@ -104,16 +151,17 @@ export function stepsOk(value: unknown): value is ToolStep[] {
     }
     if ((item.kind === "exec" || item.kind === "exec-to-file") && BINS.has(item.bin)) {
       if (!Array.isArray(item.args) || item.args.length < 1 || item.args.length > 40 || !item.args.every((arg) => argOk(arg, item.bin))) return false;
+      if (!crackOutputsOk(item.bin, item.args)) return false;
+      if (item.bin === "hashcat" && !hashcatRemoveOk(item.args)) return false;
       return item.kind === "exec" || crackFile(item.name) !== null;
     }
     return false;
   });
 }
 
-export function startSteps(id: string, tool: string, title: string, steps: ToolStep[]): boolean {
+export function startSteps(id: string, tool: string, title: string, steps: ToolStep[], root = process.cwd()): boolean {
   const handle = openJob({ id, tool, title, command: title, timeoutMs: TIMEOUT_MS, maxOut: MAX_OUT });
   if (!handle) return false;
-  const root = process.cwd();
   void (async () => {
     try {
       for (const step of steps) {
@@ -124,11 +172,15 @@ export function startSteps(id: string, tool: string, title: string, steps: ToolS
           handle.push(`wrote scans/crack/${step.name} (${step.text.length} bytes)\n`);
           continue;
         }
-        const args = step.args.map((arg) => locateCrackArg(arg, root));
+        const located = step.args.map((arg) => locateCrackArg(arg, root));
+        const placed = confineCrackArgs(root, step.bin, located);
+        if (!placed) throw new Error("That output file has to be a plain name under scans/crack/.");
+        ensureToolDir(placed.cwd);
+        const args = placed.args;
         handle.push(`$ ${step.bin} ${args.join(" ")}\n`);
         let captured = "";
         const code = await new Promise<number | null>((resolve) => {
-          const child = spawn(step.bin, args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, COLUMNS: "400", LINES: "80" } });
+          const child = spawnDesk(step.bin, args, { cwd: placed.cwd, env: { ...process.env, COLUMNS: "400", LINES: "80" } });
           handle.attach(child);
           let settled = false;
           const done = (value: number | null) => {
@@ -173,4 +225,17 @@ export function startSteps(id: string, tool: string, title: string, steps: ToolS
     }
   })();
   return true;
+}
+
+export function runHttp(body: unknown, root = process.cwd()): Response {
+  const steps = (body as { steps?: unknown } | null)?.steps;
+  if (!stepsOk(steps)) return new Response("Those arguments are not a john or hashcat command this desk will run.\n", { status: 400 });
+  const id = jobId((body as { id?: unknown }).id);
+  if (!id) return new Response("The scan id is missing.\n", { status: 400 });
+  const requested = (body as { tool?: unknown }).tool;
+  const tool = requested === "hashcat" || requested === "john" ? requested : "crack";
+  const first = steps.find((step) => step.kind !== "write");
+  const title = first ? `${first.bin} ${first.args.slice(0, 4).join(" ")}` : tool;
+  if (!startSteps(id, tool, title, steps, root)) return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
+  return Response.json({ ok: true });
 }
