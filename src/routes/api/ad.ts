@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/ad")({
         const row = body as { dc?: unknown };
         const blocked = examGuard([...namedTargets(row.dc), ...ipv4Targets(plan.args)], plan.command);
         if (blocked) return new Response(`${blocked}\n`, { status: 403 });
-        if (!startAd(id, plan.bin, plan.args, plan.display, plan.mode)) {
+        if (!startAd(id, plan.bin, plan.args, plan.display, plan.mode, plan.cwd)) {
           return new Response("Too many scans are already running. Stop one before starting another.\n", { status: 429 });
         }
         return Response.json({ ok: true });

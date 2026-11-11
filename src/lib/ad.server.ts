@@ -1,5 +1,7 @@
 import { spawnLiveJob } from "./live-jobs.server.ts";
 import { quoteHydraArg } from "./hydra-args.ts";
+import { PLAIN_OUTPUT } from "./output-name.ts";
+import { confineFlagArgs, ensureToolDir } from "./output-path.ts";
 import { displayCommand } from "./redact-command.ts";
 import { AD_MODES, adArgsOk, adPlan, type AdInput, type AdMode } from "./ad-plan.ts";
 
@@ -25,7 +27,7 @@ const TIMEOUT: Record<AdMode, number> = {
   "kb-user": 15 * 60 * 1000,
 };
 
-export function adRequest(body: unknown): { bin: string; args: string[]; command: string; display: string; mode: AdMode } | { error: string } {
+export function adRequest(body: unknown, root = process.cwd()): { bin: string; args: string[]; command: string; display: string; mode: AdMode; cwd: string } | { error: string } {
   if (!body || typeof body !== "object") return { error: "The request was not JSON." };
   const row = body as Partial<AdInput> & { extra?: unknown };
   const picked = mode(row.mode);
@@ -50,13 +52,16 @@ export function adRequest(body: unknown): { bin: string; args: string[]; command
   const extra = Array.isArray(row.extra) ? row.extra : [];
   const args = [...plan.args, ...extra];
   if (!adArgsOk(plan.bin, args)) return { error: "Those arguments are not a command this desk will run." };
-  const command = [plan.bin, ...args.map((arg) => quoteHydraArg(arg))].join(" ");
+  const placed = confineFlagArgs(root, "ad", args, ["-o", "-out", "-output", "-op"]);
+  if (!placed) return { error: PLAIN_OUTPUT };
+  const command = [plan.bin, ...placed.args.map((arg) => quoteHydraArg(arg))].join(" ");
   const secrets = [typeof row.password === "string" ? row.password : "", typeof row.pfxPass === "string" ? row.pfxPass : "", text(row.hash)];
-  const display = displayCommand(plan.bin, args, secrets);
-  return { bin: plan.bin, args, command, display, mode: picked };
+  const display = displayCommand(plan.bin, placed.args, secrets);
+  return { bin: plan.bin, args: placed.args, command, display, mode: picked, cwd: placed.cwd };
 }
 
-export function startAd(id: string, bin: string, args: string[], command: string, picked: AdMode): boolean {
+export function startAd(id: string, bin: string, args: string[], command: string, picked: AdMode, cwd?: string): boolean {
+  if (cwd) ensureToolDir(cwd);
   return spawnLiveJob({
     id,
     tool: "ad",
@@ -64,6 +69,7 @@ export function startAd(id: string, bin: string, args: string[], command: string
     command,
     bin,
     args,
+    cwd,
     timeoutMs: TIMEOUT[picked],
     maxOut: 800_000,
     missing: `${bin} was not found. On Kali, the install button includes bloodhound-python, certipy, and kerbrute.\n`,

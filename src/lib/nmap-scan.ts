@@ -71,7 +71,11 @@ function scriptError(arg: string, next: string | undefined): string | null {
     }
   }
   if (letters === "scriptargs" || flagHead(arg) === "--script-args") {
-    if (/newtargets/i.test(flagValue(arg, next))) return "newtargets adds hosts. Leave it out.";
+    const value = flagValue(arg, next);
+    if (/newtargets/i.test(value)) return "newtargets adds hosts. Leave it out.";
+    if (value.includes("/") || value.includes("\\") || /(?:destination|filename)\s*=/i.test(value)) {
+      return "That script argument writes a file. Leave the path out.";
+    }
   }
   return null;
 }
