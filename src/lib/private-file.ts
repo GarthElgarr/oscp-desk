@@ -11,7 +11,7 @@ export function ensurePrivateDir(dir: string): void {
 }
 
 /** Write without following a symlink at the final path. A symlink is refused. */
-function writeNoFollow(file: string, data: string): void {
+function writeNoFollow(file: string, data: string | Uint8Array): void {
   ensurePrivateDir(path.dirname(file));
   try {
     if (lstatSync(file).isSymbolicLink()) {
@@ -24,17 +24,18 @@ function writeNoFollow(file: string, data: string): void {
   }
   const fd = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
   try {
-    writeSync(fd, data);
+    if (typeof data === "string") writeSync(fd, data);
+    else writeSync(fd, data);
   } finally {
     closeSync(fd);
   }
   chmodSync(file, 0o600);
 }
 
-export function writePrivateFile(file: string, data: string): void {
+export function writePrivateFile(file: string, data: string | Uint8Array): void {
   writeNoFollow(file, data);
 }
 
-export async function writePrivateFileAsync(file: string, data: string): Promise<void> {
+export async function writePrivateFileAsync(file: string, data: string | Uint8Array): Promise<void> {
   writeNoFollow(file, data);
 }

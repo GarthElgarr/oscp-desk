@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { gunzipSync } from "node:zlib";
 import { STANDARD_UPLOADS, peasBytesOk, peasHostOk, pickAsset, type StandardUpload } from "./peas";
+import { writePrivateFileAsync } from "./private-file.ts";
 import { uploadsRoot } from "./uploads.server";
 
 const run = promisify(execFile);
@@ -69,7 +70,7 @@ async function unpack(pack: "gzip" | "zip" | "tar", bytes: Buffer, want: string)
     const archive = path.join(dir, pack === "zip" ? "archive.zip" : "archive.tar.gz");
     const out = path.join(dir, "out");
     await mkdir(out);
-    await writeFile(archive, bytes);
+    await writePrivateFileAsync(archive, bytes);
     const script = pack === "zip" ? FLATTEN_ZIP : FLATTEN_TAR;
     await run("python3", ["-c", script, archive, out], { timeout: 30_000 });
     const names = await readdir(out);
@@ -121,7 +122,7 @@ async function one(root: string, item: StandardUpload, force: boolean, cache: Ma
     const bytes = item.pack === "raw" ? downloaded : await unpack(item.pack, downloaded, item.name);
     if (typeof bytes === "string") return `${item.name}: ${bytes}`;
     if (!peasBytesOk(item.name, bytes.length, bytes.subarray(0, 80))) return `${item.name}: the download was not the binary, so it was not saved`;
-    await writeFile(dest, bytes);
+    await writePrivateFileAsync(dest, bytes);
     return `${item.name}: saved (${Math.round(bytes.length / 1024)} KB)`;
   } catch (err) {
     const message = err instanceof Error ? err.message : "download failed";

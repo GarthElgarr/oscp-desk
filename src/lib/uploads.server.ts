@@ -1,5 +1,6 @@
-import { lstat, mkdir, readdir, readFile, realpath, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, unlink } from "node:fs/promises";
 import path from "node:path";
+import { writePrivateFileAsync } from "./private-file.ts";
 
 export type UploadFile = {
   name: string;
@@ -107,7 +108,12 @@ export async function saveUpload(name: string, bytes: Buffer, overwrite = false)
   if (inside.startsWith("..") || path.isAbsolute(inside)) return { error: `${safe} is not inside the uploads folder.` };
   const existing = await lstat(full).catch(() => null);
   if (existing && !overwrite) return { error: `${safe} is already in the uploads folder. Send overwrite=1 to replace it.` };
-  await writeFile(full, bytes);
+  try {
+    await writePrivateFileAsync(full, bytes);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ELOOP") return { error: `${safe} is a symlink. The desk will not follow it.` };
+    throw err;
+  }
   return { name: safe };
 }
 
