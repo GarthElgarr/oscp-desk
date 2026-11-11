@@ -85,9 +85,10 @@ const HASHCAT_VALUE_FLAGS = new Set([
   "-j", "--rule-left", "-k", "--rule-right", "--session", "--restore-file-path",
 ]);
 
-/** --remove rewrites the hash file. That file has to already live under scans/crack; a wordlist or a mask does not. */
+/** --remove rewrites the hash file. At least one positional hash file has to already live under scans/crack. A wordlist or a mask does not count. */
 export function hashcatRemoveOk(args: readonly string[]): boolean {
   if (!args.some((arg) => (arg.split("=")[0] ?? arg) === "--remove")) return true;
+  let hashes = 0;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i] ?? "";
     if (arg.startsWith("-")) {
@@ -98,8 +99,9 @@ export function hashcatRemoveOk(args: readonly string[]): boolean {
     if (wordlistPath(arg) || arg.includes("?")) continue;
     if (!arg.startsWith("scans/crack/") || arg.includes("..") || arg.includes("\\")) return false;
     if (crackFile(arg.slice("scans/crack/".length)) === null) return false;
+    hashes += 1;
   }
-  return true;
+  return hashes > 0;
 }
 
 function absoluteAllowed(arg: string): boolean {
