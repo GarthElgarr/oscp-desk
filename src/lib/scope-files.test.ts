@@ -91,6 +91,7 @@ test("hydra -M lists and impacket -dc-host stay inside the exam scope", (t) => {
 
 test("hydra -M refuses a basename that the scan directory would read", (t) => {
   const root = scoped(t);
+  setLiveJobHooks({ runsFile: path.join(root, "scans", "runs.json"), spawn: null });
   const dir = path.join(root, "scans", "hydra");
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, "targets.txt"), "10.10.10.99\n");
