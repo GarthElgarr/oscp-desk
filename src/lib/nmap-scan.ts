@@ -20,8 +20,30 @@ function flagHead(arg: string): string {
   return eq === -1 ? arg : arg.slice(0, eq);
 }
 
+/** Letters of a flag after the dashes and any =value. -i/etc/hosts is i. --oS=/tmp/x is oS. */
+function nmapFlagLetters(arg: string): string {
+  if (!arg.startsWith("-")) return "";
+  const body = arg.startsWith("--") ? arg.slice(2) : arg.slice(1);
+  const eq = body.indexOf("=");
+  const head = eq === -1 ? body : body.slice(0, eq);
+  return /^[A-Za-z]+/.exec(head)?.[0] ?? "";
+}
+
+/** Host-list and output flags. The desk picks the target and writes scans/<name>. */
+function inputOrOutputFlag(arg: string): string | null {
+  const letters = nmapFlagLetters(arg);
+  if (!letters) return null;
+  const input = letters === "i" || letters === "iL" || letters === "iR";
+  const short = !arg.startsWith("--");
+  const output = letters.startsWith("o") && (short || /^o[A-Za-z]{0,2}$/.test(letters));
+  if (!input && !output) return null;
+  return "That flag reads a host list or writes a file. The target and the save path stay in the form.";
+}
+
 /** Glued -oNout / -iL/etc/passwd, and the long flags that read or write a file. Exact -oA is left for the editor to strip. */
 function pathFlagError(arg: string): string | null {
+  const shape = inputOrOutputFlag(arg);
+  if (shape && !OUTPUT_FLAGS.includes(arg)) return shape;
   if (GLUED_PATH.test(arg) && !OUTPUT_FLAGS.includes(arg)) {
     return "The output name sets where the scan is saved. Leave -oA and -iL out of the command.";
   }
@@ -31,11 +53,25 @@ function pathFlagError(arg: string): string | null {
   return null;
 }
 
+function flagValue(arg: string, next: string | undefined): string {
+  if (arg.includes("=")) return arg.slice(arg.indexOf("=") + 1);
+  return next && !next.startsWith("-") ? next : "";
+}
+
 function scriptError(arg: string, next: string | undefined): string | null {
-  if (flagHead(arg) !== "--script") return null;
-  const value = arg.includes("=") ? arg.slice(arg.indexOf("=") + 1) : next && !next.startsWith("-") ? next : "";
-  if (!/^[a-z0-9,_-]+$/.test(value)) {
-    return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+  const letters = nmapFlagLetters(arg);
+  if (letters === "script") {
+    const value = flagValue(arg, next);
+    const names = value.split(",").map((part) => part.trim()).filter(Boolean);
+    if (names.some((name) => /^(?:broadcast-|targets-)/i.test(name))) {
+      return "That script discovers hosts or adds targets. Leave it out.";
+    }
+    if (!/^[a-z0-9,_-]+$/.test(value)) {
+      return "A script name is letters, numbers, commas, and dashes. Not a file path.";
+    }
+  }
+  if (letters === "scriptargs" || flagHead(arg) === "--script-args") {
+    if (/newtargets/i.test(flagValue(arg, next))) return "newtargets adds hosts. Leave it out.";
   }
   return null;
 }
