@@ -20,7 +20,7 @@ function impacketInput(mode: ImpacketMode, secret: string): ImpacketInput {
     password: secret,
     hash: mode === "ticketer" ? "b".repeat(32) : "",
     dc: "10.10.10.5",
-    command: "whoami",
+    remoteCommand: "whoami",
     share: "share",
     file: "/tmp/a.txt",
     file2: "/tmp/b.txt",

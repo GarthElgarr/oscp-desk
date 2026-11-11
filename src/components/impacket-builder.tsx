@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import { ToolRun } from "@/components/hydra-run";
-import { impacketPlan, type ImpacketInput, type ImpacketMode } from "@/lib/impacket-plan";
+import { impacketPlan, impacketRunBody, type ImpacketInput, type ImpacketMode } from "@/lib/impacket-plan";
 import { quoteHydraArg } from "@/lib/hydra-args";
 import { LootPick } from "@/components/loot-card";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
@@ -57,7 +57,7 @@ const blank: ImpacketInput = {
   password: "",
   hash: "",
   dc: "",
-  command: "",
+  remoteCommand: "",
   share: "",
   file: "",
   file2: "",
@@ -171,7 +171,7 @@ export function ImpacketBuilder() {
         ) : null}
         {show(["psexec", "smbexec", "wmiexec", "atexec"]) ? (
           <Field label="COMMAND" hint="Empty means a shell you copy. whoami is the one-shot check.">
-            <input className={control} value={form.command} onChange={(event) => set({ command: event.target.value })} placeholder="whoami" spellCheck={false} />
+            <input className={control} value={form.remoteCommand} onChange={(event) => set({ remoteCommand: event.target.value })} placeholder="whoami" spellCheck={false} />
           </Field>
         ) : null}
         {show(["secrets-remote"]) ? (
@@ -304,7 +304,7 @@ export function ImpacketBuilder() {
             disabled={false}
             placeholder="-debug"
             onFlags={setExtra}
-            buildBody={(flags) => ({ ...form, extra: flags, command: [plan.display, ...flags.map(quoteHydraArg)].join(" ") })}
+            buildBody={(flags) => impacketRunBody(form, flags)}
           />
         ) : ready ? (
           <p className="text-sm text-muted">Copy the command. This one waits for you to type, and a run from the desk would close that.</p>

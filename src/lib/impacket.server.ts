@@ -22,7 +22,7 @@ export function impacketRequest(body: unknown): { bin: string; args: string[]; c
     password: typeof row.password === "string" ? row.password : "",
     hash: text(row.hash),
     dc: text(row.dc),
-    command: typeof row.command === "string" ? row.command.trim() : "",
+    remoteCommand: typeof row.remoteCommand === "string" ? row.remoteCommand.trim() : "",
     share: text(row.share),
     file: text(row.file),
     file2: text(row.file2),
