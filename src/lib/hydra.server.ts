@@ -84,15 +84,18 @@ export function hydraHttp(body: unknown, start: HydraStart = startHydra, root = 
   return Response.json({ ok: true });
 }
 
+const MODULE_LIST = /^scans\/hydra\/loot-users-[a-z0-9]+\.txt$/;
+
 function moduleLines(args: string[], lists: { users?: unknown; passwords?: unknown } | undefined, root: string): string[] {
   const texts: string[] = [];
   for (const file of optionValues(args, ["-M"])) {
-    if (typeof lists?.users === "string" && file.includes("loot-users-")) texts.push(lists.users);
-    else if (typeof lists?.passwords === "string" && file.includes("loot-passwords-")) texts.push(lists.passwords);
+    if (!MODULE_LIST.test(file)) continue;
+    if (typeof lists?.users === "string") texts.push(lists.users);
     else {
+      const dir = path.resolve(root, "scans", "hydra");
       const full = path.resolve(root, file);
-      const base = path.resolve(root);
-      if ((full === base || full.startsWith(`${base}${path.sep}`)) && existsSync(full)) texts.push(readFileSync(full, "utf8"));
+      const rel = path.relative(dir, full);
+      if (!rel.startsWith("..") && !path.isAbsolute(rel) && existsSync(full)) texts.push(readFileSync(full, "utf8"));
     }
   }
   return texts.flatMap((text) => text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));

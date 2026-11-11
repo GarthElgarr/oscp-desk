@@ -88,3 +88,41 @@ test("hydra -M lists and impacket -dc-host stay inside the exam scope", (t) => {
   assert.equal(existsSync(loot), false);
   for (const id of ids) removeJob(id);
 });
+
+test("hydra -M refuses a basename that the scan directory would read", (t) => {
+  const root = scoped(t);
+  const dir = path.join(root, "scans", "hydra");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "targets.txt"), "10.10.10.99\n");
+  const loot = path.join(dir, "loot-users-abc.txt");
+  for (const args of [
+    ["-M", "targets.txt", "-p", "NOTREAL", "ssh"],
+    ["-M=targets.txt", "-p", "NOTREAL", "ssh"],
+    ["-Mtargets.txt", "-p", "NOTREAL", "ssh"],
+  ]) {
+    let started = false;
+    const response = hydraHttp({ id: "hydra-bare", args, lists: { users: "10.10.10.99\n" } }, () => {
+      started = true;
+      return true;
+    }, root);
+    assert.equal(response.status, 400, args[0]);
+    assert.equal(started, false, args[0]);
+  }
+  assert.equal(existsSync(loot), false);
+
+  let started = false;
+  const ok = hydraHttp(
+    {
+      id: "hydra-loot",
+      args: ["-M", "scans/hydra/loot-users-abc.txt", "-p", "NOTREAL", "ssh"],
+      lists: { users: "10.10.10.5\n" },
+    },
+    () => {
+      started = true;
+      return true;
+    },
+    root,
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(started, true);
+});

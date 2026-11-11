@@ -70,6 +70,7 @@ function rockyouOk(arg: string): boolean {
 
 function hydraFile(value: string, flag: string): boolean {
   if (flag === "-o") return outputBasename(value) !== null;
+  if (flag === "-M") return /^scans\/hydra\/loot-users-[a-z0-9]+\.txt$/.test(value);
   if (!value || value.includes("..") || value.startsWith("~") || (/rockyou/i.test(value) && !wordlistPath(value))) return false;
   if (wordlistPath(value) || LOOT.test(value)) return true;
   return !value.includes("/") && PLAIN.test(value);
