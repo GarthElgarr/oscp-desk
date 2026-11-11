@@ -228,7 +228,6 @@ const WFUZZ_AUTH = ["--basic", "--ntlm", "--digest"] as const;
 
 /** Quote a displayed arg when it contains a space. The process still gets the raw arg. */
 function quoteStored(arg: string): string {
-  if (!/[\s"'{}$]/.test(arg)) return arg;
   return quoteHydraArg(arg);
 }
 

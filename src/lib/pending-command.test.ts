@@ -7,7 +7,7 @@ test("the run card masks hydra, wfuzz, and snmp secrets before the server answer
   const hydraBody = { args: ["-l", "user", "-p", "NOT REAL", "ssh://10.10.10.5"] };
   const hydra = pendingCommand("hydra", hydraBody);
   assert.equal(hydra.includes("REAL"), false, hydra);
-  assert.match(hydra, /-p \*\*\*\*/);
+  assert.match(hydra, /-p '\*\*\*\*'/);
   assert.match(hydra, /ssh:\/\/10\.10\.10\.5/);
 
   const attached = pendingCommand("hydra", { args: ["-l", "user", "-pNOTREAL", "ssh://10.10.10.5"] });

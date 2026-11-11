@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { hydraHttp } from "./hydra.server.ts";
-import { redactStoredCommand } from "./redact-command.ts";
+import { redactStoredCommand, storedCommand } from "./redact-command.ts";
 import { wfuzzHttp } from "./wfuzz.server.ts";
 
 const PAYLOAD = "file,/usr/share/wordlists/dirb/common.txt";
@@ -23,7 +23,7 @@ test("hydra and wfuzz routes store a masked command built from the args array", 
   });
   assert.equal(hydra.status, 200);
   assert.equal(hydraCommand.includes("REAL"), false, hydraCommand);
-  assert.match(hydraCommand, /-p \*\*\*\*/);
+  assert.match(hydraCommand, /-p '\*\*\*\*'/);
   assert.match(hydraCommand, /ssh:\/\/10\.10\.10\.5/);
   assert.match(stored(hydraCommand), /-l user/);
 
@@ -87,11 +87,11 @@ test("hydra and wfuzz routes store a masked command built from the args array", 
   assert.match(shown, /X-Api-Key: \*\*\*\*/);
   assert.match(shown, /X-Auth-Token: \*\*\*\*/);
   assert.match(shown, /Host: FUZZ\.corp\.local/);
-  assert.match(shown, /-b session=\*\*\*\*/);
+  assert.match(shown, /-b 'session=\*\*\*\*'/);
   assert.match(shown, /-b theme=FUZZ/);
-  assert.match(shown, /--basic user:\*\*\*\*/);
-  assert.match(shown, /--ntlm user:\*\*\*\*/);
-  assert.match(shown, /--digest user:\*\*\*\*/);
+  assert.match(shown, /--basic 'user:\*\*\*\*'/);
+  assert.match(shown, /--ntlm 'user:\*\*\*\*'/);
+  assert.match(shown, /--digest 'user:\*\*\*\*'/);
   assert.match(shown, /a=1&password=\*\*\*\*&note=keep/);
   assert.match(shown, new RegExp(PAYLOAD.replaceAll("/", "\\/")));
   assert.match(shown, /http:\/\/10\.10\.10\.5\/FUZZ/);
@@ -117,4 +117,45 @@ test("hydra and wfuzz routes store a masked command built from the args array", 
   assert.match(jsonShown, /"note":"FUZZ"/);
   assert.match(jsonShown, new RegExp(PAYLOAD.replaceAll("/", "\\/")));
   assert.match(jsonShown, /\/FUZZ/);
+});
+
+function shellWords(line: string): string[] {
+  const words: string[] = [];
+  let index = 0;
+  while (index < line.length) {
+    while (line[index] === " ") index += 1;
+    if (index >= line.length) break;
+    if (line[index] === "'") {
+      index += 1;
+      let word = "";
+      while (index < line.length) {
+        if (line.startsWith("'\\''", index)) {
+          word += "'";
+          index += 4;
+          continue;
+        }
+        if (line[index] === "'") {
+          index += 1;
+          break;
+        }
+        word += line[index];
+        index += 1;
+      }
+      words.push(word);
+      continue;
+    }
+    let word = "";
+    while (index < line.length && line[index] !== " ") {
+      word += line[index];
+      index += 1;
+    }
+    words.push(word);
+  }
+  return words;
+}
+
+test("a stored wfuzz line re-parses to the masked argv", () => {
+  const args = ["-d", "username=admin&password=FUZZ", "-u", "http://10.10.10.5/?a=FUZZ&b=1", "-z", PAYLOAD];
+  const line = redactStoredCommand(storedCommand("wfuzz", args));
+  assert.deepEqual(shellWords(line), ["wfuzz", ...args]);
 });
