@@ -2,6 +2,7 @@ import { deskFetch } from "./desk-fetch.ts";
 import { nmapName } from "./nmap-scan.ts";
 
 export type ReportWindow = {
+  opener: unknown;
   document: {
     open: () => void;
     write: (html: string) => void;
@@ -36,9 +37,11 @@ export async function loadNmapReport(
   return { html: await response.text() };
 }
 
+const REPORT_CSP = `<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`;
+
 function writeError(popup: ReportWindow, message: string) {
   popup.document.open();
-  popup.document.write("<!doctype html><title>Nmap report</title><pre></pre>");
+  popup.document.write(`<!doctype html><head>${REPORT_CSP}<title>Nmap report</title></head><pre></pre>`);
   popup.document.close();
   const pre = popup.document.querySelector("pre");
   if (pre) pre.textContent = message;
@@ -51,6 +54,7 @@ export async function presentNmapReport(
   fetchImpl?: (input: string, init?: RequestInit) => Promise<Response>,
 ): Promise<string | null> {
   if (!popup) return "The browser blocked the report window.";
+  popup.opener = null;
   const loaded = await loadNmapReport(name, fetchImpl);
   if ("error" in loaded) {
     writeError(popup, loaded.error);

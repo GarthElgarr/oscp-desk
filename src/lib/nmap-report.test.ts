@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { nmapHtmlPath, presentNmapReport, type ReportWindow } from "./nmap-report.ts";
 
-function popup(): { view: ReportWindow; written: () => string; shownError: () => string } {
-  const state = { written: "", errorText: "" };
+function popup(): { view: ReportWindow; written: () => string; shownError: () => string; opener: () => unknown } {
+  const state = { written: "", errorText: "", opener: { token: "desk" } as unknown };
   const view: ReportWindow = {
+    get opener() {
+      return state.opener;
+    },
+    set opener(value: unknown) {
+      state.opener = value;
+    },
     document: {
       open() {},
       write(html: string) {
@@ -23,7 +29,7 @@ function popup(): { view: ReportWindow; written: () => string; shownError: () =>
       },
     },
   };
-  return { view, written: () => state.written, shownError: () => state.errorText };
+  return { view, written: () => state.written, shownError: () => state.errorText, opener: () => state.opener };
 }
 
 test("the nmap HTML report is loaded through the API path and the token stays out of the URL", async () => {
@@ -38,6 +44,7 @@ test("the nmap HTML report is loaded through the API path and the token stays ou
     return new Response("<html><title>lab</title></html>", { status: 200 });
   });
   assert.equal(error, null);
+  assert.equal(opened.opener(), null);
   assert.equal(seen, "/api/nmap?name=lab&html=1");
   assert.match(opened.written(), /<title>lab<\/title>/);
 });

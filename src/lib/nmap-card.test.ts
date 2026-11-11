@@ -21,4 +21,13 @@ describe("nmapReportHtml", () => {
     assert.match(html, /Open the SSH and private keys card/);
     assert.doesNotMatch(html, /card=svc-odd/);
   });
+
+  it("renders hostile XML as text and allows no scripts", () => {
+    const xml = `<?xml version="1.0"?><nmaprun><host><status state="up"/><address addr="10.10.10.5" addrtype="ipv4"/><ports><port protocol="tcp" portid="80"><state state="open"/><service name="http" product="&lt;script&gt;alert(1)&lt;/script&gt;&quot;&gt;&lt;script src=https://evil.example/a.js&gt;&lt;/script&gt;"/></port></ports></host></nmaprun>`;
+    const html = nmapReportHtml(xml, "lab");
+    assert.match(html, /script-src 'none'/);
+    assert.equal(html.match(/<script\b/gi), null);
+    assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+    assert.match(html, /10\.10\.10\.5/);
+  });
 });

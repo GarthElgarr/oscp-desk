@@ -63,6 +63,7 @@ export function JobList({ tool, empty, onRead }: { tool?: string; empty?: string
                     type="button"
                     onClick={() => {
                       const opened = window.open("", "_blank");
+                      if (opened) opened.opener = null;
                       void presentNmapReport(job.name, opened).then((message) => setReportError(message ?? ""));
                     }}
                     className="inline-flex min-h-11 items-center rounded-lg border border-alive bg-bg px-3 text-sm text-alive"

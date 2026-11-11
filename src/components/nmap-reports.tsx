@@ -153,6 +153,7 @@ export function NmapReports({ onOpenCard }: { onOpenCard?: (id: string, section:
                     type="button"
                     onClick={() => {
                       const opened = window.open("", "_blank");
+                      if (opened) opened.opener = null;
                       void presentNmapReport(name, opened).then((message) => {
                         if (message) setError(message);
                       });
