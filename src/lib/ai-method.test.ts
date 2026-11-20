@@ -47,6 +47,8 @@ test("the AI recon cards cover repo files, discovery, fingerprinting, and RAG me
   assert.ok(wordlist);
   assert.match(wordlist.cmd, /api-endpoints-res\.txt/);
   assert.match(wordlist.cmd, /!= "404"/);
+  assert.match(wordlist.cmd, /http:\/\/<ip>:<port>\/v1\//);
+  assert.equal(wordlist.cmd.includes(":9000"), false);
   assert.match(AI_WHY["ai-recon-wordlist"], /401/);
   assert.match(AI_WHY["ai-recon-wordlist"], /remaining/);
   const deps = recon.find((item) => item.id === "ai-recon-deps");

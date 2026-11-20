@@ -311,7 +311,7 @@ done`,
     cmd: `# second step. The short list on the gateway card came back thin.
 # stop when RateLimit remaining gets low
 for word in $(cat /usr/share/wordlists/seclists/Discovery/Web-Content/api/api-endpoints-res.txt); do
-  code=$(curl -s -o /dev/null -w "%{http_code}" http://<ip>:9000/v1/$word)
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://<ip>:<port>/v1/$word)
   [ "$code" != "404" ] && echo "/v1/$word - $code"
 done`,
     alive: "One path that is not 404. 401 is the usual hit. 200 or 405 means the route is there too.",
