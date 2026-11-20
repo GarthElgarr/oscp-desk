@@ -4,16 +4,10 @@ import { ShellTerm } from "@/components/shell-term";
 import { getGlobals, getGlobalsServer, subscribeGlobals } from "@/lib/desk-globals";
 import { getJobs, getJobsServer, launchJob, stopJob, subscribeJobs, syncJobs } from "@/lib/live-jobs";
 import { deskFetch } from "@/lib/desk-fetch";
-import { penelopeBeats, penelopeInShell, penelopeLine, penelopePlan, type PenelopeBeat } from "@/lib/penelope-plan";
+import { penelopeBeats, penelopeInShell, penelopeLine, penelopePlan, penelopeReadTransfer, penelopeTransferReturns, penelopeTransferTimeoutMessage, PENELOPE_WAIT, stripPenelopeAnsi, type PenelopeBeat } from "@/lib/penelope-plan";
 import { useGlobalField } from "@/lib/use-global-field";
 
 const control = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-sm text-fg outline-none";
-
-const WAIT = {
-  detached: /Session detached/,
-  attached: /Interacting with session/,
-  transfer: /Uploaded|Downloaded|\[!\]/,
-};
 
 export function PenelopeCard() {
   const globals = useSyncExternalStore(subscribeGlobals, getGlobals, getGlobalsServer);
@@ -105,13 +99,12 @@ export function PenelopeCard() {
     return getJobs().find((job) => job.id === runningId.current)?.output ?? "";
   }
 
-  function tally(text: string, what: keyof typeof WAIT): number {
-    const esc = String.fromCharCode(27);
-    const clean = text.replace(new RegExp(`${esc}\\[[0-9;?]*[ -/]*[@-~]`, "g"), "");
-    return [...clean.matchAll(new RegExp(WAIT[what].source, "g"))].length;
+  function tally(text: string, what: keyof typeof PENELOPE_WAIT): number {
+    const clean = stripPenelopeAnsi(text);
+    return [...clean.matchAll(new RegExp(PENELOPE_WAIT[what].source, "g"))].length;
   }
 
-  async function waitForMore(what: keyof typeof WAIT, already: number, timeoutMs: number): Promise<boolean> {
+  async function waitForMore(what: keyof typeof PENELOPE_WAIT, already: number, timeoutMs: number): Promise<boolean> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       await syncJobs();
@@ -123,6 +116,20 @@ export function PenelopeCard() {
     return false;
   }
 
+  async function waitForTransfer(before: string, timeoutMs: number): Promise<{ status: "success" } | { status: "failure"; message: string } | { status: "timeout" }> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      await syncJobs();
+      const job = getJobs().find((item) => item.id === runningId.current);
+      if (!job?.running) return { status: "timeout" };
+      const read = penelopeReadTransfer(before, job.output);
+      if (read.status === "success") return { status: "success" };
+      if (read.status === "failure") return read;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return { status: "timeout" };
+  }
+
   async function runBeats(beats: PenelopeBeat[], busyText: string) {
     if (hold.current) return;
     hold.current = true;
@@ -132,21 +139,29 @@ export function PenelopeCard() {
     await chain.current;
     await new Promise((resolve) => setTimeout(resolve, 250));
     let before = outputNow();
+    let sawOs = false;
     try {
       for (const beat of beats) {
         if (beat.kind === "only" || beat.kind === "line") {
+          if (beat.kind === "line" && beat.when === "os" && !sawOs) continue;
           await syncJobs();
           before = outputNow();
           const wrote = await write(beat.kind === "only" ? beat.data : beat.text);
           if (!wrote) return;
           await new Promise((resolve) => setTimeout(resolve, beat.kind === "only" ? 250 : 80));
+        } else if (beat.what === "transfer") {
+          const outcome = await waitForTransfer(before, beat.ms);
+          if (!penelopeTransferReturns(outcome.status)) {
+            setSendError(outcome.status === "failure" ? outcome.message : penelopeTransferTimeoutMessage(before, outputNow()));
+            return;
+          }
         } else {
           const ok = await waitForMore(beat.what, tally(before, beat.what), beat.ms);
+          if (beat.what === "os") sawOs = ok;
           if (!ok && beat.stop) {
             setSendError("Penelope did not leave the shell, so the command was not sent. Press Menu, then try again.");
             return;
           }
-          if (!ok && beat.what === "transfer") setSendError("The file did not report back. Press Shell if the prompt is still Penelope.");
           if (!ok && beat.what === "attached") setSendError("The menu command finished, but the shell did not come back. Press Shell.");
         }
       }
@@ -261,7 +276,7 @@ export function PenelopeCard() {
           <button type="button" disabled={!running || !seenSession} onClick={() => void press("interact")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Shell
           </button>
-          <button type="button" disabled={!running || !seenSession} onClick={() => void press("payloads")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
+          <button type="button" disabled={!running || !seenSession} onClick={() => void press("payloads")} title="Print payloads, then answer Linux (1) when Penelope asks for the target OS" className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-fg disabled:opacity-40">
             Payloads
           </button>
           <button type="button" disabled={!running || !seenSession} onClick={() => void press("kill")} className="inline-flex h-9 items-center rounded-lg border border-border px-2 text-xs text-muted disabled:opacity-40">
@@ -272,8 +287,10 @@ export function PenelopeCard() {
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={local} onChange={(event) => setLocal(event.target.value.trim())} aria-label="Kali path" spellCheck={false} />
-          <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={remote} onChange={(event) => setRemote(event.target.value.trim())} aria-label="Target path" spellCheck={false} />
+          <span className="px-1 font-mono text-xs text-muted">KALI FILE</span>
+          <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={local} onChange={(event) => setLocal(event.target.value.trim())} aria-label="Kali file" placeholder="/home/kali/linpeas.sh" spellCheck={false} />
+          <span className="px-1 font-mono text-xs text-muted">TARGET FILE</span>
+          <input className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 font-mono text-xs text-fg outline-none" value={remote} onChange={(event) => setRemote(event.target.value.trim())} aria-label="Target file" placeholder="/tmp/linpeas.sh" spellCheck={false} />
           <button type="button" disabled={!running || !seenSession || "error" in penelopeLine("upload", session, local, remote)} onClick={() => void press("upload")} className="inline-flex h-9 items-center rounded-lg border border-primary bg-raised px-2 text-xs text-fg disabled:opacity-40">
             Upload
           </button>
@@ -281,11 +298,20 @@ export function PenelopeCard() {
             Download
           </button>
         </div>
-        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+V pastes. Ctrl+C copies a selection, and interrupts the shell when nothing is selected. Upload and Download leave the shell, move the file, then come back. Typing is paused while the file moves. Left box is the file on Kali. Right box is the path on the target.</p>
+        <PenelopePaths session={session} local={local} remote={remote} />
+        <p className="text-xs text-muted">Click the black terminal and type. Drag across text and it is copied when you let go. Ctrl+V pastes. Ctrl+C copies a selection, and interrupts the shell when nothing is selected. Upload and Download leave the shell, move the file, then come back. Typing is paused while the file moves. Penelope keeps the file name. -o is the folder of the other path. Payloads answers 1, Linux, when it asks for the target OS. A second listener asks for an ID first, and that question stays for you.</p>
         {busy ? <p className="text-sm text-muted">{busy}</p> : null}
         {sendError ? <p className="text-sm text-dead">{sendError}</p> : null}
         {shown ? <ShellTerm jobId={shown.id} output={shown.output} active={Boolean(running)} onKeys={onKeys} /> : <p className="text-sm text-muted">Start Penelope. The terminal opens here when the listener is up.</p>}
       </div>
     </article>
   );
+}
+
+function PenelopePaths({ session, local, remote }: { session: string; local: string; remote: string }) {
+  const upload = penelopeLine("upload", session, local, remote);
+  const download = penelopeLine("download", session, local, remote);
+  if ("error" in upload) return <p className="text-xs text-dead">{upload.error}</p>;
+  if ("error" in download) return <p className="text-xs text-dead">{download.error}</p>;
+  return <p className="break-all font-mono text-xs text-muted">{upload.label} · {download.label}</p>;
 }
