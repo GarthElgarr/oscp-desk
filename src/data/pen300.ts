@@ -190,10 +190,10 @@ git log --oneline -20`,
     id: "ai-recon-deps",
     section: "Recon",
     title: "Cloud SDK or local server",
-    look: "The dependency file is the architecture. A provider SDK plus a managed vector client means the model and the store are someone else's service. vLLM, a local vector library, and a Hugging Face loader mean the process is on a host you can reach. The attack surface follows that split: a key on the way out, or a service on the inside.",
+    look: "The dependency file is the architecture. Two shapes show up in the same kind of lab. Aurora-style cloud: Gemini through google-generativeai or google-cloud-aiplatform, CrewAI as the agent framework, Pinecone as the vector client. Phoenix-style self-hosted: vLLM as the server, AutoGen as the framework, Milvus as the store, tree-sitter for AST chunks, and a code embedding such as codet5p. The attack surface follows that split. A key on the way out, or a service on the inside.",
     cmd: `# one repo. Do not install the packages.
-grep -n -E 'generativeai|openai|anthropic|crewai|pinecone|vllm|autogen|pymilvus|sentence-transformers|huggingface' requirements.txt pyproject.toml 2>/dev/null`,
-    alive: "You can say cloud or self-hosted, and name the agent framework and the vector client.",
+grep -n -E 'generativeai|google-cloud|openai|anthropic|crewai|pinecone|vllm|autogen|pymilvus|sentence-transformers|tree-sitter|transformers|autoawq|huggingface' requirements.txt pyproject.toml 2>/dev/null`,
+    alive: "You can say cloud or self-hosted, and name the agent framework and the vector client. Aurora-style is Gemini, CrewAI, Pinecone. Phoenix-style is vLLM, AutoGen, Milvus.",
     dead: "No dependency file, or the names are only a web framework. The RAG config is the next file, if it exists.",
     next: "Write the split. A cloud app leaks keys and outbound hosts. A self-hosted app leaks the inference port and the database on that network.",
   },
@@ -201,10 +201,10 @@ grep -n -E 'generativeai|openai|anthropic|crewai|pinecone|vllm|autogen|pymilvus|
     id: "ai-recon-rag-config",
     section: "Recon",
     title: "RAG config in the repo",
-    look: "The yaml is the pipeline before you ever query it. Chunk strategy and size, overlap, the embedding model and its dimensions, top_k, the score cutoff, the distance metric, and whether a reranker is on. Text chunks and AST-aware code chunks are different corpora. The vector store block names the product and the index. Environment variable names are notes. The values are not in this file.",
+    look: "The yaml is the pipeline before you ever query it. Chunk strategy and size, overlap, the embedding model and its dimensions, top_k, the score cutoff, the distance metric, and whether a reranker is on. Aurora-style cloud is prose chunks on Pinecone. Phoenix-style self-hosted is AST-aware code chunks, a Milvus collection, and a code embedding such as codet5p. The vector store block names the product and the index. Environment variable names are notes. The values are not in this file.",
     cmd: `# config/rag.yaml or the same keys under another name
 grep -n -E 'chunk_|embedding|top_k|score_threshold|rerank|provider|index|collection' config/rag.yaml`,
-    alive: "You can write the chunk size, the embedding model, the cutoff, and the store.",
+    alive: "You can write the chunk size, the embedding model, the cutoff, and the store. Pinecone against Milvus, or prose against AST, is the split.",
     dead: "No RAG config. The app may still retrieve. That is an active question, later.",
     next: "The cutoff you write here is what the threshold card tests on the live host. Do not test it yet.",
   },
@@ -212,10 +212,10 @@ grep -n -E 'chunk_|embedding|top_k|score_threshold|rerank|provider|index|collect
     id: "ai-recon-prompts",
     section: "Recon",
     title: "Prompts, tools, and guardrails",
-    look: "Still passive. The system prompt is the persona and the refusal list. Tool decorators and function schemas are the actions, and a comment like read-only is the intended boundary. A safety file is either the vendor's filter settings or a local regex. The regex tells you which phrases the app blocks. It is not a bypass.",
-    cmd: `# prompts, tool modules, safety config. Read them. Do not post them back to the model.
+    look: "Still passive. The system prompt is the persona and the refusal list. Tool decorators and function schemas are the actions. A note of read-only or create only is the intended boundary. A safety file is either the vendor's filter settings or a local regex. The regex tells you which phrases the app blocks. It is not a bypass. A Modelfile line that forbids an action is the same kind of note. Read it and leave it in place.",
+    cmd: `# prompts, tool modules, function schemas, safety config. Read them. Do not post them back to the model.
 ls prompts src config
-grep -n -E 'def |@tool|"name"|NEVER|blocked_topics|block_patterns' prompts/* src/agents/* config/safety.yaml 2>/dev/null`,
+grep -n -E 'def |@tool|"name"|NEVER|read-only|read_only|create only|blocked_topics|block_patterns' prompts/* src/agents/* config/safety.yaml 2>/dev/null`,
     alive: "A restriction, a tool name, or a blocked topic you did not have from the headers.",
     dead: "No prompt and no schema. The running app may still have tools. That is the agent card, after discovery.",
     next: "Copy the restriction in your own words. A topic the prompt says not to discuss is sensitive. It is not the next question.",
@@ -224,7 +224,7 @@ grep -n -E 'def |@tool|"name"|NEVER|blocked_topics|block_patterns' prompts/* src
     id: "ai-recon-supply",
     section: "Recon",
     title: "Model supply and deploy config",
-    look: "The example env file names the integrations. A models file names the inference server, the model id, the context length, quantisation, and the GPU shape. That is how you tell a small local model from a large one before you chat. Do not copy a real key into the note. A placeholder is enough.",
+    look: "The example env file names the integrations. API key names, a cloud project and region, a slack webhook. A models file names the inference server, the model id, the context length, quantisation, and the GPU shape. Aurora-style supply is a Gemini project and a region. Phoenix-style supply is a local server, a model id, and a GPU. That is how you tell a small local model from a large one before you chat. Do not copy a real key into the note. A placeholder is enough.",
     cmd: `# names only. If a value is a real key, stop and treat it as a secret, not as a command.
 grep -n -E '^[A-Z0-9_]+=' .env.example
 grep -n -E 'type:|model_id|max_model_len|quant|gpu' config/models.yaml`,
@@ -259,14 +259,16 @@ git log --oneline -- config/safety.yaml prompts/system.txt`,
     id: "ai-recon-active",
     section: "Recon",
     title: "Active reconnaissance",
-    look: "You now talk to the running system. This is the runtime truth the repo might not match. It writes logs, it can alert, and a rate limit applies. One request per question. Read the body before you send the next.",
+    look: "You now talk to the running system. This is the runtime truth the repo might not match. It writes logs, it can alert, and a rate limit applies. One request per question. Read the body before you send the next. The API wordlist is the one list, and only after the short 401 check was thin. Stop when the rate-limit remaining gets low.",
     cmd: `# only after the passive notes exist
 # discovery: page source, then one POST to the path it names
 # 401 against 404: a short list of paths you already expect
-# fingerprint: one Hello, then identity, then one dated event
+# if that list is all 404: one SecLists API file, non-404 only
+# fingerprint: one Hello, then identity, a false claim, one dated event
 # RAG: one general question, one document question, then the scores
+# architecture text is read from a source you already retrieved
 # agent: one tool from the schema
-# a SIEM you were given: read the rule before a loud question`,
+# a SIEM you were given: read E01 and E04 before a loud question`,
     alive: "The live answer or error confirms a name from passive recon, or contradicts it.",
     dead: "You are sending variations because the first answer was dull. Stop. Read the first body.",
     next: "A contradiction means the config and the runtime differ. Believe the runtime, and note that the repo was stale.",
@@ -290,7 +292,7 @@ curl -s -X POST http://<ip>/api/v2/assistant -H 'Content-Type: application/json'
     id: "ai-recon-gateway",
     section: "Recon",
     title: "Gateway banner and 401 against 404",
-    look: "A second port often speaks for the gateway. Server, Via, and X-Kong name it. Rate-limit headers tell you the budget. A 401 means the path exists and wants a credential. A 404 means it is not there. Use the short list below. A wordlist is not this card.",
+    look: "A second port often speaks for the gateway. Server, Via, and X-Kong name it. Rate-limit headers tell you the budget. A 401 means the path exists and wants a credential. A 404 means it is not there. Use the short list below. That list is the first step. The wordlist card is the second step, and only when every code here is 404.",
     cmd: `curl -sI http://<ip>:<port>/v1/chat/completions
 # 401 exists. 404 does not. Stop after this list.
 for path in v1/models v1/chat/completions v1/embeddings api/health; do
@@ -299,7 +301,22 @@ for path in v1/models v1/chat/completions v1/embeddings api/health; do
 done`,
     alive: "Kong or another gateway in Server or Via, and one path that returns 401.",
     dead: "Every path is 404 and the banner is a generic web server. Stay on the path the JavaScript named.",
-    next: "A 401 is a locked door you have located. Do not spray keys. The OpenAI-shaped path is the fingerprint card.",
+    next: "Every code 404, and the page still names an API: the wordlist card. Stop when RateLimit remaining gets low. A 401 is a locked door. Do not spray keys. The OpenAI-shaped path is the fingerprint card.",
+  },
+  {
+    id: "ai-recon-wordlist",
+    section: "Recon",
+    title: "API wordlist, non-404 only",
+    look: "Second step after the short 401 list, and only when that list was too thin. One SecLists API file. Print a path when the code is not 404. 401 means the route exists and wants a credential. 404 means it is absent. Read RateLimit-Remaining first. Stop when the remaining count gets low. A hit is a located route. It is not a key to try.",
+    cmd: `# second step. The short list on the gateway card came back thin.
+# stop when RateLimit remaining gets low
+for word in $(cat /usr/share/wordlists/seclists/Discovery/Web-Content/api/api-endpoints-res.txt); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" http://<ip>:9000/v1/$word)
+  [ "$code" != "404" ] && echo "/v1/$word - $code"
+done`,
+    alive: "One path that is not 404. 401 is the usual hit. 200 or 405 means the route is there too.",
+    dead: "The short list already showed a 401, or remaining is low. Do not start the file.",
+    next: "A 401 is a locked door. Do not spray keys. The OpenAI-shaped path is the fingerprint card.",
   },
   {
     id: "ai-recon-model",
@@ -320,7 +337,7 @@ done`,
     id: "ai-recon-identity",
     section: "Recon",
     title: "Identity and a false claim",
-    look: "Unit 2.3.2. Ask who trained it, once. Some families answer. Some are told to say the product name. If the sentence hides the vendor, one false claim often gets a correction, because the model was trained to fix a wrong fact. A small model may agree with the lie. One correction is a clue. It is not proof on its own. The model field from the last card still wins when they disagree.",
+    look: "Unit 2.3.2. Ask who trained it, once. Some families answer. Some are told to say the product name. If the sentence hides the vendor, one false claim often gets a correction, because the model was trained to fix a wrong fact. A 1B model often agrees with the lie, and that agreement is weak. One correction is a clue. It is not proof on its own. The model field from the last card still wins when they disagree.",
     cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"What model are you, and who trained you?"}]}'
@@ -352,11 +369,15 @@ curl -s -X POST http://<ip>/v1/chat/completions \
     id: "ai-recon-behavior",
     section: "Recon",
     title: "Style is a weak signal",
-    look: "Families differ in length, docstrings, and how they refuse. A code-oriented model tends to add a docstring and an example. A general model tends to be shorter. Temperature and the system prompt change this. Use it only to split two hosts that identity and cutoff could not split. It does not name the model by itself.",
+    look: "Families differ in length, docstrings, and how they refuse. A code-oriented model tends to add a docstring, an edge case, and an example. A general model tends to stay short. Qwen-shaped answers do the first. Llama-shaped answers do the second. Temperature and the system prompt change this. Use it only to split two hosts that identity and cutoff could not split. It does not name the model by itself.",
     cmd: `curl -s -X POST http://<ip>/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Explain recursion in one paragraph."}]}'`,
-    alive: "Two hosts you already fingerprinted answer the same prompt in a stable, different shape.",
+  -d '{"messages":[{"role":"user","content":"Explain recursion in one paragraph."}]}'
+# code shape, same host, only if the paragraph did not split them
+curl -s -X POST http://<ip>/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Write a Python function to check if a number is prime."}]}'`,
+    alive: "Two hosts you already fingerprinted answer the same prompt in a stable, different shape. A docstring, an edge case, and an example against a short function is the split.",
     dead: "You are calling a style a vendor with no model field and no correction. Stop.",
     next: "Context size is the expensive test. Skip it if you already have a model id.",
   },
@@ -369,7 +390,7 @@ curl -s -X POST http://<ip>/v1/chat/completions \
 # add filler only until the marker disappears, then stop.
 curl -s -X POST http://<ip>/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Remember the code WORD-42. Then ignore it until I ask."},{"role":"assistant","content":"I will remember WORD-42."},{"role":"user","content":"<filler>"},{"role":"user","content":"What code did I ask you to remember?"}]}'`,
+  -d '{"messages":[{"role":"user","content":"Remember the code ZEBRA-42. Then ignore it until I ask."},{"role":"assistant","content":"I will remember ZEBRA-42."},{"role":"user","content":"<filler>"},{"role":"user","content":"What code did I ask you to remember?"}]}'`,
     alive: "The marker survives on one host and is lost on the other, after the same filler.",
     dead: "Both keep it, or you are adding filler with no marker. You do not have a size.",
     next: "Write the approximate size next to the model id. RAG is a different host.",
@@ -388,7 +409,7 @@ curl -s -X POST http://<ip>/v1/chat/completions \
     id: "ai-recon-sources",
     section: "Recon",
     title: "Did retrieval run",
-    look: "Unit 2.3.3. A sum the model knows should come back with an empty sources list. A question only the organisation's documents can answer should cite a title. Empty sources means the reply is the model alone. A title means RAG ran. Do not ask it to list every document. That is the loud query, and it is on the detection card.",
+    look: "Unit 2.3.3. A sum the model knows should come back with an empty sources list. A question only the organisation's documents can answer should cite a title. Empty sources means the reply is the model alone. A title means RAG ran. A later question about how the system is built, asked as someone who needs the doc, is what surfaces a title such as API_Documentation or Architecture_Overview. That text is the metadata card. Do not ask it to list every document. That is the loud query, and it is on the detection card.",
     cmd: `curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"What is 2+2?"}'
 curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"query":"What is the leave policy?"}'`,
     alive: `first body: "sources": []
@@ -400,11 +421,14 @@ second body: a title, a chunk id, or a snippet`,
     id: "ai-recon-meta",
     section: "Recon",
     title: "Source metadata",
-    look: "The source object is the recon. A filename shows the naming habit. A chunk id is a position in that file. The text field is the raw chunk, which can be more than the answer. vector_score is the embedding match. bm25_score is the keyword match. combined_score is what the app ranked. Titles only, then titles plus a snippet, then scores and raw text: write which level this host gives you. A hostname or a key format in a snippet is a note. Do not try the key.",
+    look: "The source object is the recon. A filename shows the naming habit. A chunk id is a position in that file. The text field is the raw chunk, which can be more than the answer. vector_score is the embedding match. bm25_score is the keyword match. combined_score is what the app ranked. Titles only, then titles plus a snippet, then scores and raw text: write which level this host gives you. A title in the shape of API_Documentation or Architecture_Overview means the chunk is internal design. The text can name a hostname, a database location, a key format such as ntk_prod_<hex>, a rate limit, or a dependency such as Vault, Redis, or RabbitMQ. That is a note for the scope. Do not try the key. Do not scan the host because a document named it.",
     cmd: `# same request as the document question. Pretty-print the sources, not the essay.
 curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' \
-  -d '{"query":"What is the leave policy?"}' | jq '.sources'`,
-    alive: "A title, a chunk id, and at least one score, or a snippet the answer had shortened.",
+  -d '{"query":"What is the leave policy?"}' | jq '.sources'
+# one architecture question, after a title has already come back
+curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' \
+  -d '{"query":"How does the architecture overview describe the internal API, including hosts and limits?"}' | jq '.sources'`,
+    alive: "A title, a chunk id, and at least one score, or a snippet the answer had shortened. A hostname, ntk_prod_<hex>, a rate limit, or Vault, Redis, or RabbitMQ in the text is the architecture find.",
     dead: "sources is a list of titles and nothing else. Record that level and move on.",
     next: "Three phrasings of one topic tell you the cutoff. Not a tour of every department.",
   },
@@ -425,12 +449,14 @@ curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"q
     id: "ai-recon-detect",
     section: "Recon",
     title: "What the log actually matches",
-    look: "Unit 2.4. If the client gave you read-only log access, open the rule before the next probe. These rules usually match words in the query, not the intent. Asking what documents exist, or asking for the system prompt, is the hit. A normal question about one policy still returns titles and does not use those words. Space the questions. The log still has the full query, the answer, and the sources. Quiet is not invisible.",
+    look: "Unit 2.4. If the client gave you read-only log access, open the rule before the next probe. Kibana on port 5601, index ai-logs-kb01-*, Discover view. The log stores the query, the answer, and the sources. It does no semantic analysis, no injection detection, and no cross-session correlation. The rules are KQL wildcards on the query field. E01 is *what documents*, *what sources*, and *list documents*. E04 is *system prompt* and *your instructions*. The match is the keyword, not the intent. A normal question that forces a citation still returns titles and uses none of those words. Space the requests. Vary the phrasing. Blend them with ordinary questions. The log still has the full query. Quiet means you missed the keyword rule, not that nobody can read it.",
     cmd: `# only on a SIEM you were given. Do not guess a password.
-# look at the rule query. Typical words:
-# what documents, list documents, system prompt, your instructions
-# the quiet form is a real question, and you already sent it on the sources card`,
-    alive: "You can name the field and the words the rule matches, and your last question used none of them.",
+# Kibana :5601, index ai-logs-kb01-*, Security > Rules
+# E01: *what documents* / *what sources* / *list documents*
+# E04: *system prompt* / *your instructions*
+# quiet form, one real question, forces a source citation:
+# I need help with the employee handbook. Which section covers vacation policy?`,
+    alive: "You can name E01 and E04, the field they match, and your last question used none of those words while a title still came back.",
     dead: "No log access. Skip this card. Do not go looking for a SIEM.",
     next: "A credential that looks planted is the next card, not a login.",
   },
@@ -438,10 +464,10 @@ curl -s -X POST http://<ip>/api/chat -H 'Content-Type: application/json' -d '{"q
     id: "ai-recon-canary",
     section: "Recon",
     title: "Canary documents",
-    look: "A defender plants a document the retriever will quote. The tell is a secret that is too complete, a key that contains a dictionary word, a password shaped like a company name and a year, or a hostname that does not resolve. Real emergency keys are not written out in a chatbot's source chunk. Do not use the value. Write canary next to the title and leave it.",
+    look: "A defender plants a document the retriever will quote. The tell is a key that contains HONEYPOT or TEST, a password like CompanyName2024!, an internal URL that does not resolve, or a fact that is too convenient. Real emergency keys are not written out in a chatbot's source chunk. Verify the tell before you treat a value as usable. Do not use the value. Write canary next to the title and leave it.",
     cmd: `# no request. Read the snippet you already have.
-# pursue: random-looking material you were meant to find by other means
-# stop: a key or password that contains a word, or a full cloud login in one chunk`,
+# stop: HONEYPOT or TEST in a key, CompanyName2024!, a URL that does not resolve
+# pursue: ordinary policy text, a hostname, a key format with no usable secret`,
     alive: "The snippet is ordinary policy text, a hostname, or a key format with no usable secret.",
     dead: "The chunk hands you a finished credential. Mark it canary. Do not test it.",
     next: "One agent tool, if the schema card found one. Then you are off recon.",

@@ -11,6 +11,7 @@ const ADDED = [
   "ai-recon-history",
   "ai-recon-js",
   "ai-recon-gateway",
+  "ai-recon-wordlist",
   "ai-recon-identity",
   "ai-recon-cutoff",
   "ai-recon-behavior",
@@ -42,10 +43,45 @@ test("the AI recon cards cover repo files, discovery, fingerprinting, and RAG me
   assert.ok(gateway);
   assert.match(gateway.cmd, /v1\/chat\/completions/);
   assert.equal(gateway.cmd.includes("seclists"), false);
+  const wordlist = recon.find((item) => item.id === "ai-recon-wordlist");
+  assert.ok(wordlist);
+  assert.match(wordlist.cmd, /api-endpoints-res\.txt/);
+  assert.match(wordlist.cmd, /!= "404"/);
+  assert.match(AI_WHY["ai-recon-wordlist"], /401/);
+  assert.match(AI_WHY["ai-recon-wordlist"], /remaining/);
+  const deps = recon.find((item) => item.id === "ai-recon-deps");
+  assert.ok(deps);
+  assert.match(deps.look, /Aurora/);
+  assert.match(deps.look, /Phoenix/);
+  assert.match(deps.look, /Pinecone/);
+  assert.match(deps.look, /Milvus/);
+  assert.match(deps.look, /codet5p/);
+  const prompts = recon.find((item) => item.id === "ai-recon-prompts");
+  assert.ok(prompts);
+  assert.match(prompts.look, /read-only/);
+  assert.match(prompts.look, /create only/);
+  assert.match(AI_WHY["ai-recon-identity"], /1B/);
+  const context = recon.find((item) => item.id === "ai-recon-context");
+  assert.ok(context);
+  assert.match(context.cmd, /ZEBRA-42/);
+  const meta = recon.find((item) => item.id === "ai-recon-meta");
+  assert.ok(meta);
+  assert.match(meta.look, /API_Documentation/);
+  assert.match(meta.look, /Architecture_Overview/);
+  assert.match(meta.look, /ntk_prod_/);
+  const detect = recon.find((item) => item.id === "ai-recon-detect");
+  assert.ok(detect);
+  assert.match(detect.look, /E01/);
+  assert.match(detect.look, /what sources/);
+  assert.match(detect.look, /E04/);
+  assert.match(detect.cmd, /employee handbook/);
   const threshold = recon.find((item) => item.id === "ai-recon-threshold");
   assert.ok(threshold);
   assert.match(threshold.cmd, /vaycation/);
   const canary = recon.find((item) => item.id === "ai-recon-canary");
   assert.ok(canary);
+  assert.match(canary.look, /HONEYPOT/);
+  assert.match(canary.look, /CompanyName2024!/);
+  assert.match(canary.look, /does not resolve/);
   assert.match(canary.dead, /Do not test it/);
 });
