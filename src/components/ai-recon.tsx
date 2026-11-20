@@ -8,7 +8,7 @@ export function AiRecon() {
           tone="border border-[#3df0ff]/50 bg-[#062833]"
           title="Passive reconnaissance"
           subtitle="No direct interaction with the AI system"
-          techniques={["HTTP headers and response metadata", "Public API documentation", "Repo files: dependencies, RAG config, prompts, history", "Job posts for the stack"]}
+          techniques={["HTTP headers and response metadata", "Public API documentation", "Repo split: Aurora cloud vs Phoenix self-hosted", "Prompts and tool notes: read-only or create only", "Job posts for the stack"]}
           advantages={["Undetectable", "No rate limit", "History is still there"]}
           limits={["May be outdated", "Incomplete", "Config is not the runtime"]}
           labs={["2.2.1 HTTP fingerprint (chat01)", "2.2.2 Code repository (git01)"]}
@@ -17,7 +17,7 @@ export function AiRecon() {
           tone="border border-[#ff4d9a]/50 bg-[#2a1024]"
           title="Active reconnaissance"
           subtitle="Direct interaction with the AI system"
-          techniques={["The assistant path in the page source", "401 against 404 on paths you already expect", "Identity, cutoff, and one style check", "RAG sources, scores, and the cutoff", "One tool, then the log rule if you have it"]}
+          techniques={["The assistant path in the page source", "401 against 404, then one API wordlist if that list is thin", "Identity, a false claim, cutoff, style, and one context marker", "RAG sources, scores, and architecture text", "E01 and E04 keyword rules, then canaries", "One tool"]}
           advantages={["Runtime truth", "Hidden features", "Tests what it actually does"]}
           limits={["Writes logs", "Can alert", "Rate limits apply"]}
           labs={["2.3.1 Service discovery", "2.3.2 Model fingerprint (chat02)", "2.3.3 RAG sources (kb01, kb02)", "2.4 Logs, if you were given them"]}
